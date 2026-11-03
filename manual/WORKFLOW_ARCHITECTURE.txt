@@ -20,6 +20,7 @@ Recommended folder layout
             code-fence-runner.lua
         manual\
             FILTER_FEATURE_REGRESSION.txt
+            FILTER_FEATURE_REGRESSION_PART2.txt
             INSTALL_AND_USE.txt
             WORKFLOW_ARCHITECTURE.txt
             WORKFLOW_ASSESSMENT.txt
@@ -213,7 +214,7 @@ Testing and maintenance
 -----------------------
 The checked-in broad regression input exercises the normal end-to-end path:
 
-       compile.bat "manual\FILTER_FEATURE_REGRESSION.txt"
+       .\compile.bat "manual\FILTER_FEATURE_REGRESSION.txt"
 
 Run that command from the tool root. The generated PDF is beside the fixture in
 manual\. It intentionally includes a controlled Python failure and expected
@@ -222,6 +223,15 @@ beginner setup guide is manual\INSTALL_AND_USE.txt. The fixture is compiled by
 itself with compile.bat and covers Markdown/task-list syntax, LaTeX preamble
 recovery, Python execution/cache/failure behavior, citations, and figure
 embedding.
+
+The separate multi-input check uses both regression inputs in one invocation:
+
+       .\compile.bat "manual\FILTER_FEATURE_REGRESSION.txt" "manual\FILTER_FEATURE_REGRESSION_PART2.txt"
+
+The first input determines the PDF path. Verify the four
+MULTI_INPUT_PART_* markers appear exactly once in the PDF, ordered as documented
+in FILTER_FEATURE_REGRESSION.txt. This checks concatenation order and one
+rendered output per Python fence; it does not rerun each fence for every input.
 
 1. Check filter syntax/loading without building a PDF:
 

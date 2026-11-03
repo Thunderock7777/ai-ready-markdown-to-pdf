@@ -18,6 +18,7 @@ Keep this folder structure together:
             code-fence-runner.lua
         manual\
             FILTER_FEATURE_REGRESSION.txt
+            FILTER_FEATURE_REGRESSION_PART2.txt
             INSTALL_AND_USE.txt
             WORKFLOW_ARCHITECTURE.txt
             WORKFLOW_ASSESSMENT.txt
@@ -174,7 +175,8 @@ To combine files, pass quoted paths in the desired order:
     "C:\path\to\compile.bat" "C:\notes\part-1.txt" "C:\notes\part-2.txt"
 
 The PDF is named after the first input and is saved beside it. The compiler
-checks all input paths before building. Input files are not modified.
+checks all input paths before building. Text normalization does not modify
+source files, though Python fences can write files they explicitly open.
 
 Simple writing rules
 --------------------

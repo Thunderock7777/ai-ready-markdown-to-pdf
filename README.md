@@ -18,7 +18,8 @@ build, while LaTeX fences render source snippets without executing them.
 - Render Markdown, math, tables, citations, selected pasted LaTeX, and code.
 - Execute Python fences with optional output, source, figure, and cache controls.
 - Reuse valid Python results from cache, or force a fresh run when needed.
-- Keep the input files unchanged; generated PDFs are saved beside the first input.
+- The text-processing stages leave source files unchanged. Python fences can
+  still write files they explicitly open; PDFs are saved beside the first input.
 
 ## Folder layout
 
@@ -30,6 +31,7 @@ your-tool-folder/
 ├── README.md
 ├── manual/
 │   ├── FILTER_FEATURE_REGRESSION.txt
+│   ├── FILTER_FEATURE_REGRESSION_PART2.txt
 │   ├── INSTALL_AND_USE.txt
 │   ├── WORKFLOW_ARCHITECTURE.txt
 │   └── WORKFLOW_ASSESSMENT.txt
@@ -182,6 +184,15 @@ Run this command from the tool root. The fixture PDF is written beside the
 input, in `manual\`. The fixture intentionally contains expected warnings and
 Python failures to exercise error handling; read its opening section for
 expected results.
+
+The companion fixture also tests combining two inputs in order:
+
+```powershell
+.\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt" ".\manual\FILTER_FEATURE_REGRESSION_PART2.txt"
+```
+
+The expected markers and verification steps are documented in the regression
+fixture.
 
 - [INSTALL_AND_USE.txt](manual/INSTALL_AND_USE.txt) — beginner installation and usage guide.
 - [WORKFLOW_ARCHITECTURE.txt](manual/WORKFLOW_ARCHITECTURE.txt) — detailed pipeline,

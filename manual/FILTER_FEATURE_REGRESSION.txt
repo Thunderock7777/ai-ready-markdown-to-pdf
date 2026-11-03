@@ -52,7 +52,15 @@ The YAML title and author below exercise YAML metadata in a .txt input. The
 title in the produced PDF should be "Filter Feature Regression".
 
 The first input's content order is preserved. This standalone file is one
-input; the multi-file behavior is covered in WORKFLOW_ARCHITECTURE.txt.
+input. Its multi-file behavior is tested separately below with
+FILTER_FEATURE_REGRESSION_PART2.txt.
+
+Multi-file regression markers from input 1:
+MULTI_INPUT_PART_ONE_TEXT
+
+```{.python show=false}
+print("MULTI_INPUT_PART_ONE_PYTHON")
+```
 
 Markdown supports **bold**, *italic*, ~~strikeout~~, `inline code`, links, lists,
 headings, and ordinary paragraphs. This is a link to [Pandoc](https://pandoc.org/).
@@ -497,3 +505,23 @@ After compiling this file:
 
 Expected output file:
 FILTER_FEATURE_REGRESSION.pdf
+
+Multi-file regression
+---------------------
+The single-input build above does not test multi-file merging. From the tool
+root, run this additional build with the companion input as the second file:
+
+    .\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt" ".\manual\FILTER_FEATURE_REGRESSION_PART2.txt"
+
+The resulting PDF is again written beside the first input. Extract or inspect
+its text and verify the four unique markers occur exactly once in this order:
+
+1. The plain-text marker from input 1.
+2. The Python output marker from input 1.
+3. The plain-text marker from input 2.
+4. The Python output marker from input 2.
+
+This confirms the two input documents are combined in command-line order and
+the Python fence from each input contributes one output. It does not mean each
+fence is run once per input; each recognized fence is processed once in the
+combined document.

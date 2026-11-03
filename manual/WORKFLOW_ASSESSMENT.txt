@@ -59,12 +59,15 @@ Scorecard
    document; users should read the console and inspect the output.
 
 5. Validation and regression coverage:     8.0 / 10
-   manual\FILTER_FEATURE_REGRESSION.txt exercises the real wrapper, filters, template,
-   Pandoc, Python behavior, and XeLaTeX. Its opening explicitly says that it is
-   broad coverage, not proof of every possible case, and marks intentional
-   failures. The most recent recorded end-to-end run after the Lua filter
-   renames completed PDF generation. The fixture is a manual regression
-   document, not an automated assertion suite or a multi-version CI matrix.
+   manual\FILTER_FEATURE_REGRESSION.txt exercises the real wrapper, filters,
+   template, Pandoc, Python behavior, and XeLaTeX. Its paired
+   FILTER_FEATURE_REGRESSION_PART2.txt adds a documented two-input check for
+   argument order and one rendered output per Python fence. The combined PDF
+   was rebuilt and its four unique markers were asserted exactly once and in
+   order. The fixtures provide broad coverage, not proof of every possible
+   case; intentional Python failures are included. This remains a manual
+   regression procedure, not a fully automated test suite or multi-version CI
+   matrix.
 
 6. User experience and documentation:      9.0 / 10
    README.md gives a quick overview and examples; manual\INSTALL_AND_USE.txt
@@ -145,7 +148,8 @@ README.md
   fence attributes, and known limitations. It now gives a direct AI-response
   workflow: paste an unedited response into a .txt file and compile it. The
   compatibility claim is explicitly limited to supported content. Its
-  regression command is a Windows example and uses a placeholder tool path.
+  PowerShell examples work from the tool root and demonstrate both single-file
+  and multi-file compilation.
 
 manual\INSTALL_AND_USE.txt
   Status: current after this audit.
@@ -166,19 +170,22 @@ manual\WORKFLOW_ARCHITECTURE.txt
 
 manual\FILTER_FEATURE_REGRESSION.txt
   Status: current after this audit.
-  It is the executable regression fixture rather than a setup manual. It
-  correctly describes intentional warnings/failures and the expected PDF. Its
-  build command now works from the tool root without a hard-coded local path.
-  Continue to update expected results whenever filter behavior changes.
+  It is the executable regression fixture rather than a setup manual and is
+  paired with FILTER_FEATURE_REGRESSION_PART2.txt for multi-input validation.
+  It describes intentional warnings/failures, expected outputs, and the
+  two-input ordering/output-count check. The documented commands run from the
+  tool root and avoid machine-specific paths. Continue to update expected
+  results whenever filter behavior changes.
 
 Assessment method and confidence
 -------------------------------
 The ratings are an engineering judgment based on reading the current wrapper,
-filters, template, regression fixture, and all four user-facing documents.
+filters, template, regression fixtures, and user-facing documents.
 This assessment does not claim exhaustive fuzzing, a security penetration test,
 or validation across every Pandoc/Python/TeX distribution version. The
-regression fixture has been compiled successfully in the recent workflow, but
-documentation edits themselves do not require a PDF rebuild.
+single- and two-input regression builds completed successfully in this workflow.
+The two-input PDF was additionally checked for marker count and order.
+Documentation-only edits do not require another PDF rebuild.
 
 Final judgment
 --------------

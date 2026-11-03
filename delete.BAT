@@ -16,7 +16,7 @@ if not defined TARGET_DIR set "TARGET_DIR=%SCRIPT_DIR%"
 REM Resolve the supplied path to an absolute path.
 for %%I in ("%TARGET_DIR%") do set "TARGET_DIR=%%~fI"
 
-if not exist "%TARGET_DIR%\\." (
+if not exist "%TARGET_DIR%\." (
     echo.
     echo ERROR: The specified folder does not exist:
     echo "%TARGET_DIR%"
@@ -34,7 +34,7 @@ echo This will delete PDF files directly inside this folder only.
 echo It will NOT search subfolders or delete TXT, MD, HTML, or other files.
 echo.
 
-dir /b /a-d "%TARGET_DIR%\\*.pdf" >nul 2>&1
+dir /b /a-d "%TARGET_DIR%\*.pdf" >nul 2>&1
 if errorlevel 1 (
     echo No PDF files were found in the target folder.
     echo.
@@ -53,7 +53,7 @@ if errorlevel 2 (
     exit /b 0
 )
 
-del /q "%TARGET_DIR%\\*.pdf"
+del /q "%TARGET_DIR%\*.pdf"
 if errorlevel 1 (
     echo.
     echo ERROR: One or more PDF files could not be deleted.

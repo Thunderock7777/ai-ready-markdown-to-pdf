@@ -1,0 +1,271 @@
+INSTALLATION AND QUICK START
+============================
+
+What this tool does
+-------------------
+This Windows tool turns one or more Markdown (.md/.markdown) or plain-text
+(.txt) files into a PDF. It uses Pandoc to parse the document, two Lua filters
+to clean and process it, and XeLaTeX to create the PDF.
+
+Keep this folder structure together:
+
+    your-tool-folder\
+        compile.bat
+        README.md
+        config\
+            custom.tex
+            markdown-normalizer.lua
+            code-fence-runner.lua
+        manual\
+            FILTER_FEATURE_REGRESSION.txt
+            INSTALL_AND_USE.txt
+            nuc1.txt
+            QM.txt
+            WORKFLOW_ARCHITECTURE.txt
+            WORKFLOW_ASSESSMENT.txt
+
+All root-level .txt files have been organized in manual\. The generated PDF is
+saved beside the first input file; compiling a file from manual\ puts its PDF
+there. The config folder contains only the template and filters.
+
+Required tool files: compile.bat in the root, plus custom.tex,
+markdown-normalizer.lua, and code-fence-runner.lua inside config.
+
+You do not need to install LaTeX packages separately one by one if you use
+MiKTeX with package installation enabled or a full TeX Live installation.
+Optional Python plotting needs the extra Matplotlib package.
+
+What to install
+---------------
+1. Pandoc
+   Required to read Markdown, run the Lua filters, and produce LaTeX.
+
+   Website:
+   https://pandoc.org/installing.html
+   Windows installer:
+   https://github.com/jgm/pandoc/releases/latest
+
+   Command line (Windows Package Manager):
+   winget install --source winget --exact --id JohnMacFarlane.Pandoc
+
+2. A LaTeX distribution that includes XeLaTeX
+   Required for PDF creation. XeLaTeX is included with the distribution; it is
+   not a separate program to download.
+
+   Recommended easy option — MiKTeX:
+   Website and Windows installer:
+   https://miktex.org/download
+   Keep MiKTeX's automatic package installation enabled. If it asks to install
+   missing LaTeX packages during a build, allow it. Open MiKTeX Console and
+   check for updates after installation.
+
+   Command line:
+   winget install --exact --id MiKTeX.MiKTeX
+
+   Alternative — TeX Live:
+   Windows installation instructions:
+   https://tug.org/texlive/windows.html
+   A full TeX Live installation is the simplest option if you want the broadest
+   package coverage, but it requires substantially more disk space.
+
+   This template uses core packages for page layout, mathematics, fonts,
+   tables, hyperlinks, code, graphics, and Unicode. It loads optional packages
+   only when they are present. If a pasted command uses an absent optional
+   package, XeLaTeX may report an undefined command; install that package or
+   remove the command.
+
+3. Python (only if you use Python code fences)
+   The workflow invokes the Windows Python launcher as "py". Install Python
+   from python.org and make sure the Python launcher is installed. The runner
+   needs Python 3.8 or newer; Python 3.12.0 was used to validate this workflow.
+
+   Website:
+   https://www.python.org/downloads/windows/
+
+   Command line (Windows Package Manager):
+   winget search --id Python.Python
+   winget install --exact --id Python.Python.3.12
+
+   If your selected Python version has a different package ID, use the exact ID
+   shown by the search command. Close and reopen Command Prompt after install.
+   The workflow does not install Python packages for you. Python code blocks use
+   the standard library unless the code imports third-party packages; install
+   each such package before compiling, into the same Python interpreter that
+   "py" selects. For example, run `py -m pip install package-name`. A missing
+   package causes that Python fence to fail; the PDF build does not install it
+   automatically.
+
+4. Optional: Matplotlib
+   Needed only for Python code that imports Matplotlib, such as the plotting
+   example. It is not required for ordinary text/math PDFs or Python fences
+   that use only the standard library. Install it before compiling if needed.
+
+   Command line:
+   py -m pip install matplotlib
+
+   Project website:
+   https://matplotlib.org/stable/install/
+
+Quick installation by command line
+----------------------------------
+Open Command Prompt or PowerShell and run:
+
+    winget install --source winget --exact --id JohnMacFarlane.Pandoc
+    winget install --exact --id MiKTeX.MiKTeX
+    winget search --id Python.Python
+    winget install --exact --id Python.Python.3.12
+
+The Python installation command is needed only if you use Python fences. If
+Winget does not have the requested Python package ID on your Windows version,
+use the official Python website above. Restart the terminal after installing
+software so PATH changes are recognized.
+
+Install optional Python dependencies separately, before compiling. For example,
+only if your Python code imports Matplotlib:
+
+    py -m pip install matplotlib
+
+Check that installation worked
+------------------------------
+Open a new terminal and run:
+
+    pandoc --version
+    xelatex --version
+    py --version
+
+The Python check is optional if you will not use Python fences. Each command
+should print a version instead of "not recognized". If xelatex is not found,
+finish the MiKTeX/TeX Live setup and reopen the terminal.
+
+Create your first PDF
+---------------------
+1. Save your notes as .txt or .md.
+2. Keep referenced local images and data files beside the first input file
+   (relative paths are resolved from that file's folder).
+3. Drag the input file onto compile.bat, or run:
+
+       "C:\path\to\compile.bat" "C:\path\to\my-notes.txt"
+
+   In PowerShell, from the folder containing compile.bat:
+
+       .\compile.bat ".\my-notes.txt"
+
+   If the input is in a different folder, pass its absolute path (or a relative
+   path from the current directory):
+
+       .\compile.bat "C:\Users\you\Documents\my-notes.txt"
+       .\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt"
+
+4. Find the PDF beside the first input file. Therefore, a file in
+   Documents\ produces its PDF in Documents\, not beside compile.bat. The config
+   folder contains only the template and filters.
+
+Compile an AI response without editing it
+-----------------------------------------
+Copy a response from ChatGPT, Gemini, NotebookLM, or another assistant, paste it
+as-is into a .txt file, and compile that file with compile.bat. Do not wrap the
+entire response in a code fence. The filters handle common Markdown, math, and
+selected pasted-LaTeX patterns, so supported content needs no manual cleanup.
+This is not a guarantee that every arbitrary LaTeX command, attachment, or
+service-specific format will work unchanged.
+
+To combine files, pass quoted paths in the desired order:
+
+    "C:\path\to\compile.bat" "C:\notes\part-1.txt" "C:\notes\part-2.txt"
+
+The PDF is named after the first input and is saved beside it. The compiler
+checks all input paths before building. Input files are not modified.
+
+Simple writing rules
+--------------------
+
+Rule of thumb:
+    Normal writing, headings, lists, tables, links, and formulas: use Markdown
+    or plain text without a language fence.
+    Pasted LaTeX source that should be rendered: use a latex fence.
+    Python source that should execute: use a python fence.
+
+Markdown / ordinary text — no fence:
+
+    # Heading
+
+    This is **bold**, *italic*, and inline math is $a^2 + b^2 = c^2$.
+
+    | Name | Value |
+    |---|---:|
+    | x | 10 |
+
+For a checklist, include the list marker before the checkbox:
+
+    - [ ] First task
+    - [x] Completed task
+
+Writing `[ ] First task` without the leading `-` is just paragraph text, not a
+list.
+
+LaTeX — use a LaTeX fence to render a snippet (not execute it):
+
+    ```{.latex}
+    \[
+    \int_0^1 x^2\,dx = \frac{1}{3}.
+    \]
+    ```
+
+Python — a Python fence runs by default:
+
+    ```{.python}
+    print("Hello from Python")
+    ```
+
+Python execution and caching:
+    - No run attribute or run=true: run when needed; unchanged valid results
+      can be loaded from cache on a later build.
+    - run=new: force this block to run on this build, then refresh its cache.
+    - cache=false: also force a fresh run.
+    - run=false: do not execute; show it as a normal code listing.
+    - show=false: hide the source listing.
+    - output=false: hide printed output in the PDF.
+    - figures=false: do not embed captured figures; code may still save files.
+
+Example forced Python run:
+
+    ```{.python run=new show=false}
+    print("Always execute this block for this build.")
+    ```
+
+Use run=new for code that depends on information the cache cannot detect, such
+as network responses, environment variables, or changing external services.
+Avoid running Python fences from documents you do not trust; they execute code
+on your computer with your user permissions.
+
+Common problems
+---------------
+- "pandoc is not recognized": install Pandoc and reopen the terminal.
+- "xelatex is not recognized": install/update MiKTeX or TeX Live and reopen the
+  terminal; verify that XeLaTeX is included and on PATH.
+- A missing .sty package: allow MiKTeX to install it, update the distribution,
+  or install the package using your distribution's package manager.
+- Python fence says Python is missing: install Python with its Windows launcher,
+  then check py --version. The batch compiler sets PYTHON=py.
+- A Python import fails: the workflow does not install Python packages
+  automatically. Install the package into the interpreter used by py, for
+  example `py -m pip install matplotlib`.
+- A glyph is blank: the template may not map that character or the font may not
+  contain it. Check the XeLaTeX log and the template's Unicode notes.
+- A Python block is unexpectedly cached: add run=new or cache=false.
+- The PDF is open and cannot be replaced: close it in the PDF viewer and run
+  compile.bat again.
+- The build reports errors: read the Pandoc/XeLaTeX messages printed by
+  compile.bat. A PDF may be incomplete if XeLaTeX reported errors.
+
+What you do not need
+--------------------
+- No separate XeTeX download: it comes with MiKTeX or TeX Live.
+- No extra Python packages for ordinary Markdown, math, LaTeX fences, or
+  standard-library Python examples.
+- No manual install of every template package when using a full TeX Live
+  installation or MiKTeX's package-on-demand feature.
+
+For detailed filter order, cache internals, metadata behavior, supported input
+contracts, failure modes, and extension guidance, read
+manual\WORKFLOW_ARCHITECTURE.txt.

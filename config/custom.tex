@@ -1,0 +1,591 @@
+% !TeX program = xelatex
+% ======================================================================
+%  Pandoc LaTeX template -- "Reference Notes"   (engine: XeLaTeX)
+%  Normally driven by compile.bat (one or more .md/.txt inputs + Pandoc filters + XeLaTeX).
+%  Metadata overrides (optional):  -M title="..."  -M author="..."  -N  --toc
+%
+%  FEATURES
+%   Page      A4, 12pt article, 2.5cm margins; running header (default "Notes", left) + page number
+%             (right) with a rule; title block + rule; optional abstract; optional table of contents.
+%   Options   (all optional)   -M header-left="Physics"   running header text
+%                              -V fontsize=11pt           10pt, 11pt or 12pt (default 12pt)
+%                              abstract: "..." in the YAML block (printed under the title)
+%                              --toc  [toc-depth]         contents (default depth 3)
+%                              -N  [secnumdepth]          section numbers (OFF by default)
+%                              -M title / author / date   defaults: "Reference Notes", "Made By
+%                              Abhik Biswas", no date
+%   Maths     mathtools/amsmath, amssymb, amsthm, bm; cancel, mhchem (\ce{H2O}), physics, mathrsfs
+%             (\mathscr) are loaded when installed.  physics is loaded but \vec and \div are put
+%             back to stock LaTeX.  braket-style \Bra \Ket \Braket \set \Set are provided (braket.sty
+%             itself is NOT loaded: it clashes with physics).  Theorem-like environments: theorem,
+%             lemma, proposition, corollary, definition, example (shared counter), remark (unnumbered).
+%   \qty      physics and siunitx both define it.  Here  \qty{1.5}{\meter}  and
+%             \qty[options]{number}{unit}  go to siunitx;  \qty(..)  \qty[..]  \qty|..|  \qty{..}
+%             go to physics.
+%   Fonts     XeLaTeX + fontspec.  Text: Latin Modern Roman (else TeX Gyre Termes).  Sans: TeX Gyre
+%             Heros (else Latin Modern Sans, else Arial).  Monospace: first installed of DejaVu Sans
+%             Mono / Cascadia Mono / Consolas (has box-drawing characters).  If a whole chain is
+%             missing the fontspec default is used instead of a build error.
+%   Unicode   AI-style Unicode is mapped to real LaTeX in text AND math mode: Greek, operators,
+%             arrows, sets, logic, letterlike, dots, long arrows, delimiters, relations (list: the
+%             \newunicodechar block).  Shapes and dingbats (■ ● ★ ♠ ✦ ➜ ...) come from a fallback
+%             font (first installed of DejaVu Sans / Segoe UI Symbol / FreeSerif).  Stacked
+%             super/subscripts are gathered into ONE script (⁻¹ -> ^{-1}, ₁₂ -> _{12}), also in
+%             raw TikZ, headings, bookmarks and the table of contents.  To add a symbol, add a line:
+%             \newunicodechar{X}{\ensuremath{\cmd}}   shapes: \newunicodechar{X}{\uni@sym{HEXCODE}}
+%   Text      microtype, parskip (no indent, space between paragraphs), babel english, extra
+%             stretch to avoid overfull lines, \_ may break (long snake_case names wrap in tables),
+%             soul strikeout / underline / highlight (plain fallback if soul.sty is missing).
+%   Figures   graphicx (images scaled to fit width and height, aspect kept), float, placeins (floats
+%             stay inside their section), TikZ + pgfplots (compat 1.18) with many TikZ libraries.
+%             An empty \cite{} typed right after a figure prints "Figure N:" in bold;
+%             \cite[opt]{key} prints [key, opt] instead of crashing.
+%   Tables    pipe / simple / grid / multiline tables (array, booktabs, longtable, multirow, calc),
+%             smaller text and roomier rows, footnotes inside tables, tables right after
+%             \paragraph{}, uncaptioned tables do not use up a table number, captions in small
+%             type with bold labels.
+%   Code      fvextra: long lines WRAP in highlighted code and in plain (language-less) fences.
+%   Refs      pandoc --citeproc bibliographies work (reference list with hanging indent).
+%   Extras    loaded only if installed: circuitikz, siunitx, algorithm + algpseudocode, chemfig,
+%             subcaption, listings, enumitem, tcolorbox [most], adjustbox, pgfplotstable, tikz-cd.
+%   Links     hyperref (blue links, breakable), bookmark (headings with symbols are fine), xurl.
+%   Pandoc    variables used: title, author(s), date, abstract, header-left, fontsize, numbersections,
+%             secnumdepth, toc, toc-depth, csl-refs, header-includes, include-before, include-after,
+%             highlighting-macros, body. Multiple Markdown/TXT inputs are concatenated in command-
+%             line order by markdown-normalizer.lua. Cleaned YAML maps are merged in input order, then
+%             Pandoc's aggregate metadata (including its multi-input precedence and CLI overrides)
+%             takes precedence. Conflicting keys follow Pandoc's aggregate result, not necessarily
+%             the first source.
+%
+%  LIMITATIONS
+%   Engine    XeLaTeX only (fontspec); pdfLaTeX / LuaLaTeX will not work.
+%   Fonts     no fallback for Bengali, Devanagari or CJK text: it prints blank / missing glyphs.
+%             (A safe automatic switch needs per-script fonts and extra packages; not added.)
+%   Packages  the "loaded if installed" packages are skipped silently; their commands then fail
+%             with "undefined control sequence".  newunicodechar.sty is needed for ALL Unicode
+%             mappings above.  pgfplots 1.18 or newer is needed (compat setting).
+%   Refs      only pandoc --citeproc is supported.  \cite is redefined (figure label / [key]), so
+%             raw natbib / biblatex citations are not available.
+%   Layout    A4 and the header position are fixed; font size is 10/11/12pt only; pandoc variables
+%             not listed under Pandoc above (lang, geometry, papersize, ...) are ignored; English
+%             hyphenation only.
+%   \qty      physics' own \qty does not accept  \qty\{..\}  (it prints (){..}); use \qty{..}.
+%   Unicode   an unmapped symbol prints blank with a "Missing character" warning in the log.
+%             Typed TeX double scripts (x^2² or x_1₂) are real errors and still fail.
+%             The mappings are active characters, so they also apply inside code blocks (an arrow
+%             there prints as a math arrow, a shape in the symbol font).
+%   URLs      a bare URL in plain text cannot break (pandoc does not mark it as a link).  Write
+%             <url> or [text](url), or read the markdown with  -f markdown+autolink_bare_uris
+%             (the text-cleaning reader also enables autolink_bare_uris).
+% ======================================================================
+\PassOptionsToPackage{dvipsnames,svgnames,table}{xcolor}   % pasted preambles may ask for these
+\documentclass[a4paper,$if(fontsize)$$fontsize$$else$12pt$endif$]{article}
+
+% ---------------------------------------------------------------- Layout
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{fancyhdr}
+\setlength{\headheight}{14.5pt}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{$if(header-left)$$header-left$$else$Notes$endif$}
+\rhead{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ----------------------------------------------------------------- Maths
+\usepackage{mathtools}                  % loads amsmath
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{bm}
+\IfFileExists{cancel.sty}{\usepackage{cancel}}{}
+\IfFileExists{mhchem.sty}{\usepackage[version=4]{mhchem}}{}   % \ce{H2O}
+% physics: \ket \bra \braket \dv \pdv \qty \abs \norm \comm \ev \mel ... (very common in AI physics output)
+% It silently changes \vec (bold) and \div (divergence); put both back to stock LaTeX.
+\let\stockvec\vec \let\stockdiv\div
+\IfFileExists{physics.sty}{\usepackage{physics}}{}
+\let\vec\stockvec \let\div\stockdiv
+\providecommand{\vb}[1]{\mathbf{#1}}
+% \mathscr (very common in AI output)
+\IfFileExists{mathrsfs.sty}{\usepackage{mathrsfs}}{}
+% braket.sty is NOT loaded (it clashes with physics); these cover its commands.
+\providecommand{\Bra}[1]{\left\langle #1\right|}
+\providecommand{\Ket}[1]{\left|#1\right\rangle}
+\providecommand{\Braket}[1]{\left\langle #1\right\rangle}
+\providecommand{\set}[1]{\left\{#1\right\}}
+\providecommand{\Set}[1]{\left\{#1\right\}}
+% theorem-like environments
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+
+% ----------------------------------------------------------------- Fonts
+\usepackage{fontspec}
+\defaultfontfeatures{Ligatures=TeX}
+\IfFontExistsTF{Latin Modern Roman}{\setmainfont{Latin Modern Roman}}{%
+  \IfFontExistsTF{TeX Gyre Termes}{\setmainfont{TeX Gyre Termes}}{}}   % else the fontspec default
+% Arial only exists on Windows/macOS (a hard error or log spam elsewhere).
+% TeX Gyre Heros ships with TeX Live/MiKTeX and looks the same on every machine.
+\IfFontExistsTF{TeX Gyre Heros}{\setsansfont{TeX Gyre Heros}}{%
+  \IfFontExistsTF{Latin Modern Sans}{\setsansfont{Latin Modern Sans}}{%
+    \IfFontExistsTF{Arial}{\setsansfont{Arial}}{}}}
+% Monospace: Latin Modern Mono has no box-drawing characters (the tree diagrams AI tools
+% print), so prefer the first of these that is installed.
+\IfFontExistsTF{DejaVu Sans Mono}{\setmonofont{DejaVu Sans Mono}[Scale=MatchLowercase]}{%
+  \IfFontExistsTF{Cascadia Mono}{\setmonofont{Cascadia Mono}[Scale=MatchLowercase]}{%
+    \IfFontExistsTF{Consolas}{\setmonofont{Consolas}[Scale=MatchLowercase]}{}}}
+% Symbol fallback: Latin Modern has no shapes / dingbats (■ ● ★ ♠ ✦ ➜ ...).  Used only by the
+% \newunicodechar entries in the Unicode block below.  If none is installed they stay unmapped.
+\newif\ifunisymfontavailable
+\IfFontExistsTF{DejaVu Sans}{\newfontfamily\unisymfont{DejaVu Sans}[Scale=MatchLowercase]\unisymfontavailabletrue}{%
+  \IfFontExistsTF{Segoe UI Symbol}{\newfontfamily\unisymfont{Segoe UI Symbol}[Scale=MatchLowercase]\unisymfontavailabletrue}{%
+    \IfFontExistsTF{FreeSerif}{\newfontfamily\unisymfont{FreeSerif}[Scale=MatchLowercase]\unisymfontavailabletrue}{\let\unisymfont\relax}}}
+
+% ------------------------------------------------- Typography & spacing
+\usepackage{xcolor}
+\usepackage{etoolbox}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage[english]{babel}
+\setlength{\emergencystretch}{3em}      % fewer overfull lines
+% Allow a line break after every escaped underscore, so long `snake_case_names`
+% in inline code wrap inside table cells instead of sticking out of the page.
+\makeatletter
+\DeclareRobustCommand{\_}{\ifmmode\nfss@text{\textunderscore}\else\textunderscore\allowbreak\fi}
+\makeatother
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% Section numbers off by default (like stock pandoc); enable with  -N
+$if(numbersections)$
+\setcounter{secnumdepth}{$if(secnumdepth)$$secnumdepth$$else$5$endif$}
+$else$
+\setcounter{secnumdepth}{-\maxdimen}
+$endif$
+
+% Strikeout / underline / highlight (soul). Fallback keeps minimal TeX installs alive.
+\providecommand{\mdpdfsoulfallback}[1]{#1}
+\IfFileExists{soul.sty}{\usepackage{soul}}{%
+  \providecommand{\st}{\mdpdfsoulfallback}\providecommand{\ul}{\mdpdfsoulfallback}\providecommand{\hl}{\mdpdfsoulfallback}}
+
+% Unicode symbols AI tools paste straight into prose or math (Greek, operators, arrows,
+% super/subscript digits, shapes).  Works in text AND math mode.
+\makeatletter
+% --- helpers for the entries below (they only define macros; nothing is typeset here) -------
+% Stacked scripts: a run such as ⁻¹ or ₁₂ is gathered into ONE script, ^{-1} / _{12}.  Written
+% one by one they would be ^{-}^{1}, which is a "Double superscript" error.  Each script char
+% looks at the next token; if that is another script char of the same kind it keeps gathering.
+% The macros are \protected, so headings / table of contents / captions carry the characters
+% through unchanged and the run is gathered again when they are re-read.
+\def\uni@issup{\let\uni@r\@secondoftwo}      % each registered char appends a test to these
+\def\uni@issub{\let\uni@r\@secondoftwo}
+\newcommand{\uni@reg}[2]{%                     % #1 = test macro, #2 = the char (already active)
+  \begingroup\lccode`\~=`#2 \lowercase{\endgroup
+    \g@addto@macro#1{\ifx\uni@nx~\let\uni@r\@firstoftwo\fi}}}
+\g@addto@macro\uni@issup{\ifx\uni@nx\uni@sup\let\uni@r\@firstoftwo\fi}   % re-read from .toc
+\g@addto@macro\uni@issub{\ifx\uni@nx\uni@sub\let\uni@r\@firstoftwo\fi}
+\protected\def\uni@sup#1{%
+  \ifdefined\uni@acc\edef\uni@acc{\uni@acc#1}\else\def\uni@acc{#1}\fi
+  \futurelet\uni@nx\uni@supchk}
+\protected\def\uni@sub#1{%
+  \ifdefined\uni@acc\edef\uni@acc{\uni@acc#1}\else\def\uni@acc{#1}\fi
+  \futurelet\uni@nx\uni@subchk}
+\def\uni@supchk{\uni@issup\uni@r{}{\uni@supend}}
+\def\uni@subchk{\uni@issub\uni@r{}{\uni@subend}}
+\def\uni@supend{\expandafter\uni@supout\expandafter{\uni@acc}\let\uni@acc\@undefined}
+\def\uni@subend{\expandafter\uni@subout\expandafter{\uni@acc}\let\uni@acc\@undefined}
+\def\uni@supout#1{\ensuremath{^{#1}}}
+\def\uni@subout#1{\ensuremath{_{#1}}}
+\newcommand{\uni@defsup}[2]{\newunicodechar{#1}{\uni@sup{#2}}\uni@reg\uni@issup{#1}}
+\newcommand{\uni@defsub}[2]{\newunicodechar{#1}{\uni@sub{#2}}\uni@reg\uni@issub{#1}}
+% Shapes / dingbats: \uni@sym{<hex code point>} prints the glyph from the symbol fallback font.
+% (\char is used because the character itself is active and would call itself again.)
+\newcommand{\uni@sym}[1]{\mbox{\unisymfont\char"#1\relax}}
+% ----------------------------------------------------------------------------------------------
+\IfFileExists{newunicodechar.sty}{%
+  \usepackage{newunicodechar}
+  \newunicodechar{→}{\ensuremath{\rightarrow}}
+  \newunicodechar{←}{\ensuremath{\leftarrow}}
+  \newunicodechar{↔}{\ensuremath{\leftrightarrow}}
+  \newunicodechar{⇒}{\ensuremath{\Rightarrow}}
+  \newunicodechar{⇐}{\ensuremath{\Leftarrow}}
+  \newunicodechar{⇔}{\ensuremath{\Leftrightarrow}}
+  \newunicodechar{↦}{\ensuremath{\mapsto}}
+  \newunicodechar{↑}{\ensuremath{\uparrow}}
+  \newunicodechar{↓}{\ensuremath{\downarrow}}
+  \newunicodechar{≈}{\ensuremath{\approx}}
+  \newunicodechar{≠}{\ensuremath{\neq}}
+  \newunicodechar{≤}{\ensuremath{\leq}}
+  \newunicodechar{≥}{\ensuremath{\geq}}
+  \newunicodechar{≪}{\ensuremath{\ll}}
+  \newunicodechar{≫}{\ensuremath{\gg}}
+  \newunicodechar{≡}{\ensuremath{\equiv}}
+  \newunicodechar{∝}{\ensuremath{\propto}}
+  \newunicodechar{∼}{\ensuremath{\sim}}
+  \newunicodechar{≃}{\ensuremath{\simeq}}
+  \newunicodechar{≅}{\ensuremath{\cong}}
+  \newunicodechar{∞}{\ensuremath{\infty}}
+  \newunicodechar{∂}{\ensuremath{\partial}}
+  \newunicodechar{∇}{\ensuremath{\nabla}}
+  \newunicodechar{∫}{\ensuremath{\int}}
+  \newunicodechar{∬}{\ensuremath{\iint}}
+  \newunicodechar{∮}{\ensuremath{\oint}}
+  \newunicodechar{∑}{\ensuremath{\sum}}
+  \newunicodechar{∏}{\ensuremath{\prod}}
+  \newunicodechar{√}{\ensuremath{\surd}}
+  \newunicodechar{±}{\ensuremath{\pm}}
+  \newunicodechar{∓}{\ensuremath{\mp}}
+  \newunicodechar{×}{\ensuremath{\times}}
+  \newunicodechar{÷}{\ensuremath{\div}}
+  \newunicodechar{·}{\ensuremath{\cdot}}
+  \newunicodechar{⋅}{\ensuremath{\cdot}}
+  \newunicodechar{∘}{\ensuremath{\circ}}
+  \newunicodechar{⊗}{\ensuremath{\otimes}}
+  \newunicodechar{⊕}{\ensuremath{\oplus}}
+  \newunicodechar{⊙}{\ensuremath{\odot}}
+  \newunicodechar{†}{\ensuremath{\dagger}}
+  \newunicodechar{‡}{\ensuremath{\ddagger}}
+  \newunicodechar{∈}{\ensuremath{\in}}
+  \newunicodechar{∉}{\ensuremath{\notin}}
+  \newunicodechar{⊂}{\ensuremath{\subset}}
+  \newunicodechar{⊆}{\ensuremath{\subseteq}}
+  \newunicodechar{⊃}{\ensuremath{\supset}}
+  \newunicodechar{∪}{\ensuremath{\cup}}
+  \newunicodechar{∩}{\ensuremath{\cap}}
+  \newunicodechar{∀}{\ensuremath{\forall}}
+  \newunicodechar{∃}{\ensuremath{\exists}}
+  \newunicodechar{∅}{\ensuremath{\emptyset}}
+  \newunicodechar{¬}{\ensuremath{\neg}}
+  \newunicodechar{∧}{\ensuremath{\wedge}}
+  \newunicodechar{∨}{\ensuremath{\vee}}
+  \newunicodechar{∥}{\ensuremath{\parallel}}
+  \newunicodechar{⊥}{\ensuremath{\perp}}
+  \newunicodechar{∠}{\ensuremath{\angle}}
+  \newunicodechar{∴}{\ensuremath{\therefore}}
+  \newunicodechar{∵}{\ensuremath{\because}}
+  \newunicodechar{′}{\ensuremath{\prime}}
+  \newunicodechar{″}{\ensuremath{\prime\prime}}
+  \newunicodechar{⟨}{\ensuremath{\langle}}
+  \newunicodechar{⟩}{\ensuremath{\rangle}}
+  \newunicodechar{ℏ}{\ensuremath{\hbar}}
+  \newunicodechar{ħ}{\ensuremath{\hbar}}
+  \newunicodechar{ℓ}{\ensuremath{\ell}}
+  \newunicodechar{ℝ}{\ensuremath{\mathbb{R}}}
+  \newunicodechar{ℂ}{\ensuremath{\mathbb{C}}}
+  \newunicodechar{ℕ}{\ensuremath{\mathbb{N}}}
+  \newunicodechar{ℤ}{\ensuremath{\mathbb{Z}}}
+  \newunicodechar{ℚ}{\ensuremath{\mathbb{Q}}}
+  \newunicodechar{−}{\ensuremath{-}}
+  \newunicodechar{✓}{\ensuremath{\checkmark}}
+  \newunicodechar{✔}{\ensuremath{\checkmark}}
+  \newunicodechar{✗}{\ensuremath{\times}}
+  \newunicodechar{✘}{\ensuremath{\times}}
+  \newunicodechar{°}{\ensuremath{^{\circ}}}
+  \newunicodechar{•}{\ensuremath{\bullet}}
+  \newunicodechar{…}{\ensuremath{\ldots}}
+  \newunicodechar{α}{\ensuremath{\alpha}}
+  \newunicodechar{β}{\ensuremath{\beta}}
+  \newunicodechar{γ}{\ensuremath{\gamma}}
+  \newunicodechar{δ}{\ensuremath{\delta}}
+  \newunicodechar{ε}{\ensuremath{\varepsilon}}
+  \newunicodechar{ϵ}{\ensuremath{\epsilon}}
+  \newunicodechar{ζ}{\ensuremath{\zeta}}
+  \newunicodechar{η}{\ensuremath{\eta}}
+  \newunicodechar{θ}{\ensuremath{\theta}}
+  \newunicodechar{ϑ}{\ensuremath{\vartheta}}
+  \newunicodechar{ι}{\ensuremath{\iota}}
+  \newunicodechar{κ}{\ensuremath{\kappa}}
+  \newunicodechar{λ}{\ensuremath{\lambda}}
+  \newunicodechar{μ}{\ensuremath{\mu}}
+  \newunicodechar{ν}{\ensuremath{\nu}}
+  \newunicodechar{ξ}{\ensuremath{\xi}}
+  \newunicodechar{π}{\ensuremath{\pi}}
+  \newunicodechar{ρ}{\ensuremath{\rho}}
+  \newunicodechar{σ}{\ensuremath{\sigma}}
+  \newunicodechar{ς}{\ensuremath{\varsigma}}
+  \newunicodechar{τ}{\ensuremath{\tau}}
+  \newunicodechar{υ}{\ensuremath{\upsilon}}
+  \newunicodechar{φ}{\ensuremath{\varphi}}
+  \newunicodechar{ϕ}{\ensuremath{\phi}}
+  \newunicodechar{χ}{\ensuremath{\chi}}
+  \newunicodechar{ψ}{\ensuremath{\psi}}
+  \newunicodechar{ω}{\ensuremath{\omega}}
+  \newunicodechar{Γ}{\ensuremath{\Gamma}}
+  \newunicodechar{Δ}{\ensuremath{\Delta}}
+  \newunicodechar{Θ}{\ensuremath{\Theta}}
+  \newunicodechar{Λ}{\ensuremath{\Lambda}}
+  \newunicodechar{Ξ}{\ensuremath{\Xi}}
+  \newunicodechar{Π}{\ensuremath{\Pi}}
+  \newunicodechar{Σ}{\ensuremath{\Sigma}}
+  \newunicodechar{Φ}{\ensuremath{\Phi}}
+  \newunicodechar{Ψ}{\ensuremath{\Psi}}
+  \newunicodechar{Ω}{\ensuremath{\Omega}}
+  \newunicodechar{Α}{\ensuremath{\mathrm{A}}}
+  \newunicodechar{Β}{\ensuremath{\mathrm{B}}}
+  \newunicodechar{Ε}{\ensuremath{\mathrm{E}}}
+  \newunicodechar{Ζ}{\ensuremath{\mathrm{Z}}}
+  \newunicodechar{Η}{\ensuremath{\mathrm{H}}}
+  \newunicodechar{Ι}{\ensuremath{\mathrm{I}}}
+  \newunicodechar{Κ}{\ensuremath{\mathrm{K}}}
+  \newunicodechar{Μ}{\ensuremath{\mathrm{M}}}
+  \newunicodechar{Ν}{\ensuremath{\mathrm{N}}}
+  \newunicodechar{Ο}{\ensuremath{\mathrm{O}}}
+  \newunicodechar{Ρ}{\ensuremath{\mathrm{P}}}
+  \newunicodechar{Τ}{\ensuremath{\mathrm{T}}}
+  \newunicodechar{Υ}{\ensuremath{\Upsilon}}
+  \newunicodechar{Χ}{\ensuremath{\mathrm{X}}}
+  \uni@defsup{⁰}{0}
+  \uni@defsup{¹}{1}
+  \uni@defsup{²}{2}
+  \uni@defsup{³}{3}
+  \uni@defsup{⁴}{4}
+  \uni@defsup{⁵}{5}
+  \uni@defsup{⁶}{6}
+  \uni@defsup{⁷}{7}
+  \uni@defsup{⁸}{8}
+  \uni@defsup{⁹}{9}
+  \uni@defsup{⁺}{+}
+  \uni@defsup{⁻}{-}
+  \uni@defsup{ⁿ}{n}
+  \uni@defsub{₀}{0}
+  \uni@defsub{₁}{1}
+  \uni@defsub{₂}{2}
+  \uni@defsub{₃}{3}
+  \uni@defsub{₄}{4}
+  \uni@defsub{₅}{5}
+  \uni@defsub{₆}{6}
+  \uni@defsub{₇}{7}
+  \uni@defsub{₈}{8}
+  \uni@defsub{₉}{9}
+  \uni@defsub{₊}{+}
+  \uni@defsub{₋}{-}
+  % more math: dots, long arrows, delimiters, relations, letterlike
+  \newunicodechar{⋯}{\ensuremath{\cdots}}
+  \newunicodechar{⋮}{\ensuremath{\vdots}}
+  \newunicodechar{⋱}{\ensuremath{\ddots}}
+  \newunicodechar{∆}{\ensuremath{\Delta}}%      U+2206 INCREMENT, often used instead of Greek Δ
+  \newunicodechar{⟶}{\ensuremath{\longrightarrow}}
+  \newunicodechar{⟹}{\ensuremath{\Longrightarrow}}
+  \newunicodechar{⟺}{\ensuremath{\Longleftrightarrow}}
+  \newunicodechar{⌈}{\ensuremath{\lceil}}
+  \newunicodechar{⌉}{\ensuremath{\rceil}}
+  \newunicodechar{⌊}{\ensuremath{\lfloor}}
+  \newunicodechar{⌋}{\ensuremath{\rfloor}}
+  \newunicodechar{∖}{\ensuremath{\setminus}}
+  \newunicodechar{⊢}{\ensuremath{\vdash}}
+  \newunicodechar{⊤}{\ensuremath{\top}}
+  \newunicodechar{≺}{\ensuremath{\prec}}
+  \newunicodechar{≲}{\ensuremath{\lesssim}}
+  \newunicodechar{≳}{\ensuremath{\gtrsim}}
+  \newunicodechar{∣}{\ensuremath{\mid}}
+  \newunicodechar{≔}{\ensuremath{\coloneqq}}
+  \newunicodechar{⊊}{\ensuremath{\subsetneq}}
+  \newunicodechar{∄}{\ensuremath{\nexists}}
+  \newunicodechar{ℵ}{\ensuremath{\aleph}}
+  \newunicodechar{ℜ}{\ensuremath{\Re}}
+  \newunicodechar{ℑ}{\ensuremath{\Im}}
+  \newunicodechar{↗}{\ensuremath{\nearrow}}
+  \newunicodechar{↘}{\ensuremath{\searrow}}
+  \newunicodechar{⇌}{\ensuremath{\rightleftharpoons}}
+  \newunicodechar{⇀}{\ensuremath{\rightharpoonup}}
+  \newunicodechar{↪}{\ensuremath{\hookrightarrow}}
+  \newunicodechar{∎}{\ensuremath{\blacksquare}}
+  \newunicodechar{∙}{\ensuremath{\bullet}}
+  \newunicodechar{‾}{\ensuremath{\overline{\phantom{x}}}}
+  % shapes and dingbats (symbol fallback font)
+  \ifunisymfontavailable
+  \newunicodechar{■}{\uni@sym{25A0}}
+  \newunicodechar{□}{\uni@sym{25A1}}
+  \newunicodechar{●}{\uni@sym{25CF}}
+  \newunicodechar{○}{\uni@sym{25CB}}
+  \newunicodechar{▶}{\uni@sym{25B6}}
+  \newunicodechar{◀}{\uni@sym{25C0}}
+  \newunicodechar{▲}{\uni@sym{25B2}}
+  \newunicodechar{▼}{\uni@sym{25BC}}
+  \newunicodechar{◆}{\uni@sym{25C6}}
+  \newunicodechar{◇}{\uni@sym{25C7}}
+  \newunicodechar{★}{\uni@sym{2605}}
+  \newunicodechar{☆}{\uni@sym{2606}}
+  \newunicodechar{♠}{\uni@sym{2660}}
+  \newunicodechar{♣}{\uni@sym{2663}}
+  \newunicodechar{♥}{\uni@sym{2665}}
+  \newunicodechar{♦}{\uni@sym{2666}}
+  \newunicodechar{✦}{\uni@sym{2726}}
+  \newunicodechar{✱}{\uni@sym{2731}}
+  \newunicodechar{➜}{\uni@sym{279C}}%
+  \fi
+}{}
+\makeatother
+
+% --------------------------------------------- Graphics, TikZ & floats
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\usepackage{float}
+\usepackage[section]{placeins}
+
+\usepackage{tikz}                       % loads pgf; a separate \usepackage{pgf} is redundant
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{
+    calc, patterns, decorations.pathmorphing, decorations.markings,
+    arrows.meta, shapes.geometric, positioning, intersections, angles, quotes, math
+}
+
+% ---------------------------------------------------------- Tables
+% Everything pandoc's LaTeX writer needs for pipe / simple / grid / multiline tables.
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}                   % rowspans in grid tables
+\usepackage{calc}                       % pandoc column widths use \real{..}
+\makeatletter
+% tables directly after \paragraph{} / \subparagraph{}
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% footnotes inside tables
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\newcounter{none}                       % pandoc >= 3.2 uses \def\LTcaptype{none}
+% Old longtable steps the "table" counter even for tables WITHOUT a caption, so the
+% first captioned table became "Table 2". (helpers for uncaptioned tables, kept for compatibility):
+\makeatletter
+\newcommand{\NoCaptionTableBegin}{\begingroup\def\LTcaptype{none}}
+\newcommand{\NoCaptionTableEnd}{\endgroup\ifdefined\LTcaptype\else\addtocounter{table}{-1}\fi}
+\makeatother
+% Table look: slightly smaller text, roomier rows
+\AtBeginEnvironment{longtable}{\small\renewcommand{\arraystretch}{1.3}}
+
+% Captions (after longtable so caption can hook into it)
+\usepackage[font=small,labelfont=bf]{caption}
+
+% ------------------------------------------- Code blocks (wrap long lines)
+\usepackage{fvextra}
+% Fenced blocks without a language become plain `verbatim`, which never wraps long lines.
+% Redefine it on top of fvextra so those wrap exactly like highlighted code.
+\let\verbatim\undefined
+\let\endverbatim\undefined
+\DefineVerbatimEnvironment{verbatim}{Verbatim}{breaklines,breakanywhere}
+$if(highlighting-macros)$
+$highlighting-macros$
+\ifdefined\Highlighting
+  \RecustomVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+\fi
+$endif$
+% ------------------------------------------- Extra packages (on-demand set)
+\IfFileExists{circuitikz.sty}{\usepackage[american]{circuitikz}}{}
+\IfFileExists{siunitx.sty}{\usepackage{siunitx}}{}
+\IfFileExists{algorithm.sty}{\usepackage{algorithm}}{}
+\IfFileExists{algpseudocode.sty}{\usepackage{algpseudocode}}{}
+\IfFileExists{chemfig.sty}{\usepackage{chemfig}}{}
+\IfFileExists{subcaption.sty}{\usepackage{subcaption}}{}
+\IfFileExists{listings.sty}{\usepackage{listings}}{}
+\IfFileExists{enumitem.sty}{\usepackage{enumitem}}{}
+\IfFileExists{tcolorbox.sty}{\usepackage[most]{tcolorbox}}{}
+\IfFileExists{adjustbox.sty}{\usepackage{adjustbox}}{}
+\IfFileExists{pgfplotstable.sty}{\usepackage{pgfplotstable}}{}
+\IfFileExists{tikz-cd.sty}{\usepackage{tikz-cd}}{}
+% physics and siunitx both define \qty and physics wins, which broke  \qty{1.5}{\meter}.
+% Dispatch:  \qty{number}{unit}  and  \qty[options]{number}{unit}  -> siunitx (\SI);
+%            everything else  \qty(..)  \qty[..]  \qty|..|  \qty\{..\}  \qty{..}  -> physics (\quantity).
+\makeatletter
+\@ifpackageloaded{physics}{\@ifpackageloaded{siunitx}{%
+  \RenewDocumentCommand{\qty}{}{\@ifnextchar[\uni@qtyb{\@ifnextchar\bgroup\uni@qtyc\quantity}}
+  \NewDocumentCommand{\uni@qtyc}{m g}{\IfNoValueTF{#2}{\quantity{#1}}{\SI{#1}{#2}}}
+  \NewDocumentCommand{\uni@qtyb}{d[] g g}{%
+    \IfNoValueTF{#3}{\quantity[#1]\IfNoValueF{#2}{{#2}}}{\SI[#1]{#2}{#3}}}%
+}{}}{}
+\makeatother
+% ------------------------------------------------------------- Links
+\usepackage[colorlinks=true,citecolor=blue,urlcolor=blue,linkcolor=blue,
+            unicode=true,breaklinks=true]{hyperref}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{}   % allow URLs to break across lines
+\urlstyle{same}
+% must come AFTER hyperref (hyperref defines these itself)
+\providecommand{\phantomsection}{}
+\providecommand{\pandocbounded}[1]{#1}
+% Bibliography produced by  pandoc --citeproc  (stock pandoc definitions; without them the
+% reference list crashes with "Environment CSLReferences undefined").
+$if(csl-refs)$
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newlength{\cslentryspacingunit} % times entry-spacing
+\setlength{\cslentryspacingunit}{\parskip}
+\providecommand{\citeproctext}{}
+\newenvironment{CSLReferences}[2] % #1 hanging-ident, #2 entry spacing
+ {\begin{thebibliography}{999}
+  % don't indent paragraphs
+  \setlength{\parindent}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1
+  \let\oldpar\par
+  \def\par{\hangindent=\cslhangindent\oldpar}
+  \fi
+  % set entry spacing
+  \setlength{\parskip}{#2\cslentryspacingunit}
+ }%
+ {\end{thebibliography}}
+\newcommand{\CSLBlock}[1]{#1\hfill\break}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{#1}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{#1}\break}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
+$endif$
+
+$for(header-includes)$
+$header-includes$
+$endfor$
+
+% --------------------------------------------------- Document info
+\title{$if(title)$$title$$else$Reference Notes$endif$}
+\author{$if(author)$$for(author)$$author$$sep$ \and $endfor$$else$Made By Abhik Biswas$endif$}
+\date{$if(date)$$date$$endif$}
+
+% ---------------------------------------------- Figure referencing switch
+% An empty \cite{} typed right after a figure prints "Figure N:" in bold.
+% \cite[opt]{key} no longer crashes: it prints [key, opt].
+\newtoggle{afterfigure}
+\togglefalse{afterfigure}
+\AtEndEnvironment{figure}{\global\toggletrue{afterfigure}}
+\renewcommand{\cite}[2][]{%
+  \ifstrempty{#2}{%
+    \iftoggle{afterfigure}{\textbf{Figure \thefigure:} \global\togglefalse{afterfigure}}{\mbox{}}%
+  }{[#2\ifstrempty{#1}{}{, #1}]}%
+}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{fancy}
+\hrule \vspace{1.5em}
+$if(abstract)$
+\begin{abstract}
+$abstract$
+\end{abstract}
+$endif$
+
+$if(toc)$
+\setcounter{tocdepth}{$if(toc-depth)$$toc-depth$$else$3$endif$}
+\tableofcontents
+\clearpage
+$endif$
+$for(include-before)$
+$include-before$
+$endfor$
+
+$body$
+
+$for(include-after)$
+$include-after$
+$endfor$
+
+\end{document}

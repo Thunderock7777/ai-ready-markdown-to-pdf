@@ -43,7 +43,11 @@ if errorlevel 1 (
     exit /b 0
 )
 
-choice /c YN /n /m "Delete these PDF files? [Y/N]: "
+echo Files that will be deleted:
+dir /b /a-d "%TARGET_DIR%\*.pdf"
+echo.
+
+choice /c YN /n /m "Delete exactly the PDF files listed above? [Y/N]: "
 if errorlevel 2 (
     echo.
     echo Deletion canceled.
@@ -54,10 +58,12 @@ if errorlevel 2 (
 )
 
 del /q "%TARGET_DIR%\*.pdf"
-if errorlevel 1 (
+
+REM Verify the result instead of relying only on DEL's exit code.
+if exist "%TARGET_DIR%\*.pdf" (
     echo.
-    echo ERROR: One or more PDF files could not be deleted.
-    echo Check whether they are open or whether you have permission.
+    echo ERROR: Some PDF files remain and could not be deleted.
+    echo Check whether they are open, read-only, or whether you have permission.
     echo.
     pause
     endlocal

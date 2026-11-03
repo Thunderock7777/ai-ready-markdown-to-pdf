@@ -31,8 +31,6 @@ your-tool-folder/
 ├── manual/
 │   ├── FILTER_FEATURE_REGRESSION.txt
 │   ├── INSTALL_AND_USE.txt
-│   ├── nuc1.txt
-│   ├── QM.txt
 │   ├── WORKFLOW_ARCHITECTURE.txt
 │   └── WORKFLOW_ASSESSMENT.txt
 └── config/

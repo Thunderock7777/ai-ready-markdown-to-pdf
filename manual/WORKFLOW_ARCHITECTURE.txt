@@ -21,19 +21,16 @@ Recommended folder layout
         manual\
             FILTER_FEATURE_REGRESSION.txt
             INSTALL_AND_USE.txt
-            nuc1.txt
-            QM.txt
             WORKFLOW_ARCHITECTURE.txt
             WORKFLOW_ASSESSMENT.txt
-            other .txt input files
         md2pdf_cache\                    (created as needed; disposable)
-        other input .md files and PDFs
+        your own input .md/.txt files and PDFs (wherever convenient)
 
 Keep compile.bat at the root and the three configuration files under config\.
-All .txt files are kept under manual\, including the regression fixture and
-ordinary .txt inputs. The output PDF stays beside the first input, not in
-config\. The cache is rooted beside compile.bat so generated cache files do not
-mix with source notes.
+The manual\ folder is only for workflow documentation and its regression
+fixture; user input files may live anywhere. The output PDF stays beside the
+first input, not in config\. The cache is rooted beside compile.bat so generated
+cache files do not mix with source notes.
 
 Requirements
 ------------

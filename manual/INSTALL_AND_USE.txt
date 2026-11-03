@@ -19,14 +19,14 @@ Keep this folder structure together:
         manual\
             FILTER_FEATURE_REGRESSION.txt
             INSTALL_AND_USE.txt
-            nuc1.txt
-            QM.txt
             WORKFLOW_ARCHITECTURE.txt
             WORKFLOW_ASSESSMENT.txt
 
-All root-level .txt files have been organized in manual\. The generated PDF is
-saved beside the first input file; compiling a file from manual\ puts its PDF
-there. The config folder contains only the template and filters.
+The manual\ folder contains the workflow guides and regression fixture; it is
+not a required location for your own notes. Keep personal input files wherever
+convenient. The generated PDF is saved beside the first input file; compiling a
+file from manual\ puts its PDF there. The config folder contains only the
+template and filters.
 
 Required tool files: compile.bat in the root, plus custom.tex,
 markdown-normalizer.lua, and code-fence-runner.lua inside config.

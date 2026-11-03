@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Markdown-to-PDF runtime cache
+md2pdf_cache/
+
+# Temporary LaTeX files
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+
+# Temporary build output
+build/

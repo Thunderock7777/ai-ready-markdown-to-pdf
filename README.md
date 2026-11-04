@@ -24,6 +24,14 @@ build, while LaTeX fences render source snippets without executing them.
 - The text-processing stages leave source files unchanged. Python fences can
   still write files they explicitly open; PDFs are saved beside the first input.
 
+## Best use
+
+Use the workflow to turn AI-assisted scientific literature-study notes into a
+readable PDF and to create visualizations from supplied data with Python. Check
+the papers, citations, claims, and data yourself: this tool formats and
+compiles content, but does not verify research or validate an AI's conclusions.
+Python code runs with your permissions, so run only code you trust.
+
 ## Folder layout
 
 Keep the compiler and its configuration files together:

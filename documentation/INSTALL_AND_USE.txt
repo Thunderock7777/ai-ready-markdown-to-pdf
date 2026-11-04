@@ -19,6 +19,7 @@ Keep this folder structure together:
         documentation\
             FILTER_FEATURE_REGRESSION.txt
             FILTER_FEATURE_REGRESSION_PART2.txt
+            NORMALIZER_FIX_MANUAL_TEST.txt
             CONTRIBUTING_AND_VERSIONING.txt
             INSTALL_AND_USE.txt
             CODE_FENCE_RUNNER_ARCHITECTURE.txt

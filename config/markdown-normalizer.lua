@@ -1443,27 +1443,87 @@ end
 -- ----------------------------------------------------------------------
 -- \textbf{\(\begin{cases}..\end{cases}\)} crashes LaTeX INSIDE TABLE CELLS with
 -- "Forbidden control sequence ... \check@nocorr@" (matrices, aligned, cases ... all do).
--- Only in table cells, and only for such math: the math is taken out of the bold span;
--- the rest of the bold text stays bold.  Captions, paragraphs and simple math are untouched.
+-- Only in table cells, and only for such math: remove formatting wrappers from
+-- the math itself while retaining them on adjacent text. Captions and paragraphs are untouched.
 local function bad_math(t)
   return t:find("\\begin%s*{") ~= nil or t:find("\\\\") ~= nil
       or t:find("^&") ~= nil or t:find("[^\\]&") ~= nil     -- alignment &, not \&
 end
 
+local function inline_with_content(inline, content)
+  if inline.t == "Emph" then return pandoc.Emph(content) end
+  if inline.t == "Underline" then return pandoc.Underline(content) end
+  if inline.t == "Strong" then return pandoc.Strong(content) end
+  if inline.t == "Strikeout" then return pandoc.Strikeout(content) end
+  if inline.t == "Superscript" then return pandoc.Superscript(content) end
+  if inline.t == "Subscript" then return pandoc.Subscript(content) end
+  if inline.t == "SmallCaps" then return pandoc.SmallCaps(content) end
+  if inline.t == "Quoted" then return pandoc.Quoted(inline.quotetype, content) end
+  if inline.t == "Cite" then return pandoc.Cite(inline.citations, content) end
+  if inline.t == "Link" then return pandoc.Link(content, inline.target, inline.title, inline.attr) end
+  if inline.t == "Image" then return pandoc.Image(content, inline.src, inline.title, inline.attr) end
+  if inline.t == "Span" then return pandoc.Span(content, inline.attr) end
+  error("cannot preserve formatting for inline element " .. tostring(inline.t))
+end
+
+local function split_bad_math(inline)
+  if inline.t == "Math" and bad_math(inline.text) then
+    return { { bold = false, inline = inline } }
+  end
+  if inline.t == "Note" then
+    local deep = false
+    inline:walk({ Math = function(math) if bad_math(math.text) then deep = true end end })
+    return { { bold = not deep, inline = inline } }
+  end
+  if not inline.content then return { { bold = true, inline = inline } } end
+
+  local groups = {}
+  for _, child in ipairs(inline.content) do
+    for _, piece in ipairs(split_bad_math(child)) do
+      local group = groups[#groups]
+      if group and group.bold == piece.bold then
+        group.content[#group.content + 1] = piece.inline
+      else
+        groups[#groups + 1] = { bold = piece.bold, content = { piece.inline } }
+      end
+    end
+  end
+  if #groups == 1 and groups[1].bold then
+    return { { bold = true, inline = inline } }
+  end
+  local result = {}
+  for _, group in ipairs(groups) do
+    if group.bold then
+      result[#result + 1] = {
+        bold = true,
+        inline = inline_with_content(inline, group.content),
+      }
+    else
+      for _, child in ipairs(group.content) do
+        result[#result + 1] = { bold = false, inline = child }
+      end
+    end
+  end
+  return result
+end
+
 local function strong_fix(el)
   local out, run, changed = {}, {}, false
-  local function flush() if #run > 0 then out[#out+1] = pandoc.Strong(run); run = {} end end
-  for _, x in ipairs(el.content) do
-    if x.t == "Math" and bad_math(x.text) then
-      flush(); out[#out+1] = x; changed = true
-    else
-      run[#run+1] = x
+  local function flush()
+    if #run > 0 then out[#out + 1] = pandoc.Strong(run); run = {} end
+  end
+  for _, inline in ipairs(el.content) do
+    for _, piece in ipairs(split_bad_math(inline)) do
+      if piece.bold then
+        run[#run + 1] = piece.inline
+      else
+        flush()
+        out[#out + 1] = piece.inline
+        changed = true
+      end
     end
   end
   if changed then flush(); return out end
-  local deep = false                                   -- bad math nested deeper (e.g. inside Emph)
-  el:walk({ Math = function(m) if bad_math(m.text) then deep = true end end })
-  if deep then return el.content end
   return nil
 end
 
@@ -1581,24 +1641,38 @@ local FINALIZE_STEPS = {
 
 -- Stage A + parse: replace pandoc's initial parse with the combined cleaned text for supported
 -- inputs.  All input files must be cleanable; otherwise preserve Pandoc's original parse.
+local function copy_state_value(value)
+  if type(value) ~= "table" then return value end
+  local copy = {}
+  for key, item in pairs(value) do copy[key] = copy_state_value(item) end
+  return copy
+end
+
 local function load_cleaned_input(doc)
   local files = PANDOC_STATE and PANDOC_STATE.input_files or {}
   if #files == 0 then
     warn("stdin input cannot be re-read for text cleaning; applying AST fixes only")
     return doc
   end
+  local initial_state = copy_state_value(State)
+  local function fallback()
+    for key in pairs(State) do State[key] = nil end
+    for key, value in pairs(initial_state) do State[key] = value end
+    return doc
+  end
   local blocks, cleaned_meta = {}, nil
   for _, file in ipairs(files) do
     if file == "-" then
       warn("stdin input cannot be re-read for text cleaning; applying AST fixes only")
-      return doc
+      return fallback()
     end
     local ext = file:match("%.(%w+)$")
     if not (ext and CONFIG.cleanable_extensions[ext:lower()]) then
-      return doc                                          -- other input: just apply AST fixes
+      return fallback()                                   -- other input: just apply AST fixes
     end
     local fh, err = io.open(file, "rb")
     if not fh then
+      fallback()
       warn("cannot open '" .. file .. "' (" .. tostring(err) .. ") -- input was NOT cleaned!")
       return doc
     end

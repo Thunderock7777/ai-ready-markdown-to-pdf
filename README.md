@@ -44,6 +44,7 @@ your-tool-folder/
 ├── documentation/
 │   ├── FILTER_FEATURE_REGRESSION.txt
 │   ├── FILTER_FEATURE_REGRESSION_PART2.txt
+│   ├── NORMALIZER_FIX_MANUAL_TEST.txt
 │   ├── CONTRIBUTING_AND_VERSIONING.txt
 │   ├── INSTALL_AND_USE.txt
 │   ├── CODE_FENCE_RUNNER_ARCHITECTURE.txt
@@ -232,6 +233,8 @@ fixture.
   runner function reference, Python wrapper/cache flow, and change/test guide.
 - [FILTER_FEATURE_REGRESSION.txt](documentation/FILTER_FEATURE_REGRESSION.txt) — broad
   feature and failure-path validation input.
+- [NORMALIZER_FIX_MANUAL_TEST.txt](documentation/NORMALIZER_FIX_MANUAL_TEST.txt) —
+  focused manual checks for nested table math formatting and mixed-input fallback.
 - [CONTRIBUTING_AND_VERSIONING.txt](documentation/CONTRIBUTING_AND_VERSIONING.txt) —
   project change, documentation, mandatory focused `.txt` testing, and
   version-tracking rules.

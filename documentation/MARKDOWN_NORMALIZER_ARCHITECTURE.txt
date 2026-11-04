@@ -37,11 +37,9 @@ separate compile or link step.
 5. If any input is stdin, is not a configured cleanable extension, or cannot
    be reopened, load_cleaned_input returns the original Pandoc document.
    Stdin and reopen failures are reported. Unsupported extensions use the
-   original parse and continue through AST repairs. Important state caveat:
-   if a cleanable input was already processed earlier in the loop, its changes
-   to State (for example hoisted commands, counters, or rescued metadata) are
-   not rolled back when a later input triggers this fallback; finalization can
-   still observe those accumulated values.
+   original parse and continue through AST repairs. State is snapshotted before
+   cleaning and restored on fallback, so partial changes from earlier inputs
+   cannot leak into finalization.
 6. Pandoc(doc) applies AST_PASSES in sequence. Each pass is a separate
    doc:walk, so later passes see changes made by earlier passes.
 7. Pandoc(doc) runs FINALIZE_STEPS in sequence to add metadata and
@@ -242,8 +240,10 @@ AST_PASSES is also ordered:
 
 tables
   table_fix walks Strong nodes in each Table. strong_fix moves complex math
-  out of Strong markup where a LaTeX table-cell failure is likely, while
-  preserving the remaining strong text and the table caption.
+  out of emphasis wrappers where a LaTeX table-cell failure is likely,
+  recursively splitting nested inline formatting so text before and after
+  the unformatted math retains its original formatting. The caption is
+  preserved unchanged.
 
 inlines
   math_pipeline applies display-math/Greek repair, followed by Unicode
@@ -502,11 +502,18 @@ Images, tables, links, environments
     Link unchanged.
   bad_math(math_text) -> boolean
     Detects alignment/environment constructs that must not remain nested in a
-    Strong span in a table cell.
+    formatting wrapper in a table cell.
+  inline_with_content(inline, content) -> inline
+    Rebuilds supported inline containers with replacement children while
+    preserving their attributes, citations, quote type, or link/image target.
+  split_bad_math(inline) -> formatting-tagged inline pieces
+    Recursively divides inline containers around problematic Math nodes,
+    retaining wrappers on surrounding text and emitting problematic math
+    without formatting wrappers.
   strong_fix(Strong) -> replacement or nil
-    Splits direct complex Math children out of Strong, or removes the Strong
-    wrapper if complex math is nested more deeply. The local flush closure
-    rebuilds unaffected Strong runs.
+    Uses split_bad_math to move problematic math out of the Strong wrapper,
+    while rebuilding unaffected runs as Strong and preserving nested inline
+    formatting on adjacent text. Its local flush closure emits each Strong run.
   table_fix(Table) -> Table
     Applies strong_fix to table descendants and restores the original caption.
   div_fix(Div) -> blocks or nil
@@ -530,8 +537,8 @@ Document-level processing and finalization
     preserving existing metadata as a MetaList.
   load_cleaned_input(doc) -> Pandoc document
     Coordinates source reading, extension checks, clean, reparsing, block
-    concatenation, and YAML/Pandoc metadata merge. Returns the original doc on
-    unsupported or unreopenable inputs.
+    concatenation, and YAML/Pandoc metadata merge. Snapshots and restores State
+    when an unsupported or unreopenable input requires the original-doc fallback.
   Pandoc(doc) -> Pandoc document
     The actual Pandoc callback. Calls load_cleaned_input, walks AST_PASSES in
     order, applies FINALIZE_STEPS, conditionally runs citeproc, and returns the
@@ -598,12 +605,12 @@ The inventory below describes their complete purpose and owner:
   figure_fix's Image callback
     Sets a local boolean while walking the Figure. The parent removes the
     Figure if no Image remains.
+  split_bad_math's group accumulator
+    Coalesces adjacent pieces with the same bold state before rebuilding their
+    inline containers, avoiding unnecessary wrapper fragments.
   strong_fix.flush()
-    Rebuilds the accumulated unaffected inline run as Strong around a complex
-    Math child that must be emitted outside the Strong wrapper.
-  strong_fix's Math callback
-    Detects complex math nested deeper than direct children; if found, the
-    Strong wrapper is removed rather than wrapping that math.
+    Emits the accumulated unaffected inline run as a Strong node before a
+    problematic Math node, and emits any trailing run after it.
   AST_PASSES RawInline and RawBlock callbacks
     Short-circuit: remove HTML first; if it is not HTML, inspect recognized
     raw TeX math environments for Unicode script conversion.
@@ -643,6 +650,10 @@ Step-by-step change and validation guide
    check can be run with:
 
      pandoc --from=markdown+yaml_metadata_block --to=native --lua-filter="config\markdown-normalizer.lua" "path\to\focused.txt"
+
+   For mixed-input fallback, pass two cleanable `.txt` inputs followed by an
+   unsupported input such as `.html`; check that no state collected from the
+   text files leaks into the original Pandoc parse or its finalization.
 
    This one-line form works in PowerShell and Command Prompt. The native output
    is useful for checking Pandoc structure; also verify stderr warnings when

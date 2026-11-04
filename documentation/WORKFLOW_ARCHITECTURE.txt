@@ -21,6 +21,7 @@ Recommended folder layout
         documentation\
             FILTER_FEATURE_REGRESSION.txt
             FILTER_FEATURE_REGRESSION_PART2.txt
+            NORMALIZER_FIX_MANUAL_TEST.txt
             CONTRIBUTING_AND_VERSIONING.txt
             INSTALL_AND_USE.txt
             CODE_FENCE_RUNNER_ARCHITECTURE.txt
@@ -251,6 +252,11 @@ The first input determines the PDF path. Verify the four
 MULTI_INPUT_PART_* markers appear exactly once in the PDF, ordered as documented
 in FILTER_FEATURE_REGRESSION.txt. This checks concatenation order and one
 rendered output per Python fence; it does not rerun each fence for every input.
+
+For focused manual checks of nested table formatting and mixed-input fallback,
+see documentation\NORMALIZER_FIX_MANUAL_TEST.txt. It gives separate commands
+and before/after expectations; the fallback case passes compile.bat as an
+unsupported second input to exercise state rollback.
 
 1. Check filter syntax/loading without building a PDF:
 

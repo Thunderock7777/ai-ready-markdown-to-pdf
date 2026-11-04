@@ -126,11 +126,13 @@ The same special-looking text is protected inside a verbatim environment:
 |:---------|------:|
 | Inline math | $x^2 + y^2$ |
 | Greek | $\alpha + \beta$ |
+| Bold around nested complex math | **Bold *emphasis before $\begin{matrix}a&b\\c&d\end{matrix}$ and after* remains bold** |
 | Pipe-like math outside the table | See the display equation below |
 
 The table exercises ordinary pipe-table parsing, alignment, inline math, and
-Unicode-capable LaTeX output. Table cells containing complex aligned math may
-need simpler formatting; see the limitations section.
+Unicode-capable LaTeX output. Complex matrix math is kept outside formatting
+spans that break in table cells, including when nested in emphasis; surrounding
+text formatting remains intact.
 
 2. Math and Unicode handling
 ----------------------------
@@ -619,3 +621,38 @@ This confirms the two input documents are combined in command-line order and
 the Python fence from each input contributes one output. It does not mean each
 fence is run once per input; each recognized fence is processed once in the
 combined document.
+
+9. 2026-11-05 normalizer fix update
+-----------------------------------
+The table above also covers the nested-formatting fix. In the PDF, "emphasis
+before" and "and after remains bold" should both be visible around the matrix.
+The matrix is math outside the formatting spans. Before the fix, nested
+formatting around complex table math could cause a XeLaTeX error such as
+"Forbidden control sequence ... \check@nocorr@" or lose surrounding text.
+
+To check mixed-input fallback, run this fixture with compile.bat as the second
+input from the tool root:
+
+    .\compile.bat `
+        ".\documentation\FILTER_FEATURE_REGRESSION.txt" `
+        ".\compile.bat"
+
+The unsupported .bat input intentionally makes the normalizer retain Pandoc's
+original parse instead of using its cleaned-input path. The PDF will include
+compile.bat as input content; that is expected for this test.
+
+Before the fix, cleanup state gathered from this fixture could leak into
+finalization even though the original parse was retained. The console could
+report removed citation-marker characters while the original citation markers
+remained in the PDF.
+
+After the fix, the following markers should remain visible in the PDF and the
+console should not report citation-marker removals from the abandoned cleanup
+path:
+
+Fallback marker one: [cite_start] FALLBACK_STATE_ALPHA
+
+Fallback marker two: [cite: 3] FALLBACK_STATE_BETA
+
+The standalone NORMALIZER_FIX_MANUAL_TEST.txt provides the same focused checks
+without running the full fixture.

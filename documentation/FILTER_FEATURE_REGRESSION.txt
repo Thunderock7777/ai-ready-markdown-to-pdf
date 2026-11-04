@@ -126,7 +126,7 @@ The same special-looking text is protected inside a verbatim environment:
 |:---------|------:|
 | Inline math | $x^2 + y^2$ |
 | Greek | $\alpha + \beta$ |
-| Bold around nested complex math | **Bold *emphasis before $\begin{matrix}a&b\\c&d\end{matrix}$ and after* remains bold** |
+| Bold around nested complex math | **Bold *emphasis before*** $\begin{matrix}a&b\\c&d\end{matrix}$ **and after remains bold** |
 | Pipe-like math outside the table | See the display equation below |
 
 The table exercises ordinary pipe-table parsing, alignment, inline math, and
@@ -624,10 +624,11 @@ combined document.
 
 9. 2026-11-05 normalizer fix update
 -----------------------------------
-The table above also covers the nested-formatting fix. In the PDF, "emphasis
-before" and "and after remains bold" should both be visible around the matrix.
-The matrix is math outside the formatting spans. Before the fix, nested
-formatting around complex table math could cause a XeLaTeX error such as
+The table above also covers the nested-formatting fix. In the PDF, **Bold
+*emphasis before*** and **and after remains bold** should both be bold, with
+the matrix rendered as math between them: $\begin{matrix}a&b\\c&d\end{matrix}$.
+The matrix is outside the formatting spans. Before the fix, nested formatting
+around complex table math could cause a XeLaTeX error such as
 "Forbidden control sequence ... \check@nocorr@" or lose surrounding text.
 
 To check mixed-input fallback, run this fixture with compile.bat as the second

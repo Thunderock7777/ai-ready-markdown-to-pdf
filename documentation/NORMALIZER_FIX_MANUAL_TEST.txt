@@ -29,12 +29,13 @@ XeLaTeX errors, including "Forbidden control sequence ... \check@nocorr@".
 The affected cell's text before the math could also disappear from the output.
 
 After the fix, the build should complete without a LaTeX error for this table.
-The PDF should show "emphasis before" and "and after remains bold" around the
-matrix. The matrix itself should render as math, outside the formatting spans.
+The PDF should show **Bold *emphasis before*** and **and after remains bold**
+in bold, with the matrix rendered between them as math, outside the formatting
+spans: $\begin{matrix}a&b\\c&d\end{matrix}$.
 
 | Case | Expected rendering |
 |---|---|
-| Nested bold and emphasis around matrix math | **Bold *emphasis before $\begin{matrix}a&b\\c&d\end{matrix}$ and after* remains bold** |
+| Nested bold and emphasis around matrix math | **Bold *emphasis before*** $\begin{matrix}a&b\\c&d\end{matrix}$ **and after remains bold** |
 
 2. Mixed-input fallback test
 ----------------------------

@@ -24,13 +24,20 @@ This is a self-contained .txt fixture for the Markdown-to-PDF workflow.
 Compile this file by itself with compile.bat. A successful build exercises the
 real Windows wrapper, Pandoc, config\markdown-normalizer.lua,
 config\code-fence-runner.lua,
-config\custom.tex, and XeLaTeX. The Python examples use standard library features except
-for the optional Matplotlib figure example, which skips cleanly when Matplotlib
-is not installed.
+config\custom.tex, and XeLaTeX. Most Python examples use the standard library.
+The probability graph examples require NumPy and Matplotlib and skip cleanly if
+either package is unavailable.
 
 This is a broad, repeatable regression sample, not a mathematical proof that
 every possible input is supported. Expected-failure cases are listed near the
 end and are intentionally not activated as build-breaking input.
+This fixture is not intended to be rebuilt after every small code or
+documentation change. Contributors should choose focused tests for routine
+changes; use this full fixture when its behavior is affected, for end-to-end
+validation, or before a release. Any user can run it at any time to check the
+workflow. Every feature addition or bug fix must still be tested with a
+focused .txt input through compile.bat; that targeted test does not require
+rebuilding this full fixture.
 
 Run this exact fixture
 ----------------------
@@ -279,6 +286,75 @@ print("Python runs by default.")
 print("Standard-library arithmetic:", sum(range(1, 6)))
 ```
 
+The following three examples contrast the execution modes with a coin-flip
+simulation. The graph plots the running fraction of heads against the expected
+probability, 0.5. Install NumPy and Matplotlib to see both graphs:
+
+    py -m pip install numpy matplotlib
+
+Ordinary Python (no run attribute) executes when needed. Its graph and output
+are reused on an unchanged cached build:
+
+```{.python}
+try:
+    import numpy as np
+    import matplotlib.pyplot as plt
+except ImportError as exc:
+    print("SKIP probability graph: install numpy and matplotlib:", exc)
+else:
+    flips = np.random.binomial(1, 0.5, size=500)
+    running_average = np.cumsum(flips) / np.arange(1, len(flips) + 1)
+    plt.figure()
+    plt.plot(np.arange(1, len(flips) + 1), running_average, label="Running fraction of heads")
+    plt.axhline(0.5, color="red", linestyle="--", label="Expected probability = 0.5")
+    plt.xlabel("Number of flips")
+    plt.ylabel("Observed fraction")
+    plt.title("Default Python: cached probability simulation")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+    print("DEFAULT_MODE final running fraction:", float(running_average[-1]))
+```
+
+`run=new` runs the simulation again on each build and refreshes the cache with
+the new graph and output. A random run can occasionally look similar to the
+previous one, but it is freshly executed:
+
+```{.python run=new}
+try:
+    import numpy as np
+    import matplotlib.pyplot as plt
+except ImportError as exc:
+    print("SKIP probability graph: install numpy and matplotlib:", exc)
+else:
+    flips = np.random.binomial(1, 0.5, size=500)
+    running_average = np.cumsum(flips) / np.arange(1, len(flips) + 1)
+    plt.figure()
+    plt.plot(np.arange(1, len(flips) + 1), running_average, label="Running fraction of heads")
+    plt.axhline(0.5, color="red", linestyle="--", label="Expected probability = 0.5")
+    plt.xlabel("Number of flips")
+    plt.ylabel("Observed fraction")
+    plt.title("run=new: freshly executed probability simulation")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+    print("RUN_NEW_MODE final running fraction:", float(running_average[-1]))
+```
+
+`run=false` does not execute Python and produces no graph; it leaves the source
+visible as a code listing:
+
+```{.python run=false}
+import numpy as np
+import matplotlib.pyplot as plt
+
+flips = np.random.binomial(1, 0.5, size=500)
+running_average = np.cumsum(flips) / np.arange(1, len(flips) + 1)
+plt.plot(running_average)
+plt.axhline(0.5, color="red", linestyle="--")
+plt.show()
+```
+
 The Python runner presents __file__ in the input working directory and keeps
 that directory on sys.path:
 
@@ -496,6 +572,8 @@ After compiling this file:
 - Both citation text and a CSL-formatted reference list appear.
 - Headings, lists, table, inline/display math, theorem, proof, and TikZ render.
 - Real Python output appears; run=false source appears without its output.
+- The ordinary probability graph is cached when unchanged; run=new generates
+  its simulation again; run=false shows source without executing or drawing.
 - run=new and cache=false blocks show output on every build.
 - The dependent Python blocks can restore/read their cached CSV on a later build.
 - The controlled Python failure is visible on the console but does not stop PDF creation.

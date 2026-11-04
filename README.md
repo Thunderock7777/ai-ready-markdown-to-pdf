@@ -4,6 +4,8 @@ A Windows workflow for turning Markdown or plain-text notes into a PDF with
 Pandoc, XeLaTeX, and two Lua filters. Python code fences can run during the
 build, while LaTeX fences render source snippets without executing them.
 
+**Current project version: 1.0.0** (working baseline; release tag pending).
+
 > **Paste an AI response and compile it directly.** Responses from ChatGPT,
 > Gemini, and NotebookLM can be used as input as-is—no manual cleanup or
 > reformatting is needed for supported content. The filters handle common
@@ -32,6 +34,7 @@ your-tool-folder/
 ├── manual/
 │   ├── FILTER_FEATURE_REGRESSION.txt
 │   ├── FILTER_FEATURE_REGRESSION_PART2.txt
+│   ├── CONTRIBUTING_AND_VERSIONING.txt
 │   ├── INSTALL_AND_USE.txt
 │   ├── WORKFLOW_ARCHITECTURE.txt
 │   └── WORKFLOW_ASSESSMENT.txt
@@ -165,6 +168,11 @@ print("This block runs freshly for this build.")
 | `maxlines=N` | Limit the number of displayed output lines. |
 | `deps="a.csv,b.npy"` | Include these files in the Python block's cache key. |
 
+The regression guide compares default cached Python, `run=new` fresh execution,
+and `run=false` source-only rendering with a NumPy/Matplotlib running-average
+coin-flip graph. To enable the optional graphs, install both packages with
+`py -m pip install numpy matplotlib`.
+
 Use `run=new` or `cache=false` for blocks whose results depend on changing
 external state, such as network responses or environment variables. Cache
 tracking cannot account for every external dependency.
@@ -199,6 +207,9 @@ fixture.
   filter-order, cache, and maintenance documentation.
 - [FILTER_FEATURE_REGRESSION.txt](manual/FILTER_FEATURE_REGRESSION.txt) — broad
   feature and failure-path validation input.
+- [CONTRIBUTING_AND_VERSIONING.txt](manual/CONTRIBUTING_AND_VERSIONING.txt) —
+  project change, documentation, mandatory focused `.txt` testing, and
+  version-tracking rules.
 - [WORKFLOW_ASSESSMENT.txt](manual/WORKFLOW_ASSESSMENT.txt) — candid scorecard,
   limitations, and documentation audit.
 
@@ -214,3 +225,7 @@ fixture.
 
 For exact supported behavior and caveats, consult the architecture guide and the
 feature regression document.
+
+## License
+
+This project is distributed under the [MIT License](LICENSE).

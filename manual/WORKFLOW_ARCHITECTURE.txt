@@ -21,6 +21,7 @@ Recommended folder layout
         manual\
             FILTER_FEATURE_REGRESSION.txt
             FILTER_FEATURE_REGRESSION_PART2.txt
+            CONTRIBUTING_AND_VERSIONING.txt
             INSTALL_AND_USE.txt
             WORKFLOW_ARCHITECTURE.txt
             WORKFLOW_ASSESSMENT.txt
@@ -222,7 +223,9 @@ cleanup warnings; those are not Pandoc/XeLaTeX build failures. Its companion
 beginner setup guide is manual\INSTALL_AND_USE.txt. The fixture is compiled by
 itself with compile.bat and covers Markdown/task-list syntax, LaTeX preamble
 recovery, Python execution/cache/failure behavior, citations, and figure
-embedding.
+embedding. It also contrasts default cached Python, run=new fresh execution,
+and run=false source-only rendering with an optional NumPy/Matplotlib
+coin-flip running-average probability graph.
 
 The separate multi-input check uses both regression inputs in one invocation:
 
@@ -268,3 +271,8 @@ Extension points
   config\custom.tex, keeping its documented limitations accurate.
 - Update this document whenever invocation, ordering, cache semantics,
   metadata handling, output placement, or supported contracts change.
+- Before making project changes, follow manual\CONTRIBUTING_AND_VERSIONING.txt:
+  review README.md and all manuals, select focused tests, and maintain the
+  version line-change ledger. Every feature addition or bug fix must be
+  exercised with a focused .txt input through compile.bat; the full regression
+  PDF is not required after every small or documentation-only change.

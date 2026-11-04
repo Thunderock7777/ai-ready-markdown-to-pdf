@@ -181,6 +181,12 @@ manual\WORKFLOW_ARCHITECTURE.txt
   regression command now uses a portable relative path and says to run it from
   the tool root instead of embedding a machine-specific D:\latex_editor path.
 
+manual\MARKDOWN_NORMALIZER_ARCHITECTURE.txt and
+manual\CODE_FENCE_RUNNER_ARCHITECTURE.txt
+  Status: added as filter implementation guides.
+  They document each filter's entry point and function responsibilities,
+  configuration/state, execution order, and practical change/validation steps.
+
 manual\FILTER_FEATURE_REGRESSION.txt
   Status: current after this audit.
   It is the executable regression fixture rather than a setup manual and is

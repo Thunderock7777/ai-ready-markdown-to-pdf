@@ -23,6 +23,8 @@ Recommended folder layout
             FILTER_FEATURE_REGRESSION_PART2.txt
             CONTRIBUTING_AND_VERSIONING.txt
             INSTALL_AND_USE.txt
+            CODE_FENCE_RUNNER_ARCHITECTURE.txt
+            MARKDOWN_NORMALIZER_ARCHITECTURE.txt
             WORKFLOW_ARCHITECTURE.txt
             WORKFLOW_ASSESSMENT.txt
         md2pdf_cache\                    (created as needed; disposable)
@@ -271,8 +273,3 @@ Extension points
   config\custom.tex, keeping its documented limitations accurate.
 - Update this document whenever invocation, ordering, cache semantics,
   metadata handling, output placement, or supported contracts change.
-- Before making project changes, follow manual\CONTRIBUTING_AND_VERSIONING.txt:
-  review README.md and all manuals, select focused tests, and maintain the
-  version line-change ledger. Every feature addition or bug fix must be
-  exercised with a focused .txt input through compile.bat; the full regression
-  PDF is not required after every small or documentation-only change.

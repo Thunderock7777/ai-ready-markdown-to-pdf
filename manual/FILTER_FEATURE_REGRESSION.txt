@@ -589,7 +589,9 @@ Multi-file regression
 The single-input build above does not test multi-file merging. From the tool
 root, run this additional build with the companion input as the second file:
 
-    .\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt" ".\manual\FILTER_FEATURE_REGRESSION_PART2.txt"
+    .\compile.bat `
+        ".\manual\FILTER_FEATURE_REGRESSION.txt" `
+        ".\manual\FILTER_FEATURE_REGRESSION_PART2.txt"
 
 The resulting PDF is again written beside the first input. Extract or inspect
 its text and verify the four unique markers occur exactly once in this order:

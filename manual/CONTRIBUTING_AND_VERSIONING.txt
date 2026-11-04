@@ -26,6 +26,10 @@ time rebuilding the full regression document for every small edit.
 5. If the request, intended behavior, or scope is unclear, do not make a
    change based on assumptions. Ask the user a specific clarifying question
    and wait for the answer before editing.
+6. Prefer a logically general solution that addresses the underlying behavior
+   over a one-off fix for a single example. Keep the implementation focused on
+   the demonstrated requirement; generality must not introduce unrelated
+   behavior, speculative edge-case handling, or unnecessary abstraction.
 
 2. Implementation comments and source changes
 ----------------------------------------------

@@ -658,7 +658,7 @@ Step-by-step change and validation guide
    broad fixture includes intentional Python errors; follow its expected
    results rather than interpreting those deliberate errors as an unexpected
    build failure.
-9. Run git diff --check; inspect the final source and manual diffs. Do not
+9. Run git diff --check; inspect the final source and documentation diffs. Do not
    include cache, temporary build files, or unrelated generated/user files.
 
 Important invariants

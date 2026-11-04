@@ -16,7 +16,7 @@ Keep this folder structure together:
             custom.tex
             markdown-normalizer.lua
             code-fence-runner.lua
-        manual\
+        documentation\
             FILTER_FEATURE_REGRESSION.txt
             FILTER_FEATURE_REGRESSION_PART2.txt
             CONTRIBUTING_AND_VERSIONING.txt
@@ -26,10 +26,10 @@ Keep this folder structure together:
             WORKFLOW_ARCHITECTURE.txt
             WORKFLOW_ASSESSMENT.txt
 
-The manual\ folder contains the workflow guides and regression fixture; it is
+The documentation\ folder contains the workflow guides and regression fixture; it is
 not a required location for your own notes. Keep personal input files wherever
 convenient. The generated PDF is saved beside the first input file; compiling a
-file from manual\ puts its PDF there. The config folder contains only the
+file from documentation\ puts its PDF there. The config folder contains only the
 template and filters.
 
 Required tool files: compile.bat in the root, plus custom.tex,
@@ -167,7 +167,7 @@ Create your first PDF
    path from the current directory):
 
        .\compile.bat "C:\Users\you\Documents\my-notes.txt"
-       .\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt"
+       .\compile.bat ".\documentation\FILTER_FEATURE_REGRESSION.txt"
 
 4. Find the PDF beside the first input file. Therefore, a file in
    Documents\ produces its PDF in Documents\, not beside compile.bat. The config
@@ -286,4 +286,4 @@ What you do not need
 
 For detailed filter order, cache internals, metadata behavior, supported input
 contracts, failure modes, and extension guidance, read
-manual\WORKFLOW_ARCHITECTURE.txt.
+documentation\WORKFLOW_ARCHITECTURE.txt.

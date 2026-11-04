@@ -40,7 +40,7 @@ Keep the compiler and its configuration files together:
 your-tool-folder/
 ├── compile.bat
 ├── README.md
-├── manual/
+├── documentation/
 │   ├── FILTER_FEATURE_REGRESSION.txt
 │   ├── FILTER_FEATURE_REGRESSION_PART2.txt
 │   ├── CONTRIBUTING_AND_VERSIONING.txt
@@ -72,7 +72,7 @@ that folder when no build is running; cached results will be regenerated.
   it: `py -m pip install matplotlib`.
 
 For LaTeX packages, use MiKTeX with automatic package installation enabled or a
-full TeX Live installation. See [INSTALL_AND_USE.txt](manual/INSTALL_AND_USE.txt) for
+full TeX Live installation. See [INSTALL_AND_USE.txt](documentation/INSTALL_AND_USE.txt) for
 installation steps, command-line options, troubleshooting, and examples.
 
 ## Quick start
@@ -95,7 +95,7 @@ These two cases show how to specify the input:
 ```
 
 You can also pass a relative path from the tool folder, for example
-`.\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt"`. The PDF is saved
+`.\compile.bat ".\documentation\FILTER_FEATURE_REGRESSION.txt"`. The PDF is saved
 beside the first input file, not necessarily beside `compile.bat`.
 
 Combine files by passing their quoted paths in the desired order:
@@ -202,36 +202,36 @@ permissions and can access files and resources available to your account.
 To run the bundled end-to-end regression document, compile it by itself:
 
 ```powershell
-.\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt"
+.\compile.bat ".\documentation\FILTER_FEATURE_REGRESSION.txt"
 ```
 
 Run this command from the tool root. The fixture PDF is written beside the
-input, in `manual\`. The fixture intentionally contains expected warnings and
+input, in `documentation\`. The fixture intentionally contains expected warnings and
 Python failures to exercise error handling; read its opening section for
 expected results.
 
 The companion fixture also tests combining two inputs in order:
 
 ```powershell
-.\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt" ".\manual\FILTER_FEATURE_REGRESSION_PART2.txt"
+.\compile.bat ".\documentation\FILTER_FEATURE_REGRESSION.txt" ".\documentation\FILTER_FEATURE_REGRESSION_PART2.txt"
 ```
 
 The expected markers and verification steps are documented in the regression
 fixture.
 
-- [INSTALL_AND_USE.txt](manual/INSTALL_AND_USE.txt) — beginner installation and usage guide.
-- [WORKFLOW_ARCHITECTURE.txt](manual/WORKFLOW_ARCHITECTURE.txt) — detailed pipeline,
+- [INSTALL_AND_USE.txt](documentation/INSTALL_AND_USE.txt) — beginner installation and usage guide.
+- [WORKFLOW_ARCHITECTURE.txt](documentation/WORKFLOW_ARCHITECTURE.txt) — detailed pipeline,
   filter-order, cache, and maintenance documentation.
-- [MARKDOWN_NORMALIZER_ARCHITECTURE.txt](manual/MARKDOWN_NORMALIZER_ARCHITECTURE.txt) —
+- [MARKDOWN_NORMALIZER_ARCHITECTURE.txt](documentation/MARKDOWN_NORMALIZER_ARCHITECTURE.txt) —
   normalizer function reference, stages, state, and change/test guide.
-- [CODE_FENCE_RUNNER_ARCHITECTURE.txt](manual/CODE_FENCE_RUNNER_ARCHITECTURE.txt) —
+- [CODE_FENCE_RUNNER_ARCHITECTURE.txt](documentation/CODE_FENCE_RUNNER_ARCHITECTURE.txt) —
   runner function reference, Python wrapper/cache flow, and change/test guide.
-- [FILTER_FEATURE_REGRESSION.txt](manual/FILTER_FEATURE_REGRESSION.txt) — broad
+- [FILTER_FEATURE_REGRESSION.txt](documentation/FILTER_FEATURE_REGRESSION.txt) — broad
   feature and failure-path validation input.
-- [CONTRIBUTING_AND_VERSIONING.txt](manual/CONTRIBUTING_AND_VERSIONING.txt) —
+- [CONTRIBUTING_AND_VERSIONING.txt](documentation/CONTRIBUTING_AND_VERSIONING.txt) —
   project change, documentation, mandatory focused `.txt` testing, and
   version-tracking rules.
-- [WORKFLOW_ASSESSMENT.txt](manual/WORKFLOW_ASSESSMENT.txt) — candid scorecard,
+- [WORKFLOW_ASSESSMENT.txt](documentation/WORKFLOW_ASSESSMENT.txt) — candid scorecard,
   limitations, and documentation audit.
 
 ## Known limitations

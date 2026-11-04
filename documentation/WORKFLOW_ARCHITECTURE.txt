@@ -18,7 +18,7 @@ Recommended folder layout
             custom.tex
             markdown-normalizer.lua
             code-fence-runner.lua
-        manual\
+        documentation\
             FILTER_FEATURE_REGRESSION.txt
             FILTER_FEATURE_REGRESSION_PART2.txt
             CONTRIBUTING_AND_VERSIONING.txt
@@ -31,7 +31,7 @@ Recommended folder layout
         your own input .md/.txt files and PDFs (wherever convenient)
 
 Keep compile.bat at the root and the three configuration files under config\.
-The manual\ folder is only for workflow documentation and its regression
+The documentation\ folder is only for workflow documentation and its regression
 fixture; user input files may live anywhere. The output PDF stays beside the
 first input, not in config\. The cache is rooted beside compile.bat so generated
 cache files do not mix with source notes.
@@ -100,8 +100,8 @@ math, fenced Divs, pipe tables, and bare-URL autolinking while disabling
 Markdown subscript/superscript parsing. Standard Markdown lists and Pandoc task
 lists are recognized: `- item` is a bullet, and `- [ ] item` / `- [x] item`
 are task-list entries. A bare `[ ] item` without the list marker is paragraph
-text, not a list. This distinction is covered in manual\INSTALL_AND_USE.txt and
-manual\FILTER_FEATURE_REGRESSION.txt. Multiple files retain command-line content
+text, not a list. This distinction is covered in documentation\INSTALL_AND_USE.txt and
+documentation\FILTER_FEATURE_REGRESSION.txt. Multiple files retain command-line content
 order. The first cleaned YAML value is retained and later YAML maps fill
 missing keys; Pandoc's aggregate metadata is overlaid afterward, so conflicting
 values follow Pandoc's multi-input precedence and command-line overrides.
@@ -217,12 +217,12 @@ Testing and maintenance
 -----------------------
 The checked-in broad regression input exercises the normal end-to-end path:
 
-       .\compile.bat "manual\FILTER_FEATURE_REGRESSION.txt"
+       .\compile.bat "documentation\FILTER_FEATURE_REGRESSION.txt"
 
 Run that command from the tool root. The generated PDF is beside the fixture in
-manual\. It intentionally includes a controlled Python failure and expected
+documentation\. It intentionally includes a controlled Python failure and expected
 cleanup warnings; those are not Pandoc/XeLaTeX build failures. Its companion
-beginner setup guide is manual\INSTALL_AND_USE.txt. The fixture is compiled by
+beginner setup guide is documentation\INSTALL_AND_USE.txt. The fixture is compiled by
 itself with compile.bat and covers Markdown/task-list syntax, LaTeX preamble
 recovery, Python execution/cache/failure behavior, citations, and figure
 embedding. It also contrasts default cached Python, run=new fresh execution,
@@ -231,7 +231,7 @@ coin-flip running-average probability graph.
 
 The separate multi-input check uses both regression inputs in one invocation:
 
-       .\compile.bat "manual\FILTER_FEATURE_REGRESSION.txt" "manual\FILTER_FEATURE_REGRESSION_PART2.txt"
+       .\compile.bat "documentation\FILTER_FEATURE_REGRESSION.txt" "documentation\FILTER_FEATURE_REGRESSION_PART2.txt"
 
 The first input determines the PDF path. Verify the four
 MULTI_INPUT_PART_* markers appear exactly once in the PDF, ordered as documented

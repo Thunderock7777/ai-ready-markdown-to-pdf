@@ -45,7 +45,7 @@ In File Explorer, drag this file onto compile.bat, or run the following from
 PowerShell after changing to the tool folder (the folder containing
 compile.bat):
 
-    .\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt"
+    .\compile.bat ".\documentation\FILTER_FEATURE_REGRESSION.txt"
 
 The template and filters are read from the config folder beside compile.bat.
 The PDF should be created beside this .txt file with the same base name.
@@ -590,8 +590,8 @@ The single-input build above does not test multi-file merging. From the tool
 root, run this additional build with the companion input as the second file:
 
     .\compile.bat `
-        ".\manual\FILTER_FEATURE_REGRESSION.txt" `
-        ".\manual\FILTER_FEATURE_REGRESSION_PART2.txt"
+        ".\documentation\FILTER_FEATURE_REGRESSION.txt" `
+        ".\documentation\FILTER_FEATURE_REGRESSION_PART2.txt"
 
 The resulting PDF is again written beside the first input. Extract or inspect
 its text and verify the four unique markers occur exactly once in this order:

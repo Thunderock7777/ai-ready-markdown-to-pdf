@@ -545,7 +545,7 @@ Step-by-step change and validation guide
    Run FILTER_FEATURE_REGRESSION.txt when its affected integration surface
    warrants the broader test; its Python failure is deliberate. Do not claim a
    build was performed unless it actually was.
-10. Run git diff --check, inspect the source/manual diff, and exclude cache,
+10. Run git diff --check, inspect the source/documentation diff, and exclude cache,
     temporary wrappers, generated files, and personal inputs unless explicitly
     requested.
 

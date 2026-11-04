@@ -1,0 +1,72 @@
+The derivation of the projectile motion trajectory equation demonstrates that an object in free fall follows a parabolic path. Below is the LaTeX code for the trajectory diagram using `tikzpicture`, followed by the mathematical derivation.
+
+**LaTeX Diagram Code (TikZ):**
+
+```latex
+\documentclass[border=5mm]{standalone}
+\usepackage{tikz}
+
+\begin{document}
+\begin{tikzpicture}[
+    scale=1.5,
+    >=stealth 
+]
+    % Draw x and y axes
+    \draw[->, thick] (-0.2,0) -- (4.5,0) node[right] {$x$};
+    \draw[->, thick] (0,-0.2) -- (0,2.5) node[above] {$y$};
+    
+    % Draw the parabolic trajectory 
+    % Math: y = 2x - 0.5x^2 (Initial slope dy/dx at x=0 is exactly 2)
+    \draw[thick, blue] (0,0) parabola bend (2, 2) (4, 0);
+    \node[blue, above right] at (2.2, 1.8) {Trajectory};
+    
+    % Draw the initial velocity vector (red) tangent to the path (slope = 2)
+    \draw[->, thick, red] (0,0) -- (1, 2) node[above left] {$\vec{v}_0$};
+    
+    % Draw horizontal and vertical velocity components (dashed)
+    \draw[dashed] (1, 2) -- (1, 0) node[below] {$v_{0x}$};
+    \draw[dashed] (1, 2) -- (0, 2) node[left] {$v_{0y}$};
+    
+    % Draw the launch angle theta
+    % The angle for a slope of 2 is arctan(2) ≈ 63.4 degrees
+    \draw (0.4,0) arc[start angle=0, end angle=63.4, radius=0.4];
+    \node at (0.6, 0.3) {$\theta$};
+    
+\end{tikzpicture}
+\end{document}
+```
+
+**Derivation of the Trajectory Equation:**
+
+1. **Horizontal Motion (Constant Velocity):**
+There is no acceleration in the horizontal direction ($a_x = 0$). The horizontal position $x$ at any time $t$ is determined by the initial horizontal velocity component.
+
+$$x = (v_0 \cos\theta) t$$
+
+
+
+Solving for time $t$:
+
+$$t = \frac{x}{v_0 \cos\theta}$$
+
+
+2. **Vertical Motion (Constant Acceleration):**
+The object experiences constant downward acceleration due to gravity ($a_y = -g$). The vertical position $y$ at time $t$ is:
+
+$$y = (v_0 \sin\theta) t - \frac{1}{2}gt^2$$
+
+
+3. **Substitution:**
+Substitute the expression for $t$ from the horizontal equation into the vertical equation to eliminate time and relate $y$ directly to $x$:
+
+$$y = (v_0 \sin\theta) \left( \frac{x}{v_0 \cos\theta} \right) - \frac{1}{2}g \left( \frac{x}{v_0 \cos\theta} \right)^2$$
+
+
+4. **Simplification:**
+Cancel $v_0$ in the first term and use the trigonometric identity $\frac{\sin\theta}{\cos\theta} = \tan\theta$:
+
+$$y = x \tan\theta - \frac{g x^2}{2 v_0^2 \cos^2\theta}$$
+
+
+
+This final equation takes the form $y = Ax - Bx^2$ (where $A$ and $B$ are constants), which is the standard mathematical equation for a parabola.

@@ -13,9 +13,9 @@ time rebuilding the full regression document for every small edit.
 1. Inspect the repository layout and current version-control status. Identify
    generated files, caches, user inputs, and any uncommitted changes. Preserve
    work that is not part of the requested task.
-2. Read README.md and every text manual in manual\ in full before making
+2. Read README.md and every text guide in documentation\ in full before making
    implementation or architecture changes. For a small, isolated change, at
-   minimum read the relevant manual sections and check the other manuals for
+   minimum read the relevant guide sections and check the other guides for
    conflicting statements.
 3. Trace the behavior through the actual implementation before editing. The
    principal components are compile.bat, config\markdown-normalizer.lua,
@@ -41,7 +41,7 @@ time rebuilding the full regression document for every small edit.
   non-obvious. Do not add comments that merely repeat the next line of code.
 - If a change touches Lua, batch, or TeX files, review comments in every
   touched implementation file for accuracy. Do not leave stale comments or
-  duplicate the manuals verbatim in source.
+  duplicate the documentation verbatim in source.
 - Preserve the critical order in compile.bat:
   markdown-normalizer.lua must run before code-fence-runner.lua.
 - Do not silently discard content or turn errors into success-shaped output.
@@ -51,18 +51,18 @@ time rebuilding the full regression document for every small edit.
 3. Documentation review after every project change
 --------------------------------------------------
 After a behavior, feature, bug-fix, or architecture change:
-1. Re-read README.md and review every .txt file in manual\ for statements
+1. Re-read README.md and review every .txt file in documentation\ for statements
    affected by the change.
-2. Update README.md and each affected manual in the same change. At minimum,
+2. Update README.md and each affected guide in the same change. At minimum,
    update the architecture guide for pipeline, ordering, cache, or contract
    changes; the installation guide for setup or user instructions; and the
    regression fixture when supported behavior or expected output changes.
-3. Confirm that unaffected manuals remain accurate. Do not edit unrelated files
+3. Confirm that unaffected guides remain accurate. Do not edit unrelated files
    merely to make every document appear changed; record no change when the
    content is still correct.
 4. Keep command examples, paths, folder layout, feature descriptions, known
    limitations, and expected results consistent. The README is the GitHub
-   entry point and must not contradict a manual.
+   entry point and must not contradict a guide.
 
 Documentation-only edits still require checking links and nearby references,
 but do not require a PDF build unless a documentation test specifically needs
@@ -185,7 +185,7 @@ Documentation-only or regression-fixture-only changes add a ledger entry with
 7. Release readiness
 -------------------
 Before publishing a version:
-- Confirm the README and every manual are accurate and internally consistent.
+- Confirm the README and every documentation file are accurate and internally consistent.
 - Review the source diff and ensure the version ledger is current.
 - Run focused checks for the changed behavior and the single-/multi-input
   regression when changes affect end-to-end compilation.

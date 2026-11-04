@@ -67,7 +67,8 @@ Scorecard
    order. The fixtures provide broad coverage, not proof of every possible
    case; intentional Python failures are included. This remains a manual
    regression procedure, not a fully automated test suite or multi-version CI
-   matrix.
+   matrix. The fixture also compares default cached Python, run=new, and
+   run=false using optional NumPy/Matplotlib probability graphs.
 
 6. User experience and documentation:      9.0 / 10
    README.md gives a quick overview and examples; manual\INSTALL_AND_USE.txt
@@ -75,8 +76,10 @@ Scorecard
    pipeline and extension guidance. The Python package pre-install requirement,
    Windows-only invocation, filter ordering, run=new behavior, and relative
    asset resolution are documented. The AI-response workflow now explicitly
-   says to paste into a .txt file and compile, without claiming universal
-   compatibility.
+   says intact, uncorrupted chat responses can be pasted into a .txt file and
+   compiled with zero editing when supported. It distinguishes Gemini
+   search-engine suggestions, which usually lack fences needed to recognize and
+   execute code, and avoids claiming universal compatibility.
 
 7. Security and isolation:                 5.0 / 10
    Python fences execute with the user's permissions. There is no sandbox,
@@ -159,6 +162,16 @@ manual\INSTALL_AND_USE.txt
   troubleshooting. This audit clarified that output is beside the first input
   (the tool root only when the input is kept there), and added the no-manual-
   editing AI-response steps with a compatibility boundary.
+
+manual\CONTRIBUTING_AND_VERSIONING.txt
+  Status: added as the project maintenance policy.
+  It requires repository/manual review, source comments for non-obvious
+  behavior and architecture changes, an impact review of all manuals and the
+  README, a focused .txt compile through compile.bat for every feature addition
+  or bug fix, avoiding unnecessary rebuilds of the large regression fixture,
+  and a 500-changed-line version ledger starting at 1.0.0. The ledger counts
+  changes only in project-maintained system files that affect workflow behavior,
+  excluding documentation, regression fixtures, and sample/user inputs.
 
 manual\WORKFLOW_ARCHITECTURE.txt
   Status: current after this audit.

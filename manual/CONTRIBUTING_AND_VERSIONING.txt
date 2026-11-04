@@ -1,0 +1,197 @@
+PROJECT WORKING RULES
+====================
+
+Purpose
+-------
+These rules apply to anyone changing this repository. Read this file before
+making a change. The goal is to preserve the workflow's behavior, keep its
+documentation trustworthy, and make version changes auditable without wasting
+time rebuilding the full regression document for every small edit.
+
+1. Before changing anything
+---------------------------
+1. Inspect the repository layout and current version-control status. Identify
+   generated files, caches, user inputs, and any uncommitted changes. Preserve
+   work that is not part of the requested task.
+2. Read README.md and every text manual in manual\ in full before making
+   implementation or architecture changes. For a small, isolated change, at
+   minimum read the relevant manual sections and check the other manuals for
+   conflicting statements.
+3. Trace the behavior through the actual implementation before editing. The
+   principal components are compile.bat, config\markdown-normalizer.lua,
+   config\code-fence-runner.lua, and config\custom.tex. Keep their contracts
+   and filter order in mind.
+4. State the requested behavior and its acceptance check before editing. Keep
+   the change focused; do not fold unrelated cleanup into it.
+5. If the request, intended behavior, or scope is unclear, do not make a
+   change based on assumptions. Ask the user a specific clarifying question
+   and wait for the answer before editing.
+6. Prefer a logically general solution that addresses the underlying behavior
+   over a one-off fix for a single example. Keep the implementation focused on
+   the demonstrated requirement; generality must not introduce unrelated
+   behavior, speculative edge-case handling, or unnecessary abstraction.
+
+2. Implementation comments and source changes
+----------------------------------------------
+- Before implementing a new feature or changing architecture, add or revise a
+  concise source comment at the relevant implementation point that records the
+  intended behavior, important invariant, or ordering constraint. Then make
+  the implementation match that documented intent in the same change.
+- For bug fixes, update or add a source comment when the reason or invariant is
+  non-obvious. Do not add comments that merely repeat the next line of code.
+- If a change touches Lua, batch, or TeX files, review comments in every
+  touched implementation file for accuracy. Do not leave stale comments or
+  duplicate the manuals verbatim in source.
+- Preserve the critical order in compile.bat:
+  markdown-normalizer.lua must run before code-fence-runner.lua.
+- Do not silently discard content or turn errors into success-shaped output.
+  Keep user-visible warnings and failures consistent with the surrounding
+  code's conventions.
+
+3. Documentation review after every project change
+--------------------------------------------------
+After a behavior, feature, bug-fix, or architecture change:
+1. Re-read README.md and review every .txt file in manual\ for statements
+   affected by the change.
+2. Update README.md and each affected manual in the same change. At minimum,
+   update the architecture guide for pipeline, ordering, cache, or contract
+   changes; the installation guide for setup or user instructions; and the
+   regression fixture when supported behavior or expected output changes.
+3. Confirm that unaffected manuals remain accurate. Do not edit unrelated files
+   merely to make every document appear changed; record no change when the
+   content is still correct.
+4. Keep command examples, paths, folder layout, feature descriptions, known
+   limitations, and expected results consistent. The README is the GitHub
+   entry point and must not contradict a manual.
+
+Documentation-only edits still require checking links and nearby references,
+but do not require a PDF build unless a documentation test specifically needs
+one.
+
+4. Testing and the regression fixture
+-------------------------------------
+- Mandatory for every feature addition and bug fix: create or update a focused
+  `.txt` test input that exercises the changed behavior, then run that input
+  through the real `compile.bat` workflow. Verify the relevant PDF content,
+  console warning/error, or Python side effect—not merely that the process
+  exited. Keep the case in the regression fixture when it is a lasting
+  supported behavior; otherwise use a disposable `.txt` file and remove it
+  after the test.
+- If the behavior is specifically multi-input, use at least two `.txt` inputs.
+  If it involves Python, exercise it only with trusted test code and verify the
+  expected output/cache/side effect. For an expected failure, confirm the
+  expected diagnostic and whether the PDF is or is not produced/preserved.
+- Additional focused checks such as Lua filter loading, static path/link
+  checks, or cache-unit probes are useful, but do not replace the required
+  `.txt`-based workflow test for a feature or bug fix.
+- Documentation-only, comment-only, and formatting-only changes do not require
+  a `.txt` compile unless they alter a documented example or expected behavior;
+  validate links, paths, and wording instead.
+- Do NOT compile FILTER_FEATURE_REGRESSION.txt after every change. It is a
+  comparatively large end-to-end demonstration; rebuilding it for an unrelated
+  documentation edit or a small isolated change wastes time and compute.
+- The mandatory `.txt` test is a small, targeted test case, not a requirement to
+  rebuild the full FILTER_FEATURE_REGRESSION fixture. A short disposable test
+  input is sufficient when it verifies the exact change.
+- The regression fixture is available to any user as an end-to-end workflow
+  check. Its single-input and two-input commands, expected warnings, marker
+  checks, and output location are documented in
+  FILTER_FEATURE_REGRESSION.txt.
+- Run the relevant fixture when changing the pipeline, either Lua filter,
+  template behavior, Python execution/cache behavior, or when a complete
+  integration check is needed. Run it before a release when practical, or when
+  the user explicitly requests full validation. Do not claim it was run if it
+  was not run.
+- Do not mark a feature or bug fix complete until its focused `.txt` test has
+  run through `compile.bat` and its expected behavior has been checked. If
+  required dependencies or tools are unavailable, report the test as blocked
+  and state the blocker; do not silently substitute a weaker check.
+- When a test is skipped, state why and report which focused checks were run.
+  Expected Python failure messages inside the fixture are not themselves a
+  failed PDF build; verify the expected PDF/output as documented.
+
+5. Git and change hygiene
+-------------------------
+- Check `git status` before and after work. Never discard or overwrite unrelated
+  user changes.
+- Keep each commit focused and explain the user-visible reason. Review the
+  staged diff, including documentation and generated files, before committing.
+- Do not commit md2pdf_cache contents, temporary build files, or personal
+  input/output files. This repository already tracks a regression PDF; update
+  that existing artifact only when the requested deliverable or an agreed
+  release process requires it. Do not regenerate or stage it for routine edits.
+- Do not use destructive history rewriting or force-push shared branches.
+- Keep user changes and generated artifacts separate from source changes. The
+  repository's .gitignore is the authority for ignored runtime files; review it
+  before adding new generated output.
+
+6. Version policy and line-change tracking
+-------------------------------------------
+Starting version: 1.0.0
+Line-change budget: 500 changed lines per version cycle
+Starting accumulated count: 0
+
+The project adopts 1.0.0 as its working baseline when this policy is accepted.
+At the time this rule was written, the repository had no version tags, so this
+text does not claim that a Git tag or published GitHub release already exists.
+After the baseline change is committed, create or designate the Git tag v1.0.0
+if a formal release tag is wanted. Do not move an existing release tag.
+
+Counting rule:
+- Count changed lines only in project-maintained system files whose content
+  directly affects workflow execution, processing, configuration, or output.
+  Exclude documentation, regression fixtures, sample/user inputs, and other
+  non-implementation content. A replacement counts as one deletion plus one
+  addition. Renames with no content changes count as zero.
+- Do not count .git internals, caches, temporary files, generated PDFs or other
+  generated binaries, or personal documents that are not project-maintained.
+- For each merged/accepted change, record its date or commit identifier, a
+  short description, the added/deleted line counts for qualifying system
+  files only, and the new cumulative total in the ledger below. Use Git diff
+  statistics, classify changed paths by their role in the workflow, sum
+  numeric additions and deletions for qualifying files, and skip binary rows.
+  Do not stage personal files or generated artifacts just to count them, and
+  do not estimate from file length.
+- Once the cumulative total reaches or exceeds 500, increment the project
+  version, record the new version and reason, and reset the next cycle's count
+  to zero. A single large change that crosses the threshold triggers one
+  version increment; the new cycle starts at zero.
+- At that threshold, use semantic versioning to choose the increment:
+  incompatible public behavior/API change -> MAJOR; backward-compatible
+  user-facing feature -> MINOR; bug fix, documentation, or maintenance-only
+  release -> PATCH. The 500-line threshold triggers a version update; it does
+  not by itself determine which version component changes.
+- Update this ledger and any version references in README.md in the same
+  versioning change. Create the corresponding Git tag/release only after the
+  versioned change is committed and validated.
+
+Line-count ledger
+-----------------
+Baseline
+  Version: 1.0.0
+  Starting count: 0 / 500
+  Baseline tag: pending; no version tags existed when this policy was written.
+
+For each later accepted change, append one entry in this format:
+
+  YYYY-MM-DD | commit-or-change-id | short description | source +added / -deleted | cumulative / 500
+
+After a version increment, add a new cycle header with the new version and
+reset count. Retain prior entries so the progression remains reviewable.
+Documentation-only or regression-fixture-only changes add a ledger entry with
+`source +0 / -0` if they are otherwise being recorded; they do not consume the
+500-line budget.
+
+7. Release readiness
+-------------------
+Before publishing a version:
+- Confirm the README and every manual are accurate and internally consistent.
+- Review the source diff and ensure the version ledger is current.
+- Run focused checks for the changed behavior and the single-/multi-input
+  regression when changes affect end-to-end compilation.
+- Confirm generated PDFs/logs/caches and personal files are not included
+  accidentally.
+- Verify the version/tag and release notes describe what was actually tested.
+
+These are project maintenance rules, not a promise that every platform,
+dependency combination, or arbitrary input is supported.

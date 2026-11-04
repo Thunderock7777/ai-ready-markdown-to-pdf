@@ -19,6 +19,7 @@ Keep this folder structure together:
         manual\
             FILTER_FEATURE_REGRESSION.txt
             FILTER_FEATURE_REGRESSION_PART2.txt
+            CONTRIBUTING_AND_VERSIONING.txt
             INSTALL_AND_USE.txt
             CODE_FENCE_RUNNER_ARCHITECTURE.txt
             MARKDOWN_NORMALIZER_ARCHITECTURE.txt
@@ -33,6 +34,14 @@ template and filters.
 
 Required tool files: compile.bat in the root, plus custom.tex,
 markdown-normalizer.lua, and code-fence-runner.lua inside config.
+
+Best use
+--------
+Use this workflow to organize AI-assisted scientific literature-study notes
+into a PDF and create visualizations from supplied data with Python. Verify the
+papers, citations, claims, and data yourself; the tool formats and compiles
+content but does not validate scientific sources or AI conclusions. Python
+fences execute with your permissions, so run only code you trust.
 
 You do not need to install LaTeX packages separately one by one if you use
 MiKTeX with package installation enabled or a full TeX Live installation.
@@ -98,13 +107,14 @@ What to install
    package causes that Python fence to fail; the PDF build does not install it
    automatically.
 
-4. Optional: Matplotlib
-   Needed only for Python code that imports Matplotlib, such as the plotting
-   example. It is not required for ordinary text/math PDFs or Python fences
-   that use only the standard library. Install it before compiling if needed.
+4. Optional: NumPy and Matplotlib
+   Needed only for Python code that imports them. The regression fixture's
+   probability/running-average graph uses both; ordinary text/math PDFs and
+   standard-library-only Python fences do not need them. Install before
+   compiling the graph example:
 
    Command line:
-   py -m pip install matplotlib
+   py -m pip install numpy matplotlib
 
    Project website:
    https://matplotlib.org/stable/install/
@@ -123,10 +133,10 @@ Winget does not have the requested Python package ID on your Windows version,
 use the official Python website above. Restart the terminal after installing
 software so PATH changes are recognized.
 
-Install optional Python dependencies separately, before compiling. For example,
-only if your Python code imports Matplotlib:
+Install optional Python dependencies separately, before compiling. For the
+regression fixture's probability graph:
 
-    py -m pip install matplotlib
+    py -m pip install numpy matplotlib
 
 Check that installation worked
 ------------------------------
@@ -165,12 +175,16 @@ Create your first PDF
 
 Compile an AI response without editing it
 -----------------------------------------
-Copy a response from ChatGPT, Gemini, NotebookLM, or another assistant, paste it
-as-is into a .txt file, and compile that file with compile.bat. Do not wrap the
-entire response in a code fence. The filters handle common Markdown, math, and
-selected pasted-LaTeX patterns, so supported content needs no manual cleanup.
-This is not a guarantee that every arbitrary LaTeX command, attachment, or
-service-specific format will work unchanged.
+Copy a complete, uncorrupted response from ChatGPT, Gemini chat, NotebookLM, or
+another assistant, paste it as-is into a .txt file, and compile that file with
+compile.bat. Supported content can be compiled with zero editing. Do not wrap
+the entire response in a code fence.
+
+This does not guarantee that every arbitrary LaTeX command, attachment, or
+service-specific format will work unchanged. In particular, Gemini search-
+engine suggestions usually do not include fenced code blocks. Code in such a
+suggestion will not be recognized or executed as a code block unless the
+required fence is added; prose-only suggestions can still be compiled as text.
 
 To combine files, pass quoted paths in the desired order:
 
@@ -276,3 +290,6 @@ manual\WORKFLOW_ARCHITECTURE.txt. For function-by-function implementation
 details and step-by-step filter change/build guidance, read
 manual\MARKDOWN_NORMALIZER_ARCHITECTURE.txt and
 manual\CODE_FENCE_RUNNER_ARCHITECTURE.txt.
+manual\WORKFLOW_ARCHITECTURE.txt.
+Before modifying the project, also read
+manual\CONTRIBUTING_AND_VERSIONING.txt.

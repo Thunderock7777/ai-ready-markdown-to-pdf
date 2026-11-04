@@ -149,11 +149,12 @@ Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 ```
 ````
 
-Python fences execute by default:
+Python fences render as source by default. Add `trusted=true` or an explicit
+`run=true`/`run=new` to execute a block:
 
 ````markdown
-```{.python}
-print("Hello from Python")
+```{.python trusted=true}
+print("This block only runs because it is explicitly trusted.")
 ```
 ````
 
@@ -165,14 +166,15 @@ Supported executable-language names include `python`, `py`, `python3`, and
 Options are written as Pandoc fence attributes:
 
 ````markdown
-```{.python run=new show=false}
+```{.python trusted=true run=new show=false}
 print("This block runs freshly for this build.")
 ```
 ````
 
 | Attribute | Effect |
 |---|---|
-| Omitted `run` or `run=true` | Execute when needed; reuse a valid cached result. |
+| `trusted=true` | Explicitly mark the block as safe to run. Only trusted Python blocks execute. |
+| `run=true` | Explicit opt-in to execute; reuse a valid cached result. |
 | `run=new` | Force execution for this build and refresh the cache on success. |
 | `cache=false` | Also force a fresh execution. |
 | `run=false` | Do not execute; render as a code listing. |

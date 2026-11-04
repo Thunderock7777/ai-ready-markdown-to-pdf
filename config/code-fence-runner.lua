@@ -29,8 +29,9 @@
 --                  A bare snippet is pasted as is, so it must not contain \usepackage etc.
 --
 --  Attributes (same for every executable language)
+--     trusted=true        execute this Python block only when it is explicitly trusted
 --     run=false           do not execute; the block stays a normal code listing
---     run=true            execute normally; this is also the default when `run` is omitted
+--     run=true            explicitly execute this block; this is the safe opt-in for trusted code
 --                         run=true does not bypass cache; use run=new or cache=false to force a run
 --     run=new             always execute this block now, bypassing cache, then refresh its entry
 --     show=false          hide the source listing         (latex: show=true shows it)
@@ -815,12 +816,22 @@ local function render(el, spec, res)
 end
 
 -- ------------------------------ 5. dispatch ---------------------------------
+local function should_execute_python_block(el)
+  local a = el.attributes
+  if a["run"] == "false" then return false end
+  if a["trusted"] == "true" then return true end
+  if a["run"] == "true" or a["run"] == "new" or a["cache"] == "false" then return true end
+  return false
+end
+
 local function process_code_block(el, preamble)
-  if el.attributes["run"] == "false" then return nil end
   local class = (el.classes[1] or ""):lower()
   local spec = LANGS[class]
   if not spec then return nil end
   if spec.render then return spec.render(el, class, preamble) end
+  if spec.id == "python" and not should_execute_python_block(el) then
+    return pandoc.CodeBlock(el.text, pandoc.Attr("", { "python" }))
+  end
   return render(el, spec, run_exec(el, spec))
 end
 

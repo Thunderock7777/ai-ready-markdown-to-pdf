@@ -15,6 +15,7 @@ echo.
 echo ==========================================
 echo    Markdown + LaTeX  ->  PDF
 echo ==========================================
+echo If you want to terminate the job, press Ctrl + C
 echo.
 
 REM =========================================================

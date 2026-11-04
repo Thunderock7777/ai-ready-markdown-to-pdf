@@ -76,8 +76,10 @@ Scorecard
    pipeline and extension guidance. The Python package pre-install requirement,
    Windows-only invocation, filter ordering, run=new behavior, and relative
    asset resolution are documented. The AI-response workflow now explicitly
-   says to paste into a .txt file and compile, without claiming universal
-   compatibility.
+   says intact, uncorrupted chat responses can be pasted into a .txt file and
+   compiled with zero editing when supported. It distinguishes Gemini
+   search-engine suggestions, which usually lack fences needed to recognize and
+   execute code, and avoids claiming universal compatibility.
 
 7. Security and isolation:                 5.0 / 10
    Python fences execute with the user's permissions. There is no sandbox,

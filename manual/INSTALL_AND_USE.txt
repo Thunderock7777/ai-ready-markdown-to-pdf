@@ -165,12 +165,16 @@ Create your first PDF
 
 Compile an AI response without editing it
 -----------------------------------------
-Copy a response from ChatGPT, Gemini, NotebookLM, or another assistant, paste it
-as-is into a .txt file, and compile that file with compile.bat. Do not wrap the
-entire response in a code fence. The filters handle common Markdown, math, and
-selected pasted-LaTeX patterns, so supported content needs no manual cleanup.
-This is not a guarantee that every arbitrary LaTeX command, attachment, or
-service-specific format will work unchanged.
+Copy a complete, uncorrupted response from ChatGPT, Gemini chat, NotebookLM, or
+another assistant, paste it as-is into a .txt file, and compile that file with
+compile.bat. Supported content can be compiled with zero editing. Do not wrap
+the entire response in a code fence.
+
+This does not guarantee that every arbitrary LaTeX command, attachment, or
+service-specific format will work unchanged. In particular, Gemini search-
+engine suggestions usually do not include fenced code blocks. Code in such a
+suggestion will not be recognized or executed as a code block unless the
+required fence is added; prose-only suggestions can still be compiled as text.
 
 To combine files, pass quoted paths in the desired order:
 

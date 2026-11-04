@@ -6,11 +6,12 @@ build, while LaTeX fences render source snippets without executing them.
 
 **Current project version: 1.0.0** (working baseline; release tag pending).
 
-> **Paste an AI response and compile it directly.** Responses from ChatGPT,
-> Gemini, and NotebookLM can be used as input as-is—no manual cleanup or
-> reformatting is needed for supported content. The filters handle common
-> pasted Markdown, math, citation artifacts, and LaTeX. Truly unsupported
-> commands, missing packages, or missing fonts may still need attention.
+> **Paste an AI chat response and compile it directly.** An intact, uncorrupted
+> copied response from ChatGPT, Gemini chat, or NotebookLM can be compiled as-is
+> with no editing when it uses supported content. This does not cover Gemini
+> search-engine suggestions: these usually lack fenced code blocks, so code in
+> them will not be recognized or executed as a code block. Unsupported commands,
+> missing packages, or missing fonts may still need attention.
 
 ## Features
 
@@ -99,15 +100,19 @@ first input's directory, including paths mentioned by later inputs.
 
 ### Compile an AI response without editing it
 
-1. Copy a response from ChatGPT, Gemini, NotebookLM, or another assistant.
+1. Copy a complete, uncorrupted response from ChatGPT, Gemini chat, NotebookLM,
+   or another assistant.
 2. Paste it as-is into a `.txt` file and save it. Do not wrap the entire
    response in a code fence.
 3. Compile that `.txt` file with `compile.bat`.
 
-The filters handle common Markdown, math, and selected pasted-LaTeX patterns.
-This means no manual cleanup is needed for supported content; it is not a
-promise that every arbitrary command, attachment, or format from every service
-will work unchanged.
+For supported content, the copied response can be compiled with zero editing.
+The response must not be corrupted or truncated, and arbitrary commands,
+attachments, or unsupported formats are not guaranteed to work. Gemini
+search-engine suggestions are a specific limitation: they usually do not
+include fenced code blocks, so code in those suggestions cannot be recognized
+or executed as a code block without adding the required fence. Prose-only
+suggestions can still be compiled as text.
 
 ## Writing rules
 

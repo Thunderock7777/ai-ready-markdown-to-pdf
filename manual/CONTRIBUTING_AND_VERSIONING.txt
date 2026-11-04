@@ -23,6 +23,9 @@ time rebuilding the full regression document for every small edit.
    and filter order in mind.
 4. State the requested behavior and its acceptance check before editing. Keep
    the change focused; do not fold unrelated cleanup into it.
+5. If the request, intended behavior, or scope is unclear, do not make a
+   change based on assumptions. Ask the user a specific clarifying question
+   and wait for the answer before editing.
 
 2. Implementation comments and source changes
 ----------------------------------------------

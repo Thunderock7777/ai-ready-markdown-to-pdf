@@ -22,6 +22,8 @@ Recommended folder layout
             FILTER_FEATURE_REGRESSION.txt
             FILTER_FEATURE_REGRESSION_PART2.txt
             INSTALL_AND_USE.txt
+            CODE_FENCE_RUNNER_ARCHITECTURE.txt
+            MARKDOWN_NORMALIZER_ARCHITECTURE.txt
             WORKFLOW_ARCHITECTURE.txt
             WORKFLOW_ASSESSMENT.txt
         md2pdf_cache\                    (created as needed; disposable)
@@ -268,3 +270,11 @@ Extension points
   config\custom.tex, keeping its documented limitations accurate.
 - Update this document whenever invocation, ordering, cache semantics,
   metadata handling, output placement, or supported contracts change.
+
+Function-level filter guides
+----------------------------
+For a complete function catalog, state/variable explanation, call paths, and
+step-by-step implementation/validation guide, see:
+
+- manual\MARKDOWN_NORMALIZER_ARCHITECTURE.txt
+- manual\CODE_FENCE_RUNNER_ARCHITECTURE.txt

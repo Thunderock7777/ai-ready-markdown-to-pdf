@@ -20,6 +20,8 @@ Keep this folder structure together:
             FILTER_FEATURE_REGRESSION.txt
             FILTER_FEATURE_REGRESSION_PART2.txt
             INSTALL_AND_USE.txt
+            CODE_FENCE_RUNNER_ARCHITECTURE.txt
+            MARKDOWN_NORMALIZER_ARCHITECTURE.txt
             WORKFLOW_ARCHITECTURE.txt
             WORKFLOW_ASSESSMENT.txt
 
@@ -270,4 +272,7 @@ What you do not need
 
 For detailed filter order, cache internals, metadata behavior, supported input
 contracts, failure modes, and extension guidance, read
-manual\WORKFLOW_ARCHITECTURE.txt.
+manual\WORKFLOW_ARCHITECTURE.txt. For function-by-function implementation
+details and step-by-step filter change/build guidance, read
+manual\MARKDOWN_NORMALIZER_ARCHITECTURE.txt and
+manual\CODE_FENCE_RUNNER_ARCHITECTURE.txt.

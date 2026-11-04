@@ -33,6 +33,8 @@ your-tool-folder/
 │   ├── FILTER_FEATURE_REGRESSION.txt
 │   ├── FILTER_FEATURE_REGRESSION_PART2.txt
 │   ├── INSTALL_AND_USE.txt
+│   ├── CODE_FENCE_RUNNER_ARCHITECTURE.txt
+│   ├── MARKDOWN_NORMALIZER_ARCHITECTURE.txt
 │   ├── WORKFLOW_ARCHITECTURE.txt
 │   └── WORKFLOW_ASSESSMENT.txt
 └── config/
@@ -197,6 +199,10 @@ fixture.
 - [INSTALL_AND_USE.txt](manual/INSTALL_AND_USE.txt) — beginner installation and usage guide.
 - [WORKFLOW_ARCHITECTURE.txt](manual/WORKFLOW_ARCHITECTURE.txt) — detailed pipeline,
   filter-order, cache, and maintenance documentation.
+- [MARKDOWN_NORMALIZER_ARCHITECTURE.txt](manual/MARKDOWN_NORMALIZER_ARCHITECTURE.txt) —
+  normalizer function reference, stages, state, and change/test guide.
+- [CODE_FENCE_RUNNER_ARCHITECTURE.txt](manual/CODE_FENCE_RUNNER_ARCHITECTURE.txt) —
+  runner function reference, Python wrapper/cache flow, and change/test guide.
 - [FILTER_FEATURE_REGRESSION.txt](manual/FILTER_FEATURE_REGRESSION.txt) — broad
   feature and failure-path validation input.
 - [WORKFLOW_ASSESSMENT.txt](manual/WORKFLOW_ASSESSMENT.txt) — candid scorecard,

@@ -20,7 +20,8 @@ build, while LaTeX fences render source snippets without executing them.
 - Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order.
 - Render Markdown, math, tables, citations, selected pasted LaTeX, and code.
 - Execute Python fences with optional output, source, figure, and cache controls.
-- Reuse valid Python results from cache, or force a fresh run when needed.
+- Reuse valid Python results only for the same input folder, or force a fresh
+  run when needed.
 - The text-processing stages leave source files unchanged. Python fences can
   still write files they explicitly open; PDFs are saved beside the first input.
 
@@ -149,12 +150,15 @@ Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 ```
 ````
 
-Python fences render as source by default. Add `trusted=true` or an explicit
-`run=true`/`run=new` to execute a block:
+Python fences execute by default. On the first run of a block without a valid
+cached result, the build asks whether you trust the code and displays it for
+review. Enter `Y` to run it; any other response leaves it as a code listing. A
+valid cached result is reused without asking. `trusted=true` skips the
+confirmation for a normal first run:
 
 ````markdown
-```{.python trusted=true}
-print("This block only runs because it is explicitly trusted.")
+```{.python}
+print("This block runs after you approve it.")
 ```
 ````
 
@@ -166,17 +170,17 @@ Supported executable-language names include `python`, `py`, `python3`, and
 Options are written as Pandoc fence attributes:
 
 ````markdown
-```{.python trusted=true run=new show=false}
+```{.python run=new show=false}
 print("This block runs freshly for this build.")
 ```
 ````
 
 | Attribute | Effect |
 |---|---|
-| `trusted=true` | Explicitly mark the block as safe to run. Only trusted Python blocks execute. |
-| `run=true` | Explicit opt-in to execute; reuse a valid cached result. |
-| `run=new` | Force execution for this build and refresh the cache on success. |
-| `cache=false` | Also force a fresh execution. |
+| `trusted=true` | Skip confirmation for a normal first run. Forced fresh runs still ask. |
+| Omitted `run` or `run=true` | Execute by default; ask before the first uncached run and reuse a valid cached result. |
+| `run=new` | Ask and force execution for this build; refresh the cache on success. |
+| `cache=false` | Also ask and force a fresh execution. |
 | `run=false` | Do not execute; render as a code listing. |
 | `show=false` | Hide the source listing. |
 | `output=false` | Hide captured standard output in the PDF. |

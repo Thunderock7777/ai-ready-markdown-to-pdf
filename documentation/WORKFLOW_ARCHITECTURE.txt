@@ -58,10 +58,11 @@ unique directory under %TEMP%; that directory is removed after success or
 failure. The existing destination PDF is preserved until the new PDF has been
 built and copied successfully.
 
-compile.bat changes the current directory to the first input's directory.
-Consequently, relative image/dependency paths are resolved from there, including
-paths mentioned by later input files. Supply absolute paths or keep referenced
-files beside the first input when combining notes from different folders.
+compile.bat changes the current directory to the first input's directory and
+passes that directory to the runner for cache-key scoping. Consequently,
+relative image/dependency paths are resolved from there, including paths
+mentioned by later input files. Supply absolute paths or keep referenced files
+beside the first input when combining notes from different folders.
 
 Pipeline and ordering
 ---------------------
@@ -151,10 +152,13 @@ LaTeX/TeX (latex, tex). Attributes use Pandoc fenced-code syntax, for example:
 Executable fence attributes:
 - run=false leaves a recognized block as an ordinary code listing.
 - An omitted run attribute and run=true both execute normally when needed and
-  use the cache when the entry is valid. run=true is not a cache bypass.
-- run=new forces this execution to run, then replaces/refreshes the cache entry
-  on success. cache=false has the same cache-bypass behavior. Failed runs are
-  not cached.
+  use the cache when the entry is valid. On a Python cache miss, compile.bat
+  shows the source and asks for confirmation; only Y approves execution.
+  A valid cache hit is reused without prompting.
+- trusted=true skips confirmation for an ordinary uncached Python run.
+- run=new forces a fresh execution and asks for confirmation every time, then
+  replaces/refreshes the cache entry on success. cache=false behaves the same.
+  Forced runs still ask even with trusted=true. Failed runs are not cached.
 - show=false hides source; output=false hides captured stdout; error=false hides
   the rendered error while the error is still written to the console.
 - maxlines=N limits displayed stdout. figures=false suppresses embedding Python
@@ -165,11 +169,18 @@ Executable fence attributes:
 
 Python execution, figures, and cache
 ------------------------------------
+Before a fresh Python execution, the runner prompts through compile.bat and
+displays the block source for approval, except when trusted=true is set for a
+normal uncached run. Cache hits do not prompt. run=new and cache=false always
+prompt because they request a fresh execution. Declining leaves the block as
+source and reports a warning; the prompt does not sandbox approved code.
+
 Python code is run as a script in the first input's directory. The code file
 and generated wrapper live in the cache directory, while __file__ is presented
 as <working-directory>/__md2pdf_block__.py and the working directory is added
-to sys.path. stdin is redirected from the null device to prevent interactive
-reads from hanging the build. stdout is displayed in the document; stderr is
+to sys.path. The Python process's stdin is redirected from the null device to
+prevent interactive reads from hanging the build; the earlier consent prompt
+is read by the Pandoc filter. stdout is displayed in the document; stderr is
 also sent to the console. A failed execution produces a traceback/error block
 and does not stop Pandoc from rendering the rest of the document.
 
@@ -181,11 +192,14 @@ languages can be added in config\code-fence-runner.lua's language registry using
 contract; automatic dependency tracking is currently Python-only.
 
 Cache keys include code, language, executable, runtime/package fingerprint,
-runner-template fingerprint, figure options, explicit dependency contents, and
-the cache schema. Successful Python runs record eligible files read and
-workspace-local side effects written. A valid cache hit restores missing
-side-effect outputs and reuses captured output/figures. The cache uses a
-200-entry LRU index; deleting md2pdf_cache is safe and only causes reruns.
+runner-template fingerprint, figure options, explicit dependency contents,
+the first input's working directory, and the cache schema. Successful Python
+runs record eligible files read and workspace-local side effects written. A
+valid cache hit restores missing side-effect outputs and reuses captured
+output/figures. If a side-effect target's parent directory is missing, its
+cache entry is treated as stale and the block runs again rather than failing
+during restoration. The cache uses a 200-entry LRU index; deleting md2pdf_cache
+is safe and only causes reruns.
 
 The automatic Python audit hook is best-effort: it tracks file-open activity,
 not arbitrary environment variables, network results, or every possible

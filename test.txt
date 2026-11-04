@@ -1,72 +1,108 @@
-The derivation of the projectile motion trajectory equation demonstrates that an object in free fall follows a parabolic path. Below is the LaTeX code for the trajectory diagram using `tikzpicture`, followed by the mathematical derivation.
+Here is a Python script that sequences your requested actions. To ensure the script actually reaches the end without terminating at the first intentional mistake, the deliberate crashes are wrapped in `try...except` blocks so you can see the exact errors they generate while allowing the code to continue.
 
-**LaTeX Diagram Code (TikZ):**
+```python
+import matplotlib.pyplot as plt
+import numpy as np
 
-```latex
-\documentclass[border=5mm]{standalone}
-\usepackage{tikz}
+# 1. Print Mistake (Deliberate Crash.)
+print("--- Step 1: Print Mistake ---")
+try:
+    # Attempting to concatenate a string with an integer without casting
+    print("The score is: " + 100) 
+except Exception as e:
+    print(f"CRASH 1: {type(e).__name__} - {e}")
 
-\begin{document}
-\begin{tikzpicture}[
-    scale=1.5,
-    >=stealth 
-]
-    % Draw x and y axes
-    \draw[->, thick] (-0.2,0) -- (4.5,0) node[right] {$x$};
-    \draw[->, thick] (0,-0.2) -- (0,2.5) node[above] {$y$};
-    
-    % Draw the parabolic trajectory 
-    % Math: y = 2x - 0.5x^2 (Initial slope dy/dx at x=0 is exactly 2)
-    \draw[thick, blue] (0,0) parabola bend (2, 2) (4, 0);
-    \node[blue, above right] at (2.2, 1.8) {Trajectory};
-    
-    % Draw the initial velocity vector (red) tangent to the path (slope = 2)
-    \draw[->, thick, red] (0,0) -- (1, 2) node[above left] {$\vec{v}_0$};
-    
-    % Draw horizontal and vertical velocity components (dashed)
-    \draw[dashed] (1, 2) -- (1, 0) node[below] {$v_{0x}$};
-    \draw[dashed] (1, 2) -- (0, 2) node[left] {$v_{0y}$};
-    
-    % Draw the launch angle theta
-    % The angle for a slope of 2 is arctan(2) ≈ 63.4 degrees
-    \draw (0.4,0) arc[start angle=0, end angle=63.4, radius=0.4];
-    \node at (0.6, 0.3) {$\theta$};
-    
-\end{tikzpicture}
-\end{document}
+# 2. First Plot (Success)
+print("\n--- Step 2: First Plot ---")
+plt.figure(1)
+plt.plot([1, 2, 3], [2, 4, 6], color='red', marker='x')
+plt.title("Successful Line Plot")
+
+# 3. plt Mistake (Deliberate Crash)
+print("\n--- Step 3: plt Mistake ---")
+try:
+    # Attempting to plot arrays of different lengths
+    plt.plot([1, 2, 3, 4], [10, 20]) 
+except Exception as e:
+    print(f"CRASH 2: {type(e).__name__} - {e}")
+
+# 4. Two Print Successes
+print("\n--- Step 4: Print Successes ---")
+print("Successfully caught the dimension mismatch error.")
+print("Proceeding to generate the final image grid...")
+
+# 5. Final Plot with imshow and savefig (Success)
+plt.figure(2)
+# Create a 10x10 grid of random values for the image
+image_matrix = np.random.rand(10, 10)
+
+# Display data as an image
+plt.imshow(image_matrix, cmap='plasma', interpolation='nearest')
+plt.colorbar(label="Intensity")
+plt.title("2D Array Imshow Plot")
+
+# Save the figure to your local directory before showing it
+plt.savefig("test_output_image.png", dpi=300, bbox_inches='tight')
+
+# Render all open figures to the screen
+plt.show()
+
 ```
 
-**Derivation of the Trajectory Equation:**
+### Code Explanation
 
-1. **Horizontal Motion (Constant Velocity):**
-There is no acceleration in the horizontal direction ($a_x = 0$). The horizontal position $x$ at any time $t$ is determined by the initial horizontal velocity component.
-
-$$x = (v_0 \cos\theta) t$$
-
-
-
-Solving for time $t$:
-
-$$t = \frac{x}{v_0 \cos\theta}$$
+1. **Print Mistake (`TypeError`):** Python is strongly typed. Attempting to use the `+` operator to combine a string (`"The score is: "`) and an integer (`100`) forces a hard crash. You must explicitly cast the integer using `str(100)` or use an f-string (`f"The score is: {100}"`).
+2. **First Plot:** A standard line plot is generated successfully on `Figure 1` because the X and Y lists have the exact same number of elements (3).
+3. **plt Mistake (`ValueError`):** The `plt.plot()` function requires the `x` and `y` arrays to have identical dimensions. Passing an array of 4 items for X and 2 items for Y causes matplotlib to crash because it cannot map the coordinates.
+4. **Print Successes:** Standard, error-free string prints execute normally.
+5. **Final Plot (`imshow` and `savefig`):**
+* `plt.imshow()` takes a 2D array (like a matrix or a loaded image file) and maps the numerical values to colors using a colormap (`cmap='plasma'`).
+* `plt.savefig("filename.png")` writes the current active figure to your hard drive. This must be called *before* `plt.show()`, because `show()` often clears the figure buffer from memory once the window is closed, which would result in saving a blank image.
 
 
-2. **Vertical Motion (Constant Acceleration):**
-The object experiences constant downward acceleration due to gravity ($a_y = -g$). The vertical position $y$ at time $t$ is:
+```python
+import matplotlib.pyplot as plt
+import numpy as np
 
-$$y = (v_0 \sin\theta) t - \frac{1}{2}gt^2$$
+# 1. Print Mistake (Deliberate Crash)
+print("--- Step 1: Print Mistake ---")
+try:
+    # Attempting to concatenate a string with an integer without casting
+    print("The score is: " + 100) 
+except Exception as e:
+    print(f"CRASH 1: {type(e).__name__} - {e}")
 
+# 2. First Plot (Success)
+print("\n--- Step 2: First Plot ---")
+plt.figure(1)
+plt.plot([1, 2, 3], [2, 4, 6], color='red', marker='x')
+plt.title("Successful Line Plot")
 
-3. **Substitution:**
-Substitute the expression for $t$ from the horizontal equation into the vertical equation to eliminate time and relate $y$ directly to $x$:
+# 3. plt Mistake (Deliberate Crash)
+print("\n--- Step 3: plt Mistake ---")
+try:
+    # Attempting to plot arrays of different lengths
+    plt.plot([1, 2, 3, 4], [10, 20]) 
+except Exception as e:
+    print(f"CRASH 2: {type(e).__name__} - {e}")
 
-$$y = (v_0 \sin\theta) \left( \frac{x}{v_0 \cos\theta} \right) - \frac{1}{2}g \left( \frac{x}{v_0 \cos\theta} \right)^2$$
+# 4. Two Print Successes
+print("\n--- Step 4: Print Successes ---")
+print("Successfully caught the dimension mismatch error.")
+print("Proceeding to generate the final image grid...")
 
+# 5. Final Plot with imshow and savefig (Success)
+plt.figure(2)
+# Create a 10x10 grid of random values for the image
+image_matrix = np.random.rand(10, 10)
 
-4. **Simplification:**
-Cancel $v_0$ in the first term and use the trigonometric identity $\frac{\sin\theta}{\cos\theta} = \tan\theta$:
+# Display data as an image
+plt.imshow(image_matrix, cmap='plasma', interpolation='nearest')
+plt.colorbar(label="Intensity")
+plt.title("2D Array Imshow Plot")
 
-$$y = x \tan\theta - \frac{g x^2}{2 v_0^2 \cos^2\theta}$$
+# Save the figure to your local directory before showing it
+plt.savefig("test_output_image.png", dpi=300, bbox_inches='tight')
 
-
-
-This final equation takes the form $y = Ax - Bx^2$ (where $A$ and $B$ are constants), which is the standard mathematical equation for a parabola.
+# Render all open figures to the screen
+plt.show()

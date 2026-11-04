@@ -46,8 +46,9 @@ Scorecard
    run=new and cache=false make cache bypass explicit; code/runtime and
    dependency fingerprints, best-effort file-read tracking, side-effect
    restoration, and LRU pruning are strong capabilities for this scale of
-   tool. The architecture guide correctly warns that environment state,
-   network responses, and some external inputs cannot be tracked. Users must
+   tool. Cache entries are scoped to the first input's directory, while the
+   architecture guide correctly warns that environment state, network
+   responses, and some external inputs cannot be tracked. Users must
    declare dependencies with deps= or force a rerun when needed.
 
 4. Failure handling and output safety:     8.0 / 10
@@ -82,10 +83,11 @@ Scorecard
    execute code, and avoids claiming universal compatibility.
 
 7. Security and isolation:                 5.0 / 10
-   Python fences execute with the user's permissions. There is no sandbox,
-   permission boundary, or confirmation prompt for individual blocks. This is
-   acceptable only when users compile trusted documents; it is not safe to
-   treat an arbitrary downloaded response or repository as inert content.
+   Python fences execute with the user's permissions and are not sandboxed.
+   The workflow asks before uncached and forced fresh runs, but a confirmation
+   prompt is not a permission boundary; trusted=true can bypass ordinary
+   first-run confirmation, and valid cache hits do not execute code. It is not
+   safe to treat an arbitrary downloaded response or repository as inert.
    The warning in README.md and documentation\INSTALL_AND_USE.txt is important and should
    remain prominent.
 
@@ -208,7 +210,7 @@ Documentation-only edits do not require another PDF rebuild.
 
 Final judgment
 --------------
-For a trusted-input, Windows-based personal workflow, this is a capable,
+For an interactive, Windows-based personal workflow, this is a capable,
 well-structured tool with thoughtful cache and failure behavior. Its standout
 feature is making common AI-generated Markdown/LaTeX responses usable without
 hand-cleaning. Its principal boundary is equally clear: it is not a universal

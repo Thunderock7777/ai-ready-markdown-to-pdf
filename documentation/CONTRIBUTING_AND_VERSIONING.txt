@@ -172,6 +172,9 @@ Baseline
   Starting count: 0 / 500
   Baseline tag: pending; no version tags existed when this policy was written.
 
+Change ledger
+  2026-11-04 | uncommitted | Python consent and workspace-scoped cache | source +41 / -16 | 57 / 500
+
 For each later accepted change, append one entry in this format:
 
   YYYY-MM-DD | commit-or-change-id | short description | source +added / -deleted | cumulative / 500

@@ -235,12 +235,20 @@ Python — a Python fence runs by default:
     print("Hello from Python")
     ```
 
+Before an uncached Python block runs, compile.bat shows its code and asks
+whether you trust it. Enter Y to run it; any other response leaves it as a
+source listing. A valid cached result is reused without asking. `trusted=true`
+skips the prompt for a normal first run.
+
 Python execution and caching:
-    - No run attribute or run=true: run when needed; unchanged valid results
-      can be loaded from cache on a later build.
-    - run=new: force this block to run on this build, then refresh its cache.
-    - cache=false: also force a fresh run.
+    - No run attribute or run=true: run when needed; ask before the first
+      uncached run, then reuse unchanged valid results without asking.
+    - run=new: bypass cache and ask before every fresh run, then refresh its
+      cache on success.
+    - cache=false: also bypass cache and ask before every fresh run.
     - run=false: do not execute; show it as a normal code listing.
+    - trusted=true: skip the confirmation for an ordinary uncached run;
+      run=new and cache=false still require confirmation.
     - show=false: hide the source listing.
     - output=false: hide printed output in the PDF.
     - figures=false: do not embed captured figures; code may still save files.
@@ -253,8 +261,8 @@ Example forced Python run:
 
 Use run=new for code that depends on information the cache cannot detect, such
 as network responses, environment variables, or changing external services.
-Avoid running Python fences from documents you do not trust; they execute code
-on your computer with your user permissions.
+Review the displayed code before approving it. The confirmation prompt is not a
+sandbox: approved Python code executes with your user permissions.
 
 Common problems
 ---------------

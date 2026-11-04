@@ -1,7 +1,8 @@
 -- code-fence-runner.lua : executes/renders fenced blocks, with a persistent SHA-1 cache.
 --
 -- ================================ USER GUIDE ================================
---  python        EVERY ```python block runs like a normal Python program.
+--  python        Python blocks run by default after confirmation on a cache miss.
+--                  trusted=true skips confirmation for the first run.
 --                  print() / child-process output is captured and shown under the code.
 --                  Figures are captured automatically (savefig / plt.show / unsaved figures).
 --                  A user's own savefig("x.png") still writes x.png, exactly as in plain Python.
@@ -29,9 +30,9 @@
 --                  A bare snippet is pasted as is, so it must not contain \usepackage etc.
 --
 --  Attributes (same for every executable language)
---     trusted=true        execute this Python block only when it is explicitly trusted
+--     trusted=true        skip confirmation for a normal first run
 --     run=false           do not execute; the block stays a normal code listing
---     run=true            explicitly execute this block; this is the safe opt-in for trusted code
+--     run=true            explicitly execute this block (confirmation still applies)
 --                         run=true does not bypass cache; use run=new or cache=false to force a run
 --     run=new             always execute this block now, bypassing cache, then refresh its entry
 --     show=false          hide the source listing         (latex: show=true shows it)
@@ -263,6 +264,15 @@ local function restore_side_effects(manifest)
     if not target or not content or pandoc.sha1(content) ~= hash then return false end
     local current = read_file(target)
     if current and pandoc.sha1(current) ~= hash then return false end
+    if not current then
+      local parent = target:match("^(.*)[/\\][^/\\]+$")
+      local ok = parent and pcall(pandoc.system.list_directory, parent)
+      if not ok then
+        warn("cached side-effect directory is unavailable (" .. tostring(parent) ..
+             "); treating the cache entry as stale")
+        return false
+      end
+    end
   end
   for line in s:gmatch("[^\r\n]+") do
     local target, archive = line:match("^(.-)\t(.-)\t")
@@ -761,20 +771,38 @@ local function run_exec(el, spec)
   local a = el.attributes
   local exe = executable(spec)
   local fingerprint = runtime_fingerprint(spec, exe)
+  local working_dir = os.getenv("MD2PDF_WORKING_DIR") or ""
+  if IS_WIN then working_dir = slash(working_dir):lower() end
+  -- Relative paths and side-effect outputs are scoped to the first input's directory.
   local hash = pandoc.sha1(table.concat({
     CACHE_SCHEMA, spec.id, exe, spec.fp, el.text, a["img"] or "",
-    a["figures"] or "", fingerprint or "", deps_key(a["deps"]) }, "\0"))
+    a["figures"] or "", fingerprint or "", deps_key(a["deps"]), working_dir }, "\0"))
   local name = "fence_" .. hash
   local prefix = CACHE_DIR .. "/" .. name
   touch_cache(name)
 
   local force_run = a["run"] == "new" or a["cache"] == "false"
+  -- Reuse valid results before prompting; forced fresh runs always require consent.
   if fingerprint ~= nil and not force_run and file_exists(prefix .. ".out") and auto_deps_ok(prefix .. ".deps")
       and restore_side_effects(prefix .. ".writes") then
     local figs = read_meta(prefix .. ".meta")
     if figs then
       warn("cache hit (" .. hash:sub(1, 8) .. ") -- skipped execution")
       return { ok = true, out = read_file(prefix .. ".out") or "", err = "", figs = figs }
+    end
+  end
+  if spec.id == "python" and os.getenv("MD2PDF_CONFIRM_PYTHON") ~= "0"
+      and (force_run or a["trusted"] ~= "true") then
+    io.write("\nPython code needs to run")
+    if force_run then io.write(" (fresh run requested)") end
+    io.write(":\n")
+    io.write(el.text, "\n")
+    io.write("Do you trust this code and want to run it? [y/N] ")
+    io.flush()
+    local answer = io.read("*l")
+    if not answer or not answer:match("^[Yy]$") then
+      warn("Python execution declined; rendering the block as source.")
+      return nil
     end
   end
   return run_fresh(el, spec, exe, name)
@@ -816,23 +844,15 @@ local function render(el, spec, res)
 end
 
 -- ------------------------------ 5. dispatch ---------------------------------
-local function should_execute_python_block(el)
-  local a = el.attributes
-  if a["run"] == "false" then return false end
-  if a["trusted"] == "true" then return true end
-  if a["run"] == "true" or a["run"] == "new" or a["cache"] == "false" then return true end
-  return false
-end
-
 local function process_code_block(el, preamble)
+  if el.attributes["run"] == "false" then return nil end
   local class = (el.classes[1] or ""):lower()
   local spec = LANGS[class]
   if not spec then return nil end
   if spec.render then return spec.render(el, class, preamble) end
-  if spec.id == "python" and not should_execute_python_block(el) then
-    return pandoc.CodeBlock(el.text, pandoc.Attr("", { "python" }))
-  end
-  return render(el, spec, run_exec(el, spec))
+  local result = run_exec(el, spec)
+  if not result then return pandoc.CodeBlock(el.text, pandoc.Attr("", { spec.id })) end
+  return render(el, spec, result)
 end
 
 local function add_latex_preamble(doc, preamble)

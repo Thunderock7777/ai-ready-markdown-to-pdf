@@ -106,8 +106,13 @@ echo ==========================================
 echo               PREPARING
 echo ==========================================
 echo.
+echo Python fences run by default. You will be asked to approve uncached runs.
+echo Forced fresh runs (run=new or cache=false) always require approval.
+echo.
 
 REM Filter order is intentional: normalize/rebuild the AST before executing or rendering code fences.
+set "MD2PDF_CONFIRM_PYTHON=1"
+set "MD2PDF_WORKING_DIR=%INPUT_DIR%"
 pandoc %PANDOC_INPUTS% -f markdown+yaml_metadata_block --citeproc --lua-filter="%NORMALIZER_FILTER%" --lua-filter="%CODE_FENCE_FILTER%" --wrap=none --template="%TEMPLATE%" -o "%TEX_OUTPUT%"
 if errorlevel 1 (
     echo.

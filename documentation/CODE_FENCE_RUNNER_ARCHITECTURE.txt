@@ -31,7 +31,8 @@ build exists.
 5. Python names python, py, python3, and py3 resolve to one Python language
    specification. The executable is selected from PYTHON or the spec default.
    The runner fingerprints the runtime, builds a cache key, restores a valid
-   result when possible, and otherwise calls run_fresh.
+   result when possible, and otherwise asks before execution unless trusted=true.
+   run=new and cache=false always require a fresh confirmation.
 6. run_fresh writes the user source and generated wrapper in MD2PDF_CACHE,
    executes it with OS-level stdin/stdout/stderr redirection, gathers output,
    error, figure, dependency, and side-effect metadata, then returns a result
@@ -54,8 +55,8 @@ Inputs, language specification, and state
 Pandoc CodeBlock
   el.text       original fence source.
   el.classes    language classes; the first class is lowercased for dispatch.
-  el.attributes key/value fence attributes such as run, show, output, error,
-                maxlines, cache, figures, deps, and img.
+  el.attributes key/value fence attributes such as run, trusted, show, output,
+                error, maxlines, cache, figures, deps, and img.
   el is the Pandoc element passed by the document walk.
 
 LANGS
@@ -281,8 +282,12 @@ still need to exist and pass their respective checks for reuse.
 
 The key includes CACHE_SCHEMA, canonical language id, executable string,
 template fingerprint, exact source text, img and figures attributes, runtime
-fingerprint, and content hashes from explicit deps=. The .index is a 200-entry
-LRU list. Network responses, environment variables, time, and some external
+fingerprint, content hashes from explicit deps=, and the first input's working
+directory. This prevents a cache entry from one input folder from restoring
+side effects into another folder. If a side-effect target's parent directory
+is missing, that cache entry is treated as stale and Python runs again instead
+of failing during restoration. The .index is a 200-entry LRU list. Network
+responses, environment variables, time, and some external
 state cannot be inferred; use run=new or cache=false when needed.
 The key components are concatenated with NUL separators before SHA-1 hashing.
 show, output, error, and maxlines do not affect execution results and are not
@@ -439,7 +444,10 @@ Function reference: execution and rendering
   run_exec(CodeBlock, spec) -> result
     Chooses executable and runtime fingerprint, hashes all cache-key parts,
     updates LRU recency, evaluates run=new/cache=false, validates cache files
-    and side effects, and either returns cached content or calls run_fresh.
+    and side effects, and either returns cached content or prompts before a
+    fresh Python execution. Valid cache hits do not prompt. Forced fresh Python
+    runs always ask; trusted=true skips prompts only for ordinary uncached
+    runs. Declining leaves the original code as a source listing.
   render(CodeBlock, spec, result) -> Pandoc block sequence
     Applies show/output/error/maxlines/figures/img attributes. It creates
     source and stdout CodeBlocks, a labeled error paragraph plus traceback
@@ -459,10 +467,15 @@ Attributes and their call path
   run=false
     Checked first in process_code_block; block remains unexecuted source.
   run omitted / run=true
-    Both follow normal execution/cache lookup.
+    Both follow normal execution/cache lookup. On a Python cache miss, the
+    runner displays the code and asks for a Y confirmation; any other response
+    leaves it as a source listing. A valid cache hit does not prompt.
+  trusted=true
+    Skips confirmation for an ordinary uncached Python run. It does not
+    suppress confirmation for run=new or cache=false.
   run=new or cache=false
-    run_exec bypasses cache and calls run_fresh; a successful run refreshes
-    the same key's artifacts.
+    run_exec bypasses cache and asks for confirmation every time before a
+    Python execution; a successful run refreshes the same key's artifacts.
   show=false
     render omits source. For LaTeX, source is shown only when show=true.
   output=false
@@ -527,20 +540,22 @@ Step-by-step change and validation guide
 5. For cache changes, list every value that can alter execution or rendering.
    Update CACHE_SCHEMA when the on-disk Lua cache format changes; do not bump
    it merely for a template change because spec.fp already contributes to the
-   key. Test cold run, unchanged cache hit, changed dependency, missing
-   side-effect restoration, run=new/cache=false, and failed execution.
+   key. Test first-run approval/decline, unchanged cache hit without a prompt,
+   run=new/cache=false confirmation on every fresh run, changed dependency,
+   missing side-effect restoration, and failed execution.
 6. For preamble recovery, keep the parser narrow and balanced. Update command
    sets and extraction branches together; ensure comments are ignored and
    template-owned packages/theorems are not duplicated.
 7. Build a small focused .txt document with the exact code/LaTeX fence and
-   attributes. Use trusted Python only: the runner is not sandboxed.
+   attributes. Approve only benign test code that you trust; the runner is
+   not sandboxed.
 8. Run the wrapper from the repository root:
 
      .\compile.bat "path\to\focused.txt"
 
    Verify PDF source/output/error/figure appearance and the console messages.
    For normalizer-only syntax/AST checks, use Pandoc's --to=native path; for a
-   runner test, include the runner filter only with a trusted code fence.
+   runner test, include only benign test code and approve its prompt as needed.
 9. When a supported behavior changes, update the lasting regression fixture.
    Run FILTER_FEATURE_REGRESSION.txt when its affected integration surface
    warrants the broader test; its Python failure is deliberate. Do not claim a

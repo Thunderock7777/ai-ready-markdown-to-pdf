@@ -287,9 +287,11 @@ State.hoisted:
 3. report_scrub_counts prints citation and emoji removal totals when nonzero.
 4. apply_page_layout maps the supported YAML `page-layout: presentation`
    preset to the template flag; unsupported values warn and retain A4.
-5. apply_extra_meta fills missing title/author/date metadata from a pasted
+5. apply_title_rule maps YAML boolean `title-rule` to the template flag,
+   defaulting to true and warning on non-boolean values.
+6. apply_extra_meta fills missing title/author/date metadata from a pasted
    full-document preamble; existing Pandoc metadata takes precedence.
-6. inject_header_includes appends accumulated LaTeX to header-includes and
+7. inject_header_includes appends accumulated LaTeX to header-includes and
    reports the number of hoisted lines.
 
 Function reference: utilities and text stage
@@ -534,6 +536,9 @@ Document-level processing and finalization
   apply_page_layout(doc)
     Maps the supported `page-layout: presentation` YAML value to the template
     flag; other supplied values warn and leave the default A4 layout active.
+  apply_title_rule(doc)
+    Maps YAML boolean `title-rule` to the template flag, defaulting to true;
+    non-boolean values warn and retain the visible title rule.
   apply_extra_meta(doc)
     Adds rescued title/author/date values only when the document metadata key
     is absent.

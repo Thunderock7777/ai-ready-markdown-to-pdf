@@ -1,6 +1,29 @@
-This script securely locates `input.txt` in the exact same directory as the Python file, reads its contents, and performs a random operation (picking a random line and reversing its text).
+---
+title: My Custom Title
+author: Your Name
+date: November 2026
+---
 
+```{.latex}
+\maketitle{%
+  \begin{center}
+    \fbox{%
+      \begin{minipage}{0.88\textwidth}
+        \centering
+        {\Huge\bfseries \csname @title\endcsname\par}
+        \vspace{0.8em}
+        {\large \csname @author\endcsname\par}
+        \vspace{0.4em}
+        {\small \csname @date\endcsname\par}
+      \end{minipage}%
+    }
+  \end{center}
+}
+\begin{document}
+\end{document}
+```
 ```python
+
 import os
 import random
 
@@ -26,4 +49,52 @@ except FileNotFoundError:
 
 ```
 
+```latex
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Welcome to Overleaf --- just edit your LaTeX on the left,
+% and we'll compile it for you on the right. If you open the
+% 'Share' menu, you can invite other users to edit at the same
+% time. See www.overleaf.com/learn for more info. Enjoy!
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass{article}
+\usepackage{blindtext}
+\usepackage{multicol}
+\title{Multicols Demo}
+\author{Overleaf}
+\date{April 2021}
+
+\begin{document}
+\maketitle
+
+\begin{multicols}{3}
+[
+\section{First Section}
+All human things are subject to decay. And when fate summons, Monarchs must obey.
+]
+\blindtext\blindtext
+\end{multicols}
+
+\end{document}
+```
+
+
+```{.latex}
+\renewcommand{\maketitle}{%
+  \begin{center}
+    \fbox{%
+      \begin{minipage}{0.88\textwidth}
+        \centering
+        {\Huge\bfseries \csname @title\endcsname\par}
+        \vspace{0.8em}
+        {\large \csname @author\endcsname\par}
+        \vspace{0.4em}
+        {\small \csname @date\endcsname\par}
+      \end{minipage}%
+    }
+  \end{center}
+}
+```
 Using `os.path.abspath(__file__)` guarantees the script finds the file even if you run the Python command from a completely different working directory in your terminal.

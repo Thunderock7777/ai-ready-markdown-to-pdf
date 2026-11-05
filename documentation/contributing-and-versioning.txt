@@ -182,6 +182,13 @@ Change ledger
 Version 1.1.0 cycle
   Starting count: 0 / 500
 
+Change ledger
+  2026-11-05 | YAML-controlled title-rule visibility | source +24 / -2 | 24 / 500
+  2026-11-05 | Versioned title-rule option as 1.2.0 (MINOR)
+
+Version 1.2.0 cycle
+  Starting count: 0 / 500
+
 For each later accepted change, append one entry in this format:
 
   YYYY-MM-DD | commit-or-change-id | short description | source +added / -deleted | cumulative / 500

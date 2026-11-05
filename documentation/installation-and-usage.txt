@@ -25,6 +25,7 @@ Keep this folder structure together:
             contributing-and-versioning.txt
             filter-feature-regression.txt
             filter-feature-regression-part-2.txt
+            title-rule-regression.txt
             normalizer-fix-manual-test.txt
 
 The documentation\ folder contains the workflow guides and regression fixture; it is
@@ -98,6 +99,20 @@ margins, add this YAML metadata block at the start of an input:
 
 This changes page dimensions, not the document into a Beamer slide deck.
 Unsupported page-layout values produce a warning and keep the A4 layout.
+
+Title rule
+----------
+The template draws a horizontal rule below the title by default. To hide it,
+add this YAML boolean to the input's front matter:
+
+    ---
+    title-rule: false
+    ---
+
+Omit the option or set it to true to keep the rule. Quoted values are not
+booleans; invalid values produce a warning and keep the rule.
+
+Compile `documentation\title-rule-regression.txt` to check the disabled case.
 
 3. Python (only if you use Python code fences)
    The workflow invokes the Windows Python launcher as "py". Install Python

@@ -4,7 +4,7 @@ A Windows workflow for turning Markdown or plain-text notes into a PDF with
 Pandoc, XeLaTeX, and two Lua filters. Python code fences can run during the
 build, while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.1.0**.
+**Current project version: 1.2.0**.
 
 > **Paste an AI chat response and compile it directly.** An intact, uncorrupted
 > copied response from ChatGPT, Gemini chat, or NotebookLM can be compiled as-is
@@ -51,6 +51,7 @@ your-tool-folder/
 │   ├── workflow-assessment.txt
 │   ├── filter-feature-regression.txt
 │   ├── filter-feature-regression-part-2.txt
+│   ├── title-rule-regression.txt
 │   └── normalizer-fix-manual-test.txt
 └── config/
     ├── custom.tex
@@ -153,6 +154,15 @@ page-layout: presentation
 
 Other `page-layout` values are unsupported; they produce a warning and use A4.
 
+The horizontal rule below the title appears by default. To hide it, add the
+boolean option to the YAML front matter:
+
+```yaml
+title-rule: false
+```
+
+Omit this option or set it to `true` to keep the rule.
+
 Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 
 ````markdown
@@ -236,6 +246,12 @@ The companion fixture also tests combining two inputs in order:
 The expected markers and verification steps are documented in the regression
 fixture.
 
+To test hiding the title rule, compile the focused fixture:
+
+```powershell
+.\compile.bat ".\documentation\title-rule-regression.txt"
+```
+
 - [installation-and-usage.txt](documentation/installation-and-usage.txt) — installation and usage guide.
 - [workflow-architecture.txt](documentation/workflow-architecture.txt) — detailed pipeline,
   filter-order, cache, and maintenance documentation.
@@ -252,6 +268,8 @@ fixture.
   feature and failure-path validation input.
 - [filter-feature-regression-part-2.txt](documentation/filter-feature-regression-part-2.txt) —
   companion input for the multi-file regression check.
+- [title-rule-regression.txt](documentation/title-rule-regression.txt) —
+  focused input that disables the title rule with YAML metadata.
 - [normalizer-fix-manual-test.txt](documentation/normalizer-fix-manual-test.txt) —
   focused manual checks for nested table math formatting and mixed-input fallback.
 

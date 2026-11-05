@@ -11,6 +11,7 @@
 %   Options   (all optional)   -M header-left="Physics"   running header text
 %                              -V fontsize=11pt           10pt, 11pt or 12pt (default 12pt)
 %                              abstract: "..." in the YAML block (printed under the title)
+%                              title-rule: false in YAML to hide the rule below the title
 %                              --toc  [toc-depth]         contents (default depth 3)
 %                              -N  [secnumdepth]          section numbers (OFF by default)
 %                              -M title / author / date   defaults: "Reference Notes", "Made By
@@ -51,7 +52,8 @@
 %             subcaption, listings, enumitem, tcolorbox [most], adjustbox, pgfplotstable, tikz-cd.
 %   Links     hyperref (blue links, breakable), bookmark (headings with symbols are fine), xurl.
 %   Pandoc    variables used: title, author(s), date, abstract, header-left, fontsize,
-%             presentation_layout (derived from page-layout), numbersections,
+%             presentation_layout (derived from page-layout), title_rule (derived from title-rule),
+%             numbersections,
 %             secnumdepth, toc, toc-depth, csl-refs, header-includes, include-before, include-after,
 %             highlighting-macros, body. Multiple Markdown/TXT inputs are concatenated in command-
 %             line order by markdown-normalizer.lua. Cleaned YAML maps are merged in input order, then
@@ -569,7 +571,11 @@ $endfor$
 
 \maketitle
 \thispagestyle{fancy}
-\hrule \vspace{1.5em}
+% The normalizer defaults title_rule to true and maps YAML title-rule: false to false.
+$if(title_rule)$
+\hrule
+$endif$
+\vspace{1.5em}
 $if(abstract)$
 \begin{abstract}
 $abstract$

@@ -580,6 +580,8 @@ After compiling this file:
 
 - PDF exists beside this .txt file.
 - PDF title and author match the YAML metadata.
+- With no `title-rule` option, the horizontal title rule remains visible; the
+  focused title-rule-regression.txt fixture verifies `title-rule: false`.
 - Both citation text and a CSL-formatted reference list appear.
 - Headings, lists, table, inline/display math, theorem, proof, and TikZ render.
 - Real Python output appears; run=false source appears without its output.
@@ -615,6 +617,14 @@ compile.bat:
 The resulting PDF should report a page size of 960 x 540 points (16:9
 landscape) with pdfinfo. A document without page-layout metadata remains A4.
 An unsupported page-layout value should print a warning and produce an A4 PDF.
+
+Title-rule check
+----------------
+The title rule is visible by default. Set `title-rule: false` as a YAML boolean
+to omit it; the space below the title remains unchanged. Quoted `"false"` is a
+string, not a boolean, and warns while keeping the rule. The focused
+title-rule-regression.txt input exercises the disabled case through compile.bat.
+The feature's focused input is listed in the README and installation guide.
 
 Multi-file regression
 ---------------------

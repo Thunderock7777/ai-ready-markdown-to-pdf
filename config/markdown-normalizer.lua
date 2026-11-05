@@ -1624,6 +1624,21 @@ local function apply_page_layout(doc)
   end
 end
 
+-- Preserve the visible title rule by default; only a YAML boolean false disables it.
+local function apply_title_rule(doc)
+  local value = doc.meta["title-rule"]
+  if value == nil then
+    doc.meta.title_rule = pandoc.MetaBool(true)
+  elseif type(value) == "boolean" then
+    doc.meta.title_rule = pandoc.MetaBool(value)
+  elseif type(value) == "table" and value.t == "MetaBool" then
+    doc.meta.title_rule = pandoc.MetaBool(value.c)
+  else
+    warn("title-rule must be a YAML boolean; using true")
+    doc.meta.title_rule = pandoc.MetaBool(true)
+  end
+end
+
 -- everything collected in State.hoisted goes into pandoc's header-includes
 local function inject_header_includes(doc)
   if #State.hoisted == 0 then return end
@@ -1643,6 +1658,7 @@ local FINALIZE_STEPS = {
   { name = "report-scripts",    apply = report_super_fixes },
   { name = "report-scrubs",     apply = report_scrub_counts },
   { name = "page-layout",      apply = apply_page_layout },
+  { name = "title-rule",       apply = apply_title_rule },
   { name = "extra-meta",        apply = apply_extra_meta },
   { name = "header-includes",   apply = inject_header_includes },
 }

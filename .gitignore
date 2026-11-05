@@ -14,5 +14,15 @@ md2pdf_cache/
 *.toc
 *.synctex.gz
 
+
+
 # Temporary build output
 build/
+
+# Ignore generated and ad hoc text, Markdown, and PDF files
+*.txt
+*.md
+*.pdf
+!README.md
+!documentation/
+!documentation/**

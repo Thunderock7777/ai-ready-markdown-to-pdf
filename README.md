@@ -4,7 +4,7 @@ A Windows workflow for turning Markdown or plain-text notes into a PDF with
 Pandoc, XeLaTeX, and two Lua filters. Python code fences can run during the
 build, while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.0.0** (working baseline; release tag pending).
+**Current project version: 1.1.0**.
 
 > **Paste an AI chat response and compile it directly.** An intact, uncorrupted
 > copied response from ChatGPT, Gemini chat, or NotebookLM can be compiled as-is
@@ -18,6 +18,7 @@ build, while LaTeX fences render source snippets without executing them.
 - Compile AI-generated responses from ChatGPT, Gemini, or NotebookLM directly,
   without manual editing of supported content.
 - Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order.
+- Keep default A4 output or select a 16:9 landscape presentation page size in YAML.
 - Render Markdown, math, tables, citations, selected pasted LaTeX, and code.
 - Execute Python fences with optional output, source, figure, and cache controls.
 - Reuse valid Python results only for the same input folder, or force a fresh
@@ -42,15 +43,15 @@ your-tool-folder/
 ├── compile.bat
 ├── README.md
 ├── documentation/
-│   ├── FILTER_FEATURE_REGRESSION.txt
-│   ├── FILTER_FEATURE_REGRESSION_PART2.txt
-│   ├── NORMALIZER_FIX_MANUAL_TEST.txt
-│   ├── CONTRIBUTING_AND_VERSIONING.txt
-│   ├── INSTALL_AND_USE.txt
-│   ├── CODE_FENCE_RUNNER_ARCHITECTURE.txt
-│   ├── MARKDOWN_NORMALIZER_ARCHITECTURE.txt
-│   ├── WORKFLOW_ARCHITECTURE.txt
-│   └── WORKFLOW_ASSESSMENT.txt
+│   ├── installation-and-usage.txt
+│   ├── workflow-architecture.txt
+│   ├── markdown-normalizer-architecture.txt
+│   ├── code-fence-runner-architecture.txt
+│   ├── contributing-and-versioning.txt
+│   ├── workflow-assessment.txt
+│   ├── filter-feature-regression.txt
+│   ├── filter-feature-regression-part-2.txt
+│   └── normalizer-fix-manual-test.txt
 └── config/
     ├── custom.tex
     ├── markdown-normalizer.lua
@@ -74,7 +75,7 @@ that folder when no build is running; cached results will be regenerated.
   it: `py -m pip install matplotlib`.
 
 For LaTeX packages, use MiKTeX with automatic package installation enabled or a
-full TeX Live installation. See [INSTALL_AND_USE.txt](documentation/INSTALL_AND_USE.txt) for
+full TeX Live installation. See [installation-and-usage.txt](documentation/installation-and-usage.txt) for
 installation steps, command-line options, troubleshooting, and examples.
 
 ## Quick start
@@ -97,7 +98,7 @@ These two cases show how to specify the input:
 ```
 
 You can also pass a relative path from the tool folder, for example
-`.\compile.bat ".\documentation\FILTER_FEATURE_REGRESSION.txt"`. The PDF is saved
+`.\compile.bat ".\documentation\filter-feature-regression.txt"`. The PDF is saved
 beside the first input file, not necessarily beside `compile.bat`.
 
 Combine files by passing their quoted paths in the desired order:
@@ -140,6 +141,17 @@ The answer is **42**, and inline math works: $a^2 + b^2 = c^2$.
 |---|---:|
 | x | 10 |
 ```
+
+The PDF uses A4 by default. To use a 16:9 landscape page with 0.5-inch margins,
+add this YAML metadata block at the start of the input:
+
+```yaml
+---
+page-layout: presentation
+---
+```
+
+Other `page-layout` values are unsupported; they produce a warning and use A4.
 
 Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 
@@ -207,7 +219,7 @@ permissions and can access files and resources available to your account.
 To run the bundled end-to-end regression document, compile it by itself:
 
 ```powershell
-.\compile.bat ".\documentation\FILTER_FEATURE_REGRESSION.txt"
+.\compile.bat ".\documentation\filter-feature-regression.txt"
 ```
 
 Run this command from the tool root. The fixture PDF is written beside the
@@ -218,28 +230,30 @@ expected results.
 The companion fixture also tests combining two inputs in order:
 
 ```powershell
-.\compile.bat ".\documentation\FILTER_FEATURE_REGRESSION.txt" ".\documentation\FILTER_FEATURE_REGRESSION_PART2.txt"
+.\compile.bat ".\documentation\filter-feature-regression.txt" ".\documentation\filter-feature-regression-part-2.txt"
 ```
 
 The expected markers and verification steps are documented in the regression
 fixture.
 
-- [INSTALL_AND_USE.txt](documentation/INSTALL_AND_USE.txt) — beginner installation and usage guide.
-- [WORKFLOW_ARCHITECTURE.txt](documentation/WORKFLOW_ARCHITECTURE.txt) — detailed pipeline,
+- [installation-and-usage.txt](documentation/installation-and-usage.txt) — installation and usage guide.
+- [workflow-architecture.txt](documentation/workflow-architecture.txt) — detailed pipeline,
   filter-order, cache, and maintenance documentation.
-- [MARKDOWN_NORMALIZER_ARCHITECTURE.txt](documentation/MARKDOWN_NORMALIZER_ARCHITECTURE.txt) —
+- [markdown-normalizer-architecture.txt](documentation/markdown-normalizer-architecture.txt) —
   normalizer function reference, stages, state, and change/test guide.
-- [CODE_FENCE_RUNNER_ARCHITECTURE.txt](documentation/CODE_FENCE_RUNNER_ARCHITECTURE.txt) —
+- [code-fence-runner-architecture.txt](documentation/code-fence-runner-architecture.txt) —
   runner function reference, Python wrapper/cache flow, and change/test guide.
-- [FILTER_FEATURE_REGRESSION.txt](documentation/FILTER_FEATURE_REGRESSION.txt) — broad
-  feature and failure-path validation input.
-- [NORMALIZER_FIX_MANUAL_TEST.txt](documentation/NORMALIZER_FIX_MANUAL_TEST.txt) —
-  focused manual checks for nested table math formatting and mixed-input fallback.
-- [CONTRIBUTING_AND_VERSIONING.txt](documentation/CONTRIBUTING_AND_VERSIONING.txt) —
+- [contributing-and-versioning.txt](documentation/contributing-and-versioning.txt) —
   project change, documentation, mandatory focused `.txt` testing, and
   version-tracking rules.
-- [WORKFLOW_ASSESSMENT.txt](documentation/WORKFLOW_ASSESSMENT.txt) — candid scorecard,
+- [workflow-assessment.txt](documentation/workflow-assessment.txt) — candid scorecard,
   limitations, and documentation audit.
+- [filter-feature-regression.txt](documentation/filter-feature-regression.txt) — broad
+  feature and failure-path validation input.
+- [filter-feature-regression-part-2.txt](documentation/filter-feature-regression-part-2.txt) —
+  companion input for the multi-file regression check.
+- [normalizer-fix-manual-test.txt](documentation/normalizer-fix-manual-test.txt) —
+  focused manual checks for nested table math formatting and mixed-input fallback.
 
 ## Known limitations
 

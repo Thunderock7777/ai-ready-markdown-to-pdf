@@ -1612,6 +1612,18 @@ local function apply_extra_meta(doc)
   end
 end
 
+-- Map only the supported YAML preset to the template flag; invalid values warn and keep A4.
+local function apply_page_layout(doc)
+  local value = doc.meta["page-layout"]
+  if not value then return end
+  local layout = pandoc.utils.stringify(value):match("^%s*(.-)%s*$"):lower()
+  if layout == "presentation" then
+    doc.meta.presentation_layout = pandoc.MetaBool(true)
+  else
+    warn("unsupported page-layout '" .. layout .. "'; using A4 (supported value: presentation)")
+  end
+end
+
 -- everything collected in State.hoisted goes into pandoc's header-includes
 local function inject_header_includes(doc)
   if #State.hoisted == 0 then return end
@@ -1630,6 +1642,7 @@ local FINALIZE_STEPS = {
   { name = "code-superscripts", apply = define_code_superscripts },
   { name = "report-scripts",    apply = report_super_fixes },
   { name = "report-scrubs",     apply = report_scrub_counts },
+  { name = "page-layout",      apply = apply_page_layout },
   { name = "extra-meta",        apply = apply_extra_meta },
   { name = "header-includes",   apply = inject_header_includes },
 }

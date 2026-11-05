@@ -23,6 +23,7 @@ build/
 *.txt
 *.md
 *.pdf
+*.png
 !README.md
 !documentation/
 !documentation/**

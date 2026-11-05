@@ -19,15 +19,15 @@ Recommended folder layout
             markdown-normalizer.lua
             code-fence-runner.lua
         documentation\
-            FILTER_FEATURE_REGRESSION.txt
-            FILTER_FEATURE_REGRESSION_PART2.txt
-            NORMALIZER_FIX_MANUAL_TEST.txt
-            CONTRIBUTING_AND_VERSIONING.txt
-            INSTALL_AND_USE.txt
-            CODE_FENCE_RUNNER_ARCHITECTURE.txt
-            MARKDOWN_NORMALIZER_ARCHITECTURE.txt
-            WORKFLOW_ARCHITECTURE.txt
-            WORKFLOW_ASSESSMENT.txt
+            installation-and-usage.txt
+            workflow-architecture.txt
+            markdown-normalizer-architecture.txt
+            code-fence-runner-architecture.txt
+            workflow-assessment.txt
+            contributing-and-versioning.txt
+            filter-feature-regression.txt
+            filter-feature-regression-part-2.txt
+            normalizer-fix-manual-test.txt
         md2pdf_cache\                    (created as needed; disposable)
         your own input .md/.txt files and PDFs (wherever convenient)
 
@@ -102,8 +102,8 @@ math, fenced Divs, pipe tables, and bare-URL autolinking while disabling
 Markdown subscript/superscript parsing. Standard Markdown lists and Pandoc task
 lists are recognized: `- item` is a bullet, and `- [ ] item` / `- [x] item`
 are task-list entries. A bare `[ ] item` without the list marker is paragraph
-text, not a list. This distinction is covered in documentation\INSTALL_AND_USE.txt and
-documentation\FILTER_FEATURE_REGRESSION.txt. Multiple files retain command-line content
+text, not a list. This distinction is covered in documentation\installation-and-usage.txt and
+documentation\filter-feature-regression.txt. Multiple files retain command-line content
 order. The first cleaned YAML value is retained and later YAML maps fill
 missing keys; Pandoc's aggregate metadata is overlaid afterward, so conflicting
 values follow Pandoc's multi-input precedence and command-line overrides.
@@ -140,6 +140,9 @@ fonts, math and Unicode mappings, tables, code, figures, links, citations, and
 optional packages. See its opening FEATURES and LIMITATIONS comments for exact
 package, font, and symbol caveats. Missing optional packages may leave their
 commands undefined; missing glyphs may be blank and reported in the XeLaTeX log.
+Page size defaults to A4. A YAML `page-layout: presentation` value selects a
+13 1/3-by-7.5-inch (16:9) landscape page; the normalizer sets the template flag
+only for that supported value and warns/falls back to A4 for other values.
 
 Fenced-code attributes
 ----------------------
@@ -232,12 +235,12 @@ Testing and maintenance
 -----------------------
 The checked-in broad regression input exercises the normal end-to-end path:
 
-       .\compile.bat "documentation\FILTER_FEATURE_REGRESSION.txt"
+       .\compile.bat "documentation\filter-feature-regression.txt"
 
 Run that command from the tool root. The generated PDF is beside the fixture in
 documentation\. It intentionally includes a controlled Python failure and expected
 cleanup warnings; those are not Pandoc/XeLaTeX build failures. Its companion
-beginner setup guide is documentation\INSTALL_AND_USE.txt. The fixture is compiled by
+beginner setup guide is documentation\installation-and-usage.txt. The fixture is compiled by
 itself with compile.bat and covers Markdown/task-list syntax, LaTeX preamble
 recovery, Python execution/cache/failure behavior, citations, and figure
 embedding. It also contrasts default cached Python, run=new fresh execution,
@@ -246,15 +249,15 @@ coin-flip running-average probability graph.
 
 The separate multi-input check uses both regression inputs in one invocation:
 
-       .\compile.bat "documentation\FILTER_FEATURE_REGRESSION.txt" "documentation\FILTER_FEATURE_REGRESSION_PART2.txt"
+       .\compile.bat "documentation\filter-feature-regression.txt" "documentation\filter-feature-regression-part-2.txt"
 
 The first input determines the PDF path. Verify the four
 MULTI_INPUT_PART_* markers appear exactly once in the PDF, ordered as documented
-in FILTER_FEATURE_REGRESSION.txt. This checks concatenation order and one
+in filter-feature-regression.txt. This checks concatenation order and one
 rendered output per Python fence; it does not rerun each fence for every input.
 
 For focused manual checks of nested table formatting and mixed-input fallback,
-see documentation\NORMALIZER_FIX_MANUAL_TEST.txt. It gives separate commands
+see documentation\normalizer-fix-manual-test.txt. It gives separate commands
 and before/after expectations; the fallback case passes compile.bat as an
 unsupported second input to exercise state rollback.
 

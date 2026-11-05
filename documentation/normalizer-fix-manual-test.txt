@@ -20,7 +20,7 @@ Run from the folder containing compile.bat.
 ------------------------
 Compile this file by itself:
 
-    .\compile.bat ".\documentation\NORMALIZER_FIX_MANUAL_TEST.txt"
+    .\compile.bat ".\documentation\normalizer-fix-manual-test.txt"
 
 Inspect the PDF table and console output.
 
@@ -43,7 +43,7 @@ Compile this file with compile.bat as the second input. Its .bat extension is
 intentionally unsupported by the normalizer's text-cleaning stage and triggers
 the original-Pandoc-parse fallback:
 
-    .\compile.bat ".\documentation\NORMALIZER_FIX_MANUAL_TEST.txt" ".\compile.bat"
+    .\compile.bat ".\documentation\normalizer-fix-manual-test.txt" ".\compile.bat"
 
 The compiler will also include compile.bat as input content in the resulting
 PDF; that is expected for this fallback test.

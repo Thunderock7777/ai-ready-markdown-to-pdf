@@ -45,7 +45,7 @@ In File Explorer, drag this file onto compile.bat, or run the following from
 PowerShell after changing to the tool folder (the folder containing
 compile.bat):
 
-    .\compile.bat ".\documentation\FILTER_FEATURE_REGRESSION.txt"
+    .\compile.bat ".\documentation\filter-feature-regression.txt"
 
 The template and filters are read from the config folder beside compile.bat.
 The PDF should be created beside this .txt file with the same base name.
@@ -62,7 +62,7 @@ title in the produced PDF should be "Filter Feature Regression".
 
 The first input's content order is preserved. This standalone file is one
 input. Its multi-file behavior is tested separately below with
-FILTER_FEATURE_REGRESSION_PART2.txt.
+filter-feature-regression-part-2.txt.
 
 Multi-file regression markers from input 1:
 MULTI_INPUT_PART_ONE_TEXT
@@ -415,10 +415,10 @@ print("This output is intentionally hidden in the PDF.")
 
 The explicit deps attribute adds the named file's content to the cache key:
 
-```{.python deps="FILTER_FEATURE_REGRESSION.txt" show=false}
+```{.python deps="filter-feature-regression.txt" show=false}
 from pathlib import Path
 
-print("Explicit input dependency bytes:", Path("FILTER_FEATURE_REGRESSION.txt").stat().st_size)
+print("Explicit input dependency bytes:", Path("filter-feature-regression.txt").stat().st_size)
 ```
 
 run=false does not execute this recognized Python fence; it remains a normal
@@ -572,7 +572,7 @@ Other known constraints: XeLaTeX is required; bibliography support is Pandoc
 citeproc, not raw natbib/biblatex; Python caching cannot track every network,
 environment, or external-state dependency; remote images are not embedded;
 complex Markdown or raw-LaTeX combinations may need explicit blank lines or
-simpler markup. See WORKFLOW_ARCHITECTURE.txt for the implementation details.
+simpler markup. See workflow-architecture.txt for the implementation details.
 
 8. Validation checklist
 -----------------------
@@ -598,7 +598,23 @@ After compiling this file:
 - The input .txt file remains unchanged.
 
 Expected output file:
-FILTER_FEATURE_REGRESSION.pdf
+filter-feature-regression.pdf
+
+Presentation page-size check
+----------------------------
+To check the optional page-size preset without changing this broad fixture,
+save the following as `page-layout-presentation.txt` and compile it through
+compile.bat:
+
+    ---
+    page-layout: presentation
+    ---
+
+    Presentation page-size check.
+
+The resulting PDF should report a page size of 960 x 540 points (16:9
+landscape) with pdfinfo. A document without page-layout metadata remains A4.
+An unsupported page-layout value should print a warning and produce an A4 PDF.
 
 Multi-file regression
 ---------------------
@@ -606,8 +622,8 @@ The single-input build above does not test multi-file merging. From the tool
 root, run this additional build with the companion input as the second file:
 
     .\compile.bat `
-        ".\documentation\FILTER_FEATURE_REGRESSION.txt" `
-        ".\documentation\FILTER_FEATURE_REGRESSION_PART2.txt"
+        ".\documentation\filter-feature-regression.txt" `
+        ".\documentation\filter-feature-regression-part-2.txt"
 
 The resulting PDF is again written beside the first input. Extract or inspect
 its text and verify the four unique markers occur exactly once in this order:
@@ -635,7 +651,7 @@ To check mixed-input fallback, run this fixture with compile.bat as the second
 input from the tool root:
 
     .\compile.bat `
-        ".\documentation\FILTER_FEATURE_REGRESSION.txt" `
+        ".\documentation\filter-feature-regression.txt" `
         ".\compile.bat"
 
 The unsupported .bat input intentionally makes the normalizer retain Pandoc's
@@ -655,5 +671,5 @@ Fallback marker one: [cite_start] FALLBACK_STATE_ALPHA
 
 Fallback marker two: [cite: 3] FALLBACK_STATE_BETA
 
-The standalone NORMALIZER_FIX_MANUAL_TEST.txt provides the same focused checks
+The standalone normalizer-fix-manual-test.txt provides the same focused checks
 without running the full fixture.

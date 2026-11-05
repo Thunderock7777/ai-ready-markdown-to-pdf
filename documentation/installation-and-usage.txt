@@ -17,15 +17,15 @@ Keep this folder structure together:
             markdown-normalizer.lua
             code-fence-runner.lua
         documentation\
-            FILTER_FEATURE_REGRESSION.txt
-            FILTER_FEATURE_REGRESSION_PART2.txt
-            NORMALIZER_FIX_MANUAL_TEST.txt
-            CONTRIBUTING_AND_VERSIONING.txt
-            INSTALL_AND_USE.txt
-            CODE_FENCE_RUNNER_ARCHITECTURE.txt
-            MARKDOWN_NORMALIZER_ARCHITECTURE.txt
-            WORKFLOW_ARCHITECTURE.txt
-            WORKFLOW_ASSESSMENT.txt
+            installation-and-usage.txt
+            workflow-architecture.txt
+            markdown-normalizer-architecture.txt
+            code-fence-runner-architecture.txt
+            workflow-assessment.txt
+            contributing-and-versioning.txt
+            filter-feature-regression.txt
+            filter-feature-regression-part-2.txt
+            normalizer-fix-manual-test.txt
 
 The documentation\ folder contains the workflow guides and regression fixture; it is
 not a required location for your own notes. Keep personal input files wherever
@@ -86,6 +86,18 @@ What to install
    only when they are present. If a pasted command uses an absent optional
    package, XeLaTeX may report an undefined command; install that package or
    remove the command.
+
+PDF page layout
+---------------
+The default PDF size is A4. To create wide 16:9 landscape pages with 0.5-inch
+margins, add this YAML metadata block at the start of an input:
+
+    ---
+    page-layout: presentation
+    ---
+
+This changes page dimensions, not the document into a Beamer slide deck.
+Unsupported page-layout values produce a warning and keep the A4 layout.
 
 3. Python (only if you use Python code fences)
    The workflow invokes the Windows Python launcher as "py". Install Python
@@ -168,7 +180,7 @@ Create your first PDF
    path from the current directory):
 
        .\compile.bat "C:\Users\you\Documents\my-notes.txt"
-       .\compile.bat ".\documentation\FILTER_FEATURE_REGRESSION.txt"
+       .\compile.bat ".\documentation\filter-feature-regression.txt"
 
 4. Find the PDF beside the first input file. Therefore, a file in
    Documents\ produces its PDF in Documents\, not beside compile.bat. The config
@@ -295,4 +307,4 @@ What you do not need
 
 For detailed filter order, cache internals, metadata behavior, supported input
 contracts, failure modes, and extension guidance, read
-documentation\WORKFLOW_ARCHITECTURE.txt.
+documentation\workflow-architecture.txt.

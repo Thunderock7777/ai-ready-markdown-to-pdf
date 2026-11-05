@@ -87,7 +87,7 @@ one.
 - Documentation-only, comment-only, and formatting-only changes do not require
   a `.txt` compile unless they alter a documented example or expected behavior;
   validate links, paths, and wording instead.
-- Do NOT compile FILTER_FEATURE_REGRESSION.txt after every change. It is a
+- Do NOT compile filter-feature-regression.txt after every change. It is a
   comparatively large end-to-end demonstration; rebuilding it for an unrelated
   documentation edit or a small isolated change wastes time and compute.
 - The mandatory `.txt` test is a small, targeted test case, not a requirement to
@@ -96,7 +96,7 @@ one.
 - The regression fixture is available to any user as an end-to-end workflow
   check. Its single-input and two-input commands, expected warnings, marker
   checks, and output location are documented in
-  FILTER_FEATURE_REGRESSION.txt.
+  filter-feature-regression.txt.
 - Run the relevant fixture when changing the pipeline, either Lua filter,
   template behavior, Python execution/cache behavior, or when a complete
   integration check is needed. Run it before a release when practical, or when
@@ -128,14 +128,21 @@ one.
 6. Version policy and line-change tracking
 -------------------------------------------
 Starting version: 1.0.0
-Line-change budget: 500 changed lines per version cycle
+Line-change budget: 500 changed lines per version cycle; releases may occur earlier
 Starting accumulated count: 0
 
 The project adopts 1.0.0 as its working baseline when this policy is accepted.
-At the time this rule was written, the repository had no version tags, so this
-text does not claim that a Git tag or published GitHub release already exists.
-After the baseline change is committed, create or designate the Git tag v1.0.0
-if a formal release tag is wanted. Do not move an existing release tag.
+Version tags and published releases are managed separately from this ledger.
+If a formal baseline tag is used, name it v1.0.0; do not move an existing tag.
+
+The 500-line budget is a tracking threshold, not a requirement to delay a
+release. A user-facing feature or other meaningful change may be versioned
+before the threshold. Apply semantic versioning to each intentional release:
+incompatible public behavior/API change -> MAJOR; backward-compatible
+user-facing feature -> MINOR; bug fix, documentation, or maintenance-only
+release -> PATCH. A version increment starts a new cycle at zero regardless
+of the previous cycle's count. This ledger records version changes; Git commits,
+tags, and publication are managed separately.
 
 Counting rule:
 - Count changed lines only in project-maintained system files whose content
@@ -152,15 +159,9 @@ Counting rule:
   numeric additions and deletions for qualifying files, and skip binary rows.
   Do not stage personal files or generated artifacts just to count them, and
   do not estimate from file length.
-- Once the cumulative total reaches or exceeds 500, increment the project
-  version, record the new version and reason, and reset the next cycle's count
-  to zero. A single large change that crosses the threshold triggers one
-  version increment; the new cycle starts at zero.
-- At that threshold, use semantic versioning to choose the increment:
-  incompatible public behavior/API change -> MAJOR; backward-compatible
-  user-facing feature -> MINOR; bug fix, documentation, or maintenance-only
-  release -> PATCH. The 500-line threshold triggers a version update; it does
-  not by itself determine which version component changes.
+- When a release is made, record its version and reason, then reset the new
+  cycle's count to zero. The 500-line budget may prompt a release review but
+  does not force a release or determine the version increment.
 - Update this ledger and any version references in README.md in the same
   versioning change. Create the corresponding Git tag/release only after the
   versioned change is committed and validated.
@@ -170,12 +171,16 @@ Line-count ledger
 Baseline
   Version: 1.0.0
   Starting count: 0 / 500
-  Baseline tag: pending; no version tags existed when this policy was written.
 
 Change ledger
-  2026-11-04 | uncommitted | Python consent and workspace-scoped cache | source +41 / -16 | 57 / 500
-  2026-11-05 | uncommitted | Mixed-input rollback and nested table math formatting | source +87 / -13 | 157 / 500
-  2026-11-05 | uncommitted | Added manual normalizer fix fixture | source +0 / -0 | 157 / 500
+  2026-11-04 | Python consent and workspace-scoped cache | source +41 / -16 | 57 / 500
+  2026-11-05 | Mixed-input rollback and nested table math formatting | source +87 / -13 | 157 / 500
+  2026-11-05 | Added manual normalizer fix fixture | source +0 / -0 | 157 / 500
+  2026-11-05 | YAML presentation page-size preset | source +22 / -6 | 185 / 500
+  2026-11-05 | Versioned presentation page-size feature as 1.1.0 (MINOR)
+
+Version 1.1.0 cycle
+  Starting count: 0 / 500
 
 For each later accepted change, append one entry in this format:
 

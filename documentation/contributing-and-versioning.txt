@@ -137,12 +137,20 @@ If a formal baseline tag is used, name it v1.0.0; do not move an existing tag.
 
 The 500-line budget is a tracking threshold, not a requirement to delay a
 release. A user-facing feature or other meaningful change may be versioned
-before the threshold. Apply semantic versioning to each intentional release:
-incompatible public behavior/API change -> MAJOR; backward-compatible
-user-facing feature -> MINOR; bug fix, documentation, or maintenance-only
-release -> PATCH. A version increment starts a new cycle at zero regardless
-of the previous cycle's count. This ledger records version changes; Git commits,
-tags, and publication are managed separately.
+before the threshold. Apply the project's version increment rules to each
+intentional release:
+- Bug fixes and small, backward-compatible feature additions increment the
+  patch number: for example, 1.2.0 -> 1.2.1 -> 1.2.2.
+- A major feature addition increments the middle number and resets the patch
+  number: for example, 1.2.2 -> 1.3.0 -> 1.4.0.
+- An incompatible public behavior/API change increments the first number and
+  resets the other numbers: for example, 1.4.0 -> 2.0.0.
+- Documentation-only or maintenance-only releases use the patch increment
+  unless they are included in another versioned change.
+
+A version increment starts a new line-count cycle at zero regardless of the
+previous cycle's count. This ledger records version changes; Git commits, tags,
+and publication are managed separately.
 
 Counting rule:
 - Count changed lines only in project-maintained system files whose content

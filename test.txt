@@ -1,27 +1,32 @@
 ---
-title: My Custom Title
-author: Your Name
-date: November 2026
----
-
-```{.latex}
-\maketitle{%
-  \begin{center}
-    \fbox{%
-      \begin{minipage}{0.88\textwidth}
-        \centering
-        {\Huge\bfseries \csname @title\endcsname\par}
-        \vspace{0.8em}
-        {\large \csname @author\endcsname\par}
-        \vspace{0.4em}
-        {\small \csname @date\endcsname\par}
-      \end{minipage}%
+title: "My Custom Title"
+author: "Your Name"
+date: "November 2026"
+title-rule: false
+header-includes:
+  - |
+    \renewcommand{\maketitle}{%
+      \begin{center}
+        \begingroup
+        \setlength{\fboxsep}{12pt}
+        \fbox{%
+          \begin{minipage}{0.85\textwidth}
+            \centering
+            {\Huge\bfseries \csname @title\endcsname\par}
+            \vspace{0.8em}
+            {\large \csname @author\endcsname\par}
+            \vspace{0.4em}
+            {\small \csname @date\endcsname\par}
+          \end{minipage}%
+        }
+        \endgroup
+      \end{center}
     }
-  \end{center}
-}
-\begin{document}
-\end{document}
+---
+```latex
+\lhead{}
 ```
+Your document content starts here.
 ```python
 
 import os

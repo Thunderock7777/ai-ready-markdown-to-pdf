@@ -1,10 +1,11 @@
 # Markdown to PDF
 
 A Windows workflow for turning Markdown or plain-text notes into a PDF with
-Pandoc, XeLaTeX, and two Lua filters. Python code fences can run during the
-build, while LaTeX fences render source snippets without executing them.
+Pandoc, XeLaTeX, and two Lua filters. Executable code fences (Python, C, C++,
+and Java) can run during the build to capture output, while LaTeX fences render
+source snippets without executing them.
 
-**Current project version: 1.0.0** (working baseline; release tag pending).
+**Current project version: 1.2.1**.
 
 > **Paste an AI chat response and compile it directly.** An intact, uncorrupted
 > copied response from ChatGPT, Gemini chat, or NotebookLM can be compiled as-is
@@ -18,10 +19,12 @@ build, while LaTeX fences render source snippets without executing them.
 - Compile AI-generated responses from ChatGPT, Gemini, or NotebookLM directly,
   without manual editing of supported content.
 - Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order.
+- Keep default A4 output or select a 16:9 landscape presentation page size in YAML.
 - Render Markdown, math, tables, citations, selected pasted LaTeX, and code.
-- Execute Python fences with optional output, source, figure, and cache controls.
-- Reuse valid Python results from cache, or force a fresh run when needed.
-- The text-processing stages leave source files unchanged. Python fences can
+- Execute Python, C, C++, and Java fences with optional output, source, error, and cache controls.
+- Reuse valid execution results with persistent SHA-1 caching, or force a fresh
+  run when needed.
+- The text-processing stages leave source files unchanged. Executable fences can
   still write files they explicitly open; PDFs are saved beside the first input.
 
 ## Best use
@@ -40,15 +43,18 @@ Keep the compiler and its configuration files together:
 your-tool-folder/
 ├── compile.bat
 ├── README.md
-├── manual/
-│   ├── FILTER_FEATURE_REGRESSION.txt
-│   ├── FILTER_FEATURE_REGRESSION_PART2.txt
-│   ├── CONTRIBUTING_AND_VERSIONING.txt
-│   ├── INSTALL_AND_USE.txt
-│   ├── CODE_FENCE_RUNNER_ARCHITECTURE.txt
-│   ├── MARKDOWN_NORMALIZER_ARCHITECTURE.txt
-│   ├── WORKFLOW_ARCHITECTURE.txt
-│   └── WORKFLOW_ASSESSMENT.txt
+├── documentation/
+│   ├── installation-and-usage.txt
+│   ├── workflow-architecture.txt
+│   ├── markdown-normalizer-architecture.txt
+│   ├── code-fence-runner-architecture.txt
+│   ├── contributing-and-versioning.txt
+│   ├── workflow-assessment.txt
+│   ├── filter-feature-regression.txt
+│   ├── filter-feature-regression-part-2.txt
+│   ├── title-rule-regression.txt
+│   ├── normalizer-fix-manual-test.txt
+│   └── code-fence-languages-test.txt
 └── config/
     ├── custom.tex
     ├── markdown-normalizer.lua
@@ -66,13 +72,18 @@ that folder when no build is running; cached results will be regenerated.
   [TeX Live for Windows](https://tug.org/texlive/windows.html)
 - **Python 3.8 or newer**, only if using Python fences. The workflow invokes the
   Windows Python launcher, `py`: [Python downloads](https://www.python.org/downloads/windows/)
+- **C / C++ Compiler (optional)**: GCC (`gcc`/`g++`) or Clang, if compiling and
+  running C or C++ fences. `CC` / `CXX` (or `MD2PDF_CC` / `MD2PDF_CXX`) can override
+  the compiler executable.
+- **Java 11 or newer (optional)**: `java` runtime with single-source file support,
+  if running Java fences. `JAVA` or `MD2PDF_JAVA` can override the executable path.
 - **Python packages are not installed by this workflow.** Install third-party
   packages imported by your Python blocks into the interpreter used by `py`
   before compiling. For example, Matplotlib is needed only for code that imports
   it: `py -m pip install matplotlib`.
 
 For LaTeX packages, use MiKTeX with automatic package installation enabled or a
-full TeX Live installation. See [INSTALL_AND_USE.txt](manual/INSTALL_AND_USE.txt) for
+full TeX Live installation. See [installation-and-usage.txt](documentation/installation-and-usage.txt) for
 installation steps, command-line options, troubleshooting, and examples.
 
 ## Quick start
@@ -95,7 +106,7 @@ These two cases show how to specify the input:
 ```
 
 You can also pass a relative path from the tool folder, for example
-`.\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt"`. The PDF is saved
+`.\compile.bat ".\documentation\filter-feature-regression.txt"`. The PDF is saved
 beside the first input file, not necessarily beside `compile.bat`.
 
 Combine files by passing their quoted paths in the desired order:
@@ -139,6 +150,26 @@ The answer is **42**, and inline math works: $a^2 + b^2 = c^2$.
 | x | 10 |
 ```
 
+The PDF uses A4 by default. To use a 16:9 landscape page with 0.5-inch margins,
+add this YAML metadata block at the start of the input:
+
+```yaml
+---
+page-layout: presentation
+---
+```
+
+Other `page-layout` values are unsupported; they produce a warning and use A4.
+
+The horizontal rule below the title appears by default. To hide it, add the
+boolean option to the YAML front matter:
+
+```yaml
+title-rule: false
+```
+
+Omit this option or set it to `true` to keep the rule.
+
 Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 
 ````markdown
@@ -149,18 +180,32 @@ Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 ```
 ````
 
-Python fences execute by default:
+Executable code fences (Python, C, C++, Java) execute by default. On the first run
+of a block without a valid cached result, the build asks whether you trust the code
+and displays it for review. Enter `Y` to run it; any other response leaves it as a code listing.
+A valid cached result is reused without asking. `trusted=true` skips the
+confirmation for a normal first run:
 
 ````markdown
 ```{.python}
-print("Hello from Python")
+print("This block runs after you approve it.")
+```
+
+```{.c}
+#include <stdio.h>
+int main() { printf("C code runs after approval.\n"); return 0; }
 ```
 ````
 
-Supported executable-language names include `python`, `py`, `python3`, and
-`py3`; LaTeX rendering recognizes `latex` and `tex`.
+Supported executable-language names include:
+- `python`, `py`, `python3`, `py3` (Python)
+- `c` (C, compiled with GCC / `CC` and executed)
+- `cpp`, `c++`, `cxx`, `cc` (C++, compiled with G++ / `CXX` and executed)
+- `java` (Java, executed via single-file source runner)
 
-### Python fence options
+LaTeX rendering recognizes `latex` and `tex`.
+
+### Executable fence options
 
 Options are written as Pandoc fence attributes:
 
@@ -172,9 +217,10 @@ print("This block runs freshly for this build.")
 
 | Attribute | Effect |
 |---|---|
-| Omitted `run` or `run=true` | Execute when needed; reuse a valid cached result. |
-| `run=new` | Force execution for this build and refresh the cache on success. |
-| `cache=false` | Also force a fresh execution. |
+| `trusted=true` | Skip confirmation for a normal first run. Forced fresh runs still ask. |
+| Omitted `run` or `run=true` | Execute by default; ask before the first uncached run and reuse a valid cached result. |
+| `run=new` | Ask and force execution for this build; refresh the cache on success. |
+| `cache=false` | Also ask and force a fresh execution. |
 | `run=false` | Do not execute; render as a code listing. |
 | `show=false` | Hide the source listing. |
 | `output=false` | Hide captured standard output in the PDF. |
@@ -200,37 +246,51 @@ permissions and can access files and resources available to your account.
 To run the bundled end-to-end regression document, compile it by itself:
 
 ```powershell
-.\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt"
+.\compile.bat ".\documentation\filter-feature-regression.txt"
 ```
 
 Run this command from the tool root. The fixture PDF is written beside the
-input, in `manual\`. The fixture intentionally contains expected warnings and
+input, in `documentation\`. The fixture intentionally contains expected warnings and
 Python failures to exercise error handling; read its opening section for
 expected results.
 
 The companion fixture also tests combining two inputs in order:
 
 ```powershell
-.\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt" ".\manual\FILTER_FEATURE_REGRESSION_PART2.txt"
+.\compile.bat ".\documentation\filter-feature-regression.txt" ".\documentation\filter-feature-regression-part-2.txt"
 ```
 
 The expected markers and verification steps are documented in the regression
 fixture.
 
-- [INSTALL_AND_USE.txt](manual/INSTALL_AND_USE.txt) — beginner installation and usage guide.
-- [WORKFLOW_ARCHITECTURE.txt](manual/WORKFLOW_ARCHITECTURE.txt) — detailed pipeline,
+To test hiding the title rule, compile the focused fixture:
+
+```powershell
+.\compile.bat ".\documentation\title-rule-regression.txt"
+```
+
+- [installation-and-usage.txt](documentation/installation-and-usage.txt) — installation and usage guide.
+- [workflow-architecture.txt](documentation/workflow-architecture.txt) — detailed pipeline,
   filter-order, cache, and maintenance documentation.
-- [MARKDOWN_NORMALIZER_ARCHITECTURE.txt](manual/MARKDOWN_NORMALIZER_ARCHITECTURE.txt) —
+- [markdown-normalizer-architecture.txt](documentation/markdown-normalizer-architecture.txt) —
   normalizer function reference, stages, state, and change/test guide.
-- [CODE_FENCE_RUNNER_ARCHITECTURE.txt](manual/CODE_FENCE_RUNNER_ARCHITECTURE.txt) —
+- [code-fence-runner-architecture.txt](documentation/code-fence-runner-architecture.txt) —
   runner function reference, Python wrapper/cache flow, and change/test guide.
-- [FILTER_FEATURE_REGRESSION.txt](manual/FILTER_FEATURE_REGRESSION.txt) — broad
-  feature and failure-path validation input.
-- [CONTRIBUTING_AND_VERSIONING.txt](manual/CONTRIBUTING_AND_VERSIONING.txt) —
+- [contributing-and-versioning.txt](documentation/contributing-and-versioning.txt) —
   project change, documentation, mandatory focused `.txt` testing, and
   version-tracking rules.
-- [WORKFLOW_ASSESSMENT.txt](manual/WORKFLOW_ASSESSMENT.txt) — candid scorecard,
+- [workflow-assessment.txt](documentation/workflow-assessment.txt) — candid scorecard,
   limitations, and documentation audit.
+- [filter-feature-regression.txt](documentation/filter-feature-regression.txt) — broad
+  feature and failure-path validation input.
+- [filter-feature-regression-part-2.txt](documentation/filter-feature-regression-part-2.txt) —
+  companion input for the multi-file regression check.
+- [title-rule-regression.txt](documentation/title-rule-regression.txt) —
+  focused input that disables the title rule with YAML metadata.
+- [normalizer-fix-manual-test.txt](documentation/normalizer-fix-manual-test.txt) —
+  focused manual checks for nested table math formatting and mixed-input fallback.
+- [code-fence-languages-test.txt](documentation/code-fence-languages-test.txt) —
+  focused validation input for C, C++, and Java code execution and compiler error rendering.
 
 ## Known limitations
 
@@ -248,3 +308,4 @@ feature regression document.
 ## License
 
 This project is distributed under the [MIT License](LICENSE).
+

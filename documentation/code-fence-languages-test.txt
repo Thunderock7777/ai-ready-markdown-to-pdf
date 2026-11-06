@@ -1,0 +1,67 @@
+
+---
+title: "Executable Code Fences Test: C, C++, and Java"
+author: "Workflow Test"
+date: "2026"
+title-rule: true
+---
+
+# 1. C Code Execution
+
+The C code block below is compiled with GCC and executed to capture standard output:
+
+```{.c trusted=true}
+#include <stdio.h>
+
+int main(void) {
+    int sum = 0;
+    for (int i = 1; i <= 5; ++i) {
+        sum += i;
+    }
+    printf("C Execution Success: Sum 1..5 = %d\n", sum);
+    return 0;
+}
+```
+
+# 2. C++ Code Execution
+
+The C++ code block below is compiled with G++ (-std=c++17) and executed:
+
+```{.cpp trusted=true}
+#include <iostream>
+#include <vector>
+#include <numeric>
+
+int main() {
+    std::vector<int> nums = {10, 20, 30, 40};
+    int total = std::accumulate(nums.begin(), nums.end(), 0);
+    std::cout << "C++ Execution Success: Total = " << total << std::endl;
+    return 0;
+}
+```
+
+# 3. Java Code Execution
+
+The Java code block below is executed directly using the Java source-launcher:
+
+```{.java trusted=true}
+public class RunnerDemo {
+    public static void main(String[] args) {
+        String greeting = "Java Execution Success: Hello from Java!";
+        System.out.println(greeting);
+    }
+}
+```
+
+# 4. Compiler Diagnostic Rendering Test
+
+The C block below intentionally contains a syntax error to verify that compiler diagnostics are rendered in the PDF with the code block label:
+
+```{.c trusted=true}
+#include <stdio.h>
+
+int main(void) {
+    intentional_syntax_error;
+    return 0;
+}
+```

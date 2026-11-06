@@ -16,20 +16,23 @@ Keep this folder structure together:
             custom.tex
             markdown-normalizer.lua
             code-fence-runner.lua
-        manual\
-            FILTER_FEATURE_REGRESSION.txt
-            FILTER_FEATURE_REGRESSION_PART2.txt
-            CONTRIBUTING_AND_VERSIONING.txt
-            INSTALL_AND_USE.txt
-            CODE_FENCE_RUNNER_ARCHITECTURE.txt
-            MARKDOWN_NORMALIZER_ARCHITECTURE.txt
-            WORKFLOW_ARCHITECTURE.txt
-            WORKFLOW_ASSESSMENT.txt
+        documentation\
+            installation-and-usage.txt
+            workflow-architecture.txt
+            markdown-normalizer-architecture.txt
+            code-fence-runner-architecture.txt
+            workflow-assessment.txt
+            contributing-and-versioning.txt
+            filter-feature-regression.txt
+            filter-feature-regression-part-2.txt
+            title-rule-regression.txt
+            normalizer-fix-manual-test.txt
+            code-fence-languages-test.txt
 
-The manual\ folder contains the workflow guides and regression fixture; it is
+The documentation\ folder contains the workflow guides and regression fixture; it is
 not a required location for your own notes. Keep personal input files wherever
 convenient. The generated PDF is saved beside the first input file; compiling a
-file from manual\ puts its PDF there. The config folder contains only the
+file from documentation\ puts its PDF there. The config folder contains only the
 template and filters.
 
 Required tool files: compile.bat in the root, plus custom.tex,
@@ -86,6 +89,32 @@ What to install
    package, XeLaTeX may report an undefined command; install that package or
    remove the command.
 
+PDF page layout
+---------------
+The default PDF size is A4. To create wide 16:9 landscape pages with 0.5-inch
+margins, add this YAML metadata block at the start of an input:
+
+    ---
+    page-layout: presentation
+    ---
+
+This changes page dimensions, not the document into a Beamer slide deck.
+Unsupported page-layout values produce a warning and keep the A4 layout.
+
+Title rule
+----------
+The template draws a horizontal rule below the title by default. To hide it,
+add this YAML boolean to the input's front matter:
+
+    ---
+    title-rule: false
+    ---
+
+Omit the option or set it to true to keep the rule. Quoted values are not
+booleans; invalid values produce a warning and keep the rule.
+
+Compile `documentation\title-rule-regression.txt` to check the disabled case.
+
 3. Python (only if you use Python code fences)
    The workflow invokes the Windows Python launcher as "py". Install Python
    from python.org and make sure the Python launcher is installed. The runner
@@ -118,6 +147,18 @@ What to install
 
    Project website:
    https://matplotlib.org/stable/install/
+
+5. Optional: C and C++ compilers (only if you use C or C++ fences)
+   C and C++ code blocks compile and execute to capture printed output.
+   Install GCC (e.g. from MSYS2 ucrt64 or WinLibs) or Clang. The workflow
+   defaults to `gcc` for C and `g++` for C++; `CC` and `CXX` environment
+   variables (or `MD2PDF_CC` / `MD2PDF_CXX`) can override compiler paths.
+
+6. Optional: Java runtime (only if you use Java fences)
+   Java code blocks execute directly using Java's single-file source launcher.
+   Requires Java 11 or newer (Java 21 recommended). The workflow defaults
+   to `java`; the `JAVA` or `MD2PDF_JAVA` environment variable can override
+   the executable path.
 
 Quick installation by command line
 ----------------------------------
@@ -167,7 +208,7 @@ Create your first PDF
    path from the current directory):
 
        .\compile.bat "C:\Users\you\Documents\my-notes.txt"
-       .\compile.bat ".\manual\FILTER_FEATURE_REGRESSION.txt"
+       .\compile.bat ".\documentation\filter-feature-regression.txt"
 
 4. Find the PDF beside the first input file. Therefore, a file in
    Documents\ produces its PDF in Documents\, not beside compile.bat. The config
@@ -235,12 +276,20 @@ Python — a Python fence runs by default:
     print("Hello from Python")
     ```
 
+Before an uncached Python block runs, compile.bat shows its code and asks
+whether you trust it. Enter Y to run it; any other response leaves it as a
+source listing. A valid cached result is reused without asking. `trusted=true`
+skips the prompt for a normal first run.
+
 Python execution and caching:
-    - No run attribute or run=true: run when needed; unchanged valid results
-      can be loaded from cache on a later build.
-    - run=new: force this block to run on this build, then refresh its cache.
-    - cache=false: also force a fresh run.
+    - No run attribute or run=true: run when needed; ask before the first
+      uncached run, then reuse unchanged valid results without asking.
+    - run=new: bypass cache and ask before every fresh run, then refresh its
+      cache on success.
+    - cache=false: also bypass cache and ask before every fresh run.
     - run=false: do not execute; show it as a normal code listing.
+    - trusted=true: skip the confirmation for an ordinary uncached run;
+      run=new and cache=false still require confirmation.
     - show=false: hide the source listing.
     - output=false: hide printed output in the PDF.
     - figures=false: do not embed captured figures; code may still save files.
@@ -253,8 +302,8 @@ Example forced Python run:
 
 Use run=new for code that depends on information the cache cannot detect, such
 as network responses, environment variables, or changing external services.
-Avoid running Python fences from documents you do not trust; they execute code
-on your computer with your user permissions.
+Review the displayed code before approving it. The confirmation prompt is not a
+sandbox: approved Python code executes with your user permissions.
 
 Common problems
 ---------------
@@ -286,10 +335,4 @@ What you do not need
 
 For detailed filter order, cache internals, metadata behavior, supported input
 contracts, failure modes, and extension guidance, read
-manual\WORKFLOW_ARCHITECTURE.txt. For function-by-function implementation
-details and step-by-step filter change/build guidance, read
-manual\MARKDOWN_NORMALIZER_ARCHITECTURE.txt and
-manual\CODE_FENCE_RUNNER_ARCHITECTURE.txt.
-manual\WORKFLOW_ARCHITECTURE.txt.
-Before modifying the project, also read
-manual\CONTRIBUTING_AND_VERSIONING.txt.
+documentation\workflow-architecture.txt.

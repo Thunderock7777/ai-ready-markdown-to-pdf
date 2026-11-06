@@ -5,11 +5,13 @@
 %  Metadata overrides (optional):  -M title="..."  -M author="..."  -N  --toc
 %
 %  FEATURES
-%   Page      A4, 12pt article, 2.5cm margins; running header (default "Notes", left) + page number
+%   Page      A4 (default) or YAML page-layout: presentation (16:9 landscape); 12pt article,
+%             2.5cm A4 margins or 0.5in presentation margins; running header + page number
 %             (right) with a rule; title block + rule; optional abstract; optional table of contents.
 %   Options   (all optional)   -M header-left="Physics"   running header text
 %                              -V fontsize=11pt           10pt, 11pt or 12pt (default 12pt)
 %                              abstract: "..." in the YAML block (printed under the title)
+%                              title-rule: false in YAML to hide the rule below the title
 %                              --toc  [toc-depth]         contents (default depth 3)
 %                              -N  [secnumdepth]          section numbers (OFF by default)
 %                              -M title / author / date   defaults: "Reference Notes", "Made By
@@ -49,7 +51,9 @@
 %   Extras    loaded only if installed: circuitikz, siunitx, algorithm + algpseudocode, chemfig,
 %             subcaption, listings, enumitem, tcolorbox [most], adjustbox, pgfplotstable, tikz-cd.
 %   Links     hyperref (blue links, breakable), bookmark (headings with symbols are fine), xurl.
-%   Pandoc    variables used: title, author(s), date, abstract, header-left, fontsize, numbersections,
+%   Pandoc    variables used: title, author(s), date, abstract, header-left, fontsize,
+%             presentation_layout (derived from page-layout), title_rule (derived from title-rule),
+%             numbersections,
 %             secnumdepth, toc, toc-depth, csl-refs, header-includes, include-before, include-after,
 %             highlighting-macros, body. Multiple Markdown/TXT inputs are concatenated in command-
 %             line order by markdown-normalizer.lua. Cleaned YAML maps are merged in input order, then
@@ -66,8 +70,9 @@
 %             mappings above.  pgfplots 1.18 or newer is needed (compat setting).
 %   Refs      only pandoc --citeproc is supported.  \cite is redefined (figure label / [key]), so
 %             raw natbib / biblatex citations are not available.
-%   Layout    A4 and the header position are fixed; font size is 10/11/12pt only; pandoc variables
-%             not listed under Pandoc above (lang, geometry, papersize, ...) are ignored; English
+%   Layout    Page size is A4 unless YAML page-layout is "presentation"; that preset uses a 16:9
+%             landscape page. Other layout values fall back to A4 with a warning. Header position
+%             is fixed; font size is 10/11/12pt only; other layout variables are ignored; English
 %             hyphenation only.
 %   \qty      physics' own \qty does not accept  \qty\{..\}  (it prints (){..}); use \qty{..}.
 %   Unicode   an unmapped symbol prints blank with a "Missing character" warning in the log.
@@ -79,10 +84,10 @@
 %             (the text-cleaning reader also enables autolink_bare_uris).
 % ======================================================================
 \PassOptionsToPackage{dvipsnames,svgnames,table}{xcolor}   % pasted preambles may ask for these
-\documentclass[a4paper,$if(fontsize)$$fontsize$$else$12pt$endif$]{article}
+\documentclass[$if(presentation_layout)$$else$a4paper,$endif$$if(fontsize)$$fontsize$$else$12pt$endif$]{article}
 
 % ---------------------------------------------------------------- Layout
-\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage[$if(presentation_layout)$paperwidth=13.333333in,paperheight=7.5in,margin=0.5in$else$a4paper,margin=2.5cm$endif$]{geometry}
 \usepackage{fancyhdr}
 \setlength{\headheight}{14.5pt}
 \pagestyle{fancy}
@@ -566,7 +571,11 @@ $endfor$
 
 \maketitle
 \thispagestyle{fancy}
-\hrule \vspace{1.5em}
+% The normalizer defaults title_rule to true and maps YAML title-rule: false to false.
+$if(title_rule)$
+\hrule
+$endif$
+\vspace{1.5em}
 $if(abstract)$
 \begin{abstract}
 $abstract$

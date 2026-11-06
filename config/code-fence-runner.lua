@@ -1,7 +1,8 @@
 -- code-fence-runner.lua : executes/renders fenced blocks, with a persistent SHA-1 cache.
 --
 -- ================================ USER GUIDE ================================
---  python        EVERY ```python block runs like a normal Python program.
+--  python        Python blocks run by default after confirmation on a cache miss.
+--                  trusted=true skips confirmation for the first run.
 --                  print() / child-process output is captured and shown under the code.
 --                  Figures are captured automatically (savefig / plt.show / unsaved figures).
 --                  A user's own savefig("x.png") still writes x.png, exactly as in plain Python.
@@ -9,6 +10,13 @@
 --                  __file__ is <working-directory>/__md2pdf_block__.py, not a cache path;
 --                  compile.bat sets the working directory to the first input's directory.
 --                  If the block fails, the traceback is shown in the PDF (not only on the console).
+--  c / cpp       C/C++ blocks compile and execute to capture stdout.
+--                  trusted=true skips confirmation for the first run.
+--                  Temporary binaries are cleaned up immediately; output is cached.
+--                  Compilation and runtime errors are rendered in the PDF.
+--  java          Java blocks run directly via the Java single-file source launcher.
+--                  trusted=true skips confirmation for the first run.
+--                  stdout is captured and shown under the code; output is cached.
 --  latex / tex   every block is rendered (source hidden).  If it contains
 --                  \begin{document}...\end{document}, ONLY the text between them is kept,
 --                  with ONE exception: command definitions in the preamble (before
@@ -29,8 +37,9 @@
 --                  A bare snippet is pasted as is, so it must not contain \usepackage etc.
 --
 --  Attributes (same for every executable language)
+--     trusted=true        skip confirmation for a normal first run
 --     run=false           do not execute; the block stays a normal code listing
---     run=true            execute normally; this is also the default when `run` is omitted
+--     run=true            explicitly execute this block (confirmation still applies)
 --                         run=true does not bypass cache; use run=new or cache=false to force a run
 --     run=new             always execute this block now, bypassing cache, then refresh its entry
 --     show=false          hide the source listing         (latex: show=true shows it)
@@ -94,6 +103,7 @@ local function file_exists(p)
 end
 local function file_hash(p) local s = read_file(p); return s and pandoc.sha1(s) or nil end
 local function slash(p)     return (p:gsub("\\", "/")) end
+local function win_path(p)  return IS_WIN and (p:gsub("/", "\\")) or p end
 local function trim_end(s)  return (s:gsub("%s+$", "")) end
 local function crlf_to_lf(s) return (s:gsub("\r\n", "\n")) end
 
@@ -262,6 +272,15 @@ local function restore_side_effects(manifest)
     if not target or not content or pandoc.sha1(content) ~= hash then return false end
     local current = read_file(target)
     if current and pandoc.sha1(current) ~= hash then return false end
+    if not current then
+      local parent = target:match("^(.*)[/\\][^/\\]+$")
+      local ok = parent and pcall(pandoc.system.list_directory, parent)
+      if not ok then
+        warn("cached side-effect directory is unavailable (" .. tostring(parent) ..
+             "); treating the cache entry as stale")
+        return false
+      end
+    end
   end
   for line in s:gmatch("[^\r\n]+") do
     local target, archive = line:match("^(.-)\t(.-)\t")
@@ -274,6 +293,12 @@ end
 local LANGS = {}
 
 local function lua_quote(p) return string.format("%q", p) end
+
+local function quote_executable(exe)
+  if exe:match('^".*"$') or exe:match("^'.*'$") then return exe end
+  if IS_WIN then return '"' .. exe .. '"' end
+  return "'" .. exe:gsub("'", "'\\''") .. "'"
+end
 
 local function register(spec)
   assert(spec.id and spec.names, "register: id and names are required")
@@ -459,6 +484,59 @@ register{
   exe_env = "PYTHON", exe_default = "python", ext = "py",
   auto_deps = true,
   template = PY_TEMPLATE,
+}
+
+-- ---- C (compiled and executed for stdout capture) ---------------------------
+-- Invariant: C source code is compiled to a temporary executable inside CACHE_DIR,
+-- executed to capture stdout, and the binary is deleted immediately to prevent cache bloat.
+local C_TEMPLATE = "/* C runner template @@CODE@@ */\n"
+
+local function c_command(exe, script)
+  local bin = script:gsub("_run%.c$", IS_WIN and "_bin.exe" or "_bin")
+  local code = script:gsub("_run%.c$", "_code.c")
+  return quote_executable(exe) .. ' -O2 -o "' .. win_path(bin) .. '" "' .. win_path(code) .. '" && "' .. win_path(bin) .. '"'
+end
+
+register{
+  id = "c", label = "C", names = { "c" },
+  exe_env = "CC", exe_default = "gcc", ext = "c",
+  template = C_TEMPLATE,
+  command = c_command,
+}
+
+-- ---- C++ (compiled and executed for stdout capture) -------------------------
+-- Invariant: C++ blocks use C++17 standard, compile to temporary cache binaries,
+-- and clean up binaries after running.
+local CPP_TEMPLATE = "// C++ runner template @@CODE@@\n"
+
+local function cpp_command(exe, script)
+  local bin = script:gsub("_run%.cpp$", IS_WIN and "_bin.exe" or "_bin")
+  local code = script:gsub("_run%.cpp$", "_code.cpp")
+  return quote_executable(exe) .. ' -O2 -std=c++17 -o "' .. win_path(bin) .. '" "' .. win_path(code) .. '" && "' .. win_path(bin) .. '"'
+end
+
+register{
+  id = "cpp", label = "C++", names = { "cpp", "c++", "cxx", "cc" },
+  exe_env = "CXX", exe_default = "g++", ext = "cpp",
+  template = CPP_TEMPLATE,
+  command = cpp_command,
+}
+
+-- ---- Java (executed directly via single-file source runner) -----------------
+-- Invariant: Java 11+ single-file launcher executes source directly without class
+-- name / file name coupling or creating disk .class files.
+local JAVA_TEMPLATE = "// Java runner template @@CODE@@\n"
+
+local function java_command(exe, script)
+  local code = script:gsub("_run%.java$", "_code.java")
+  return quote_executable(exe) .. ' "' .. win_path(code) .. '"'
+end
+
+register{
+  id = "java", label = "Java", names = { "java" },
+  exe_env = "JAVA", exe_default = "java", ext = "java",
+  template = JAVA_TEMPLATE,
+  command = java_command,
 }
 
 -- ---- latex / tex (rendered, not executed) --------------------------------------
@@ -660,7 +738,7 @@ local function fill(template, vars)
 end
 
 local function executable(spec)
-  local e = os.getenv(spec.exe_env)
+  local e = os.getenv("MD2PDF_" .. spec.exe_env) or os.getenv(spec.exe_env)
   if not e or e == "" then e = spec.exe_default end
   return e
 end
@@ -679,12 +757,6 @@ local function runtime_fingerprint(spec, exe)
   end
   PYTHON_FINGERPRINT[exe] = result
   return result
-end
-
-local function quote_executable(exe)
-  if exe:match('^".*"$') or exe:match("^'.*'$") then return exe end
-  if IS_WIN then return '"' .. exe .. '"' end
-  return "'" .. exe:gsub("'", "'\\''") .. "'"
 end
 
 local function command_line(spec, exe, script, out, err)
@@ -724,6 +796,9 @@ local function run_fresh(el, spec, exe, name)
 
   local ok, code = execute(command_line(spec, exe, scriptf, outf, errf))
   os.remove(scriptf); os.remove(codef)
+  local bin_exe, bin_raw = prefix .. "_bin.exe", prefix .. "_bin"
+  if file_exists(bin_exe) then os.remove(bin_exe) end
+  if file_exists(bin_raw) then os.remove(bin_raw) end
 
   local out = crlf_to_lf(read_file(outf) or "")
   local err = crlf_to_lf(read_file(errf) or "")
@@ -760,20 +835,38 @@ local function run_exec(el, spec)
   local a = el.attributes
   local exe = executable(spec)
   local fingerprint = runtime_fingerprint(spec, exe)
+  local working_dir = os.getenv("MD2PDF_WORKING_DIR") or ""
+  if IS_WIN then working_dir = slash(working_dir):lower() end
+  -- Relative paths and side-effect outputs are scoped to the first input's directory.
   local hash = pandoc.sha1(table.concat({
     CACHE_SCHEMA, spec.id, exe, spec.fp, el.text, a["img"] or "",
-    a["figures"] or "", fingerprint or "", deps_key(a["deps"]) }, "\0"))
+    a["figures"] or "", fingerprint or "", deps_key(a["deps"]), working_dir }, "\0"))
   local name = "fence_" .. hash
   local prefix = CACHE_DIR .. "/" .. name
   touch_cache(name)
 
   local force_run = a["run"] == "new" or a["cache"] == "false"
+  -- Reuse valid results before prompting; forced fresh runs always require consent.
   if fingerprint ~= nil and not force_run and file_exists(prefix .. ".out") and auto_deps_ok(prefix .. ".deps")
       and restore_side_effects(prefix .. ".writes") then
     local figs = read_meta(prefix .. ".meta")
     if figs then
       warn("cache hit (" .. hash:sub(1, 8) .. ") -- skipped execution")
       return { ok = true, out = read_file(prefix .. ".out") or "", err = "", figs = figs }
+    end
+  end
+  local confirm_val = os.getenv("MD2PDF_CONFIRM_" .. spec.id:upper())
+  if confirm_val ~= "0" and (force_run or a["trusted"] ~= "true") then
+    io.write("\n" .. spec.label .. " code needs to run")
+    if force_run then io.write(" (fresh run requested)") end
+    io.write(":\n")
+    io.write(el.text, "\n")
+    io.write("Do you trust this code and want to run it? [y/N] ")
+    io.flush()
+    local answer = io.read("*l")
+    if not answer or not answer:match("^[Yy]$") then
+      warn(spec.label .. " execution declined; rendering the block as source.")
+      return nil
     end
   end
   return run_fresh(el, spec, exe, name)
@@ -821,7 +914,9 @@ local function process_code_block(el, preamble)
   local spec = LANGS[class]
   if not spec then return nil end
   if spec.render then return spec.render(el, class, preamble) end
-  return render(el, spec, run_exec(el, spec))
+  local result = run_exec(el, spec)
+  if not result then return pandoc.CodeBlock(el.text, pandoc.Attr("", { spec.id })) end
+  return render(el, spec, result)
 end
 
 local function add_latex_preamble(doc, preamble)

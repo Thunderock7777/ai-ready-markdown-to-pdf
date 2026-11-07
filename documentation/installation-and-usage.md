@@ -295,6 +295,39 @@ LaTeX — use a LaTeX fence to render a snippet (not execute it):
     \]
     ```
 
+To display LaTeX source code as a syntax-highlighted code listing without
+rendering it, specify `run=false` (e.g., ```` ```latex run=false ````). To
+display code fences literally, in Markdown rules, 4 backticks on the outside
+prevent the 3 backticks on the inside from closing the block, so the entire code
+fence prints visibly as plain text in the PDF:
+
+    ````markdown
+    ```latex
+    \lhead{Notes}
+    ```
+    ````
+
+Crash-proof / zero-rules raw text:
+To paste completely arbitrary, unformatted, or potentially broken text (such as
+unbalanced braces, raw TeX macros, code dumps, or special characters like %, $, _, &, #)
+with zero chance of a LaTeX error, wrap it in a text fence (```` ```text ... ``` ````).
+Inside a text block, the template's `fvextra` engine treats every character as inert ASCII
+and automatically wraps long lines, making it 100% crash-proof without needing manual escaping.
+If the text itself contains triple-backtick fences (e.g. a nested ```yaml block), wrap the
+outer block in 4 backticks (```` ````text ... ```` ````) and add `run=false` on any inner YAML
+block so the normalizer does not extract it as document metadata:
+
+    ````text
+    ```yaml run=false
+    title: none
+    ```
+    Paste literally anything here: % $ & _ { } \ ^ ~ # < > |
+    \begin{broken_command} \not_real_macro{{{
+    No rules, no syntax checks, no math parsing, no formatting.
+    ````
+
+
+
 Python — a Python fence runs by default:
 
     ```{.python}

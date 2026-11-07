@@ -1,8 +1,8 @@
----
+```yaml
 title: Normalizer Fix Manual Test
 author: Manual Regression
 date: 2026
----
+```
 
 NORMALIZER FIX MANUAL TEST
 =========================

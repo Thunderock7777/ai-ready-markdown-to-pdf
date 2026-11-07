@@ -93,9 +93,9 @@ PDF page layout
 The default PDF size is A4. To create wide 16:9 landscape pages with 0.5-inch
 margins, add this YAML metadata block at the start of an input:
 
-    ---
+    ```yaml
     page-layout: presentation
-    ---
+    ```
 
 This changes page dimensions, not the document into a Beamer slide deck.
 Unsupported page-layout values produce a warning and keep the A4 layout.
@@ -103,16 +103,35 @@ Unsupported page-layout values produce a warning and keep the A4 layout.
 Title rule
 ----------
 The template draws a horizontal rule below the title by default. To hide it,
-add this YAML boolean to the input's front matter:
+add this YAML boolean to the input's metadata block:
 
-    ---
+    ```yaml
     title-rule: false
-    ---
+    ```
 
 Omit the option or set it to true to keep the rule. Quoted values are not
 booleans; invalid values produce a warning and keep the rule.
 
 Compile `documentation\title-rule-regression.txt` to check the disabled case.
+Compile `documentation\yaml-fence-test.txt` to check fenced YAML metadata.
+
+Document metadata blocks
+------------------------
+Metadata options (including title, author, date, page-layout, and title-rule)
+can be authored inside fenced code blocks:
+
+    ```yaml
+    title: "Document Title"
+    author: "Biswanath Sen"
+    date: "2026-11-07"
+    ```
+
+Fenced YAML blocks (tagged `yaml` or `{.yaml}`) are extracted as document
+metadata before parsing, avoiding collisions with Markdown hyphens and rules.
+Traditional `--- ... ---` blocks are deliberately NOT recognized as metadata and
+are treated as plain Markdown (thematic breaks or body text). To display a
+verbatim YAML code listing without treating it as metadata, specify `run=false`
+(e.g., ```` ```yaml run=false ````).
 
 3. Python (only if you use Python code fences)
    The workflow invokes the Windows Python launcher as "py". Install Python

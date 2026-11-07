@@ -76,7 +76,7 @@ CONFIG
     tables, YAML metadata, fenced Divs, bare URI autolinking, and disabled
     subscript/superscript interpretation. The literal reader string is
     "markdown+tex_math_dollars+tex_math_single_backslash+raw_tex"
-    .. "+lists_without_preceding_blankline+pipe_tables+yaml_metadata_block"
+    .. "+lists_without_preceding_blankline+pipe_tables-yaml_metadata_block"
     .. "+fenced_divs+autolink_bare_uris-subscript-superscript".
 
 REGISTRY
@@ -219,8 +219,8 @@ later passes do not operate on stale placeholders.
    original LaTeX environment wrappers.
 
 Detailed Stage A call path
-  load_cleaned_input -> clean(raw) -> TEXT_PASSES in order.
-  clean -> mask_literals -> pass.apply(masked) -> restore(transformed).
+  load_cleaned_input -> clean(raw) -> extract_yaml_fences -> TEXT_PASSES in order.
+  clean -> extract_yaml_fences -> mask_literals -> pass.apply(masked) -> restore(transformed).
   scrub -> flush prose/code chunks -> scrub_chunk -> SCRUB_RULES in order.
   pass_unwrap_document -> mask_fences for delimiter detection and, when a full
   document is recognized, process_lines(preamble, true).
@@ -443,15 +443,24 @@ Preamble collection and structural text
   mask_inline_code(text, store) -> masked text
     Stashes backtick code spans with matching tick lengths and unescaped
     delimiters; appends source spans to the shared store.
+  is_yaml_metadata_opener(line) -> run string or nil, is_yaml boolean
+    Checks whether a code fence opener specifies yaml or {.yaml} language
+    tagging while filtering out blocks marked with run=false or run="false".
+  extract_yaml_fences(text) -> normalized source, meta table
+    Extracts fenced YAML metadata blocks (```yaml ... ``` or ~~~yaml ... ~~~)
+    into a document metadata table prior to literal masking, while removing
+    the block from body text. Traditional `--- ... ---` blocks are deliberately
+    ignored as metadata. Preserves verbatim YAML code listings marked with run=false.
   mask_literals(text) -> masked text, restore function
     Stashes fenced code, indented code, selected verbatim/listing environments,
     and inline code while leaving prose transformable. Local stash,
     flush_prose, and flush_block closures manage segments. The returned restore
     closure substitutes the original literal strings back into processed text.
-  clean(text) -> normalized source
-    Removes leading BOM, normalizes newlines, warns about malformed/unclosed
-    fences, then runs each TEXT_PASSES entry with a fresh literal mask/restore
-    cycle. Called once for each cleanable input file.
+  clean(text) -> normalized source, meta table
+    Removes leading BOM, normalizes newlines, extracts fenced YAML metadata
+    via extract_yaml_fences, warns about malformed/unclosed fences, then runs
+    each TEXT_PASSES entry with a fresh literal mask/restore cycle. Called once
+    for each cleanable input file.
 
 Function reference: AST and finalization
 ----------------------------------------

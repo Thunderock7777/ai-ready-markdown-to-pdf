@@ -791,9 +791,10 @@ local function run_exec(el, spec)
       return { ok = true, out = read_file(prefix .. ".out") or "", err = "", figs = figs }
     end
   end
-  if spec.id == "python" and os.getenv("MD2PDF_CONFIRM_PYTHON") ~= "0"
-      and (force_run or a["trusted"] ~= "true") then
-    io.write("\nPython code needs to run")
+  local confirm_env = os.getenv("MD2PDF_CONFIRM_EXEC") or os.getenv("MD2PDF_CONFIRM_" .. spec.id:upper()) or "1"
+  if confirm_env ~= "0" and (force_run or a["trusted"] ~= "true") then
+    local lang_label = spec.label or spec.id
+    io.write(string.format("\n%s code needs to run", lang_label))
     if force_run then io.write(" (fresh run requested)") end
     io.write(":\n")
     io.write(el.text, "\n")
@@ -801,7 +802,7 @@ local function run_exec(el, spec)
     io.flush()
     local answer = io.read("*l")
     if not answer or not answer:match("^[Yy]$") then
-      warn("Python execution declined; rendering the block as source.")
+      warn(string.format("%s execution declined; rendering the block as source.", lang_label))
       return nil
     end
   end

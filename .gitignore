@@ -27,3 +27,4 @@ build/
 !README.md
 !documentation/
 !documentation/**
+!.vscode/

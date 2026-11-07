@@ -1,5 +1,5 @@
 @echo off
-color 0A
+color 07
 setlocal EnableExtensions
 
 REM =========================================================
@@ -47,6 +47,7 @@ REM =========================================================
 REM CHECKS
 REM =========================================================
 if "%INPUT%"=="" (
+    color 0E
     echo ERROR: No input file was supplied.
     echo Supply one or more .md or .txt files to compile.bat.
     echo.
@@ -57,6 +58,7 @@ if "%INPUT%"=="" (
 :VALIDATE_INPUTS
 if "%~1"=="" goto INPUTS_VALIDATED
 if not exist "%~f1" (
+    color 0E
     echo ERROR: Input file does not exist:
     echo "%~f1"
     echo.
@@ -70,6 +72,7 @@ goto VALIDATE_INPUTS
 :INPUTS_VALIDATED
 
 if not exist "%TEMPLATE%" (
+    color 0E
     echo ERROR: config\custom.tex not found:
     echo "%TEMPLATE%"
     echo.
@@ -78,6 +81,7 @@ if not exist "%TEMPLATE%" (
 )
 
 if not exist "%NORMALIZER_FILTER%" (
+    color 0E
     echo ERROR: config\markdown-normalizer.lua not found:
     echo "%NORMALIZER_FILTER%"
     echo.
@@ -86,6 +90,7 @@ if not exist "%NORMALIZER_FILTER%" (
 )
 
 if not exist "%CODE_FENCE_FILTER%" (
+    color 0E
     echo ERROR: config\code-fence-runner.lua not found:
     echo "%CODE_FENCE_FILTER%"
     echo.
@@ -106,14 +111,15 @@ echo ==========================================
 echo               PREPARING
 echo ==========================================
 echo.
-echo Python fences run by default. You will be asked to approve uncached runs.
+echo Executable code fences run by default. You will be asked to approve uncached runs.
 echo Forced fresh runs (run=new or cache=false) always require approval.
 echo.
 
 REM Filter order is intentional: normalize/rebuild the AST before executing or rendering code fences.
+set "MD2PDF_CONFIRM_EXEC=1"
 set "MD2PDF_CONFIRM_PYTHON=1"
 set "MD2PDF_WORKING_DIR=%INPUT_DIR%"
-pandoc %PANDOC_INPUTS% -f markdown+yaml_metadata_block --citeproc --lua-filter="%NORMALIZER_FILTER%" --lua-filter="%CODE_FENCE_FILTER%" --wrap=none --template="%TEMPLATE%" -o "%TEX_OUTPUT%"
+pandoc %PANDOC_INPUTS% -f markdown-yaml_metadata_block --citeproc --lua-filter="%NORMALIZER_FILTER%" --lua-filter="%CODE_FENCE_FILTER%" --wrap=none --template="%TEMPLATE%" -o "%TEX_OUTPUT%"
 if errorlevel 1 (
     echo.
     echo ==========================================
@@ -146,6 +152,7 @@ set /a PASS+=1
 goto RUN_XELATEX
 
 :PDF_FAILED
+color 0E
 echo.
 echo ==========================================
 echo             PDF CREATION FAILED
@@ -185,6 +192,7 @@ REM Do not delete the previous PDF before the new build succeeds; a failed copy
 REM should leave the last good output intact (for example, when it is open).
 copy /Y "%WORK_PDF%" "%PDF_OUTPUT%" >nul
 if errorlevel 1 (
+    color 0E
     echo ERROR: Could not write or replace the generated PDF at:
     echo "%PDF_OUTPUT%"
     echo Close it in any PDF viewer and check that the folder is writable.
@@ -204,6 +212,7 @@ endlocal
 exit /b 0
 
 :CLEANUP_FAIL
+color 0E
 echo.
 rmdir /s /q "%WORK%" >nul 2>&1
 pause

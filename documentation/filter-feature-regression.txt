@@ -1,4 +1,4 @@
----
+```yaml
 title: Filter Feature Regression
 author: Workflow Validation
 date: 2026
@@ -13,7 +13,7 @@ references:
       date-parts:
         - - 2024
     container-title: Regression Notes
----
+```
 
 FILTER FEATURE REGRESSION AND WORKFLOW DEMONSTRATION
 ====================================================
@@ -608,9 +608,9 @@ To check the optional page-size preset without changing this broad fixture,
 save the following as `page-layout-presentation.txt` and compile it through
 compile.bat:
 
-    ---
+    ```yaml
     page-layout: presentation
-    ---
+    ```
 
     Presentation page-size check.
 

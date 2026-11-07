@@ -30,6 +30,18 @@ time rebuilding the full regression document for every small edit.
    over a one-off fix for a single example. Keep the implementation focused on
    the demonstrated requirement; generality must not introduce unrelated
    behavior, speculative edge-case handling, or unnecessary abstraction.
+7. Zero hardcoded machine/host paths: Toolchains, compilers, interpreters, and
+   runtime paths must never use machine-specific absolute directories or user
+   paths. Resolve executables generally via standard system PATH or relative
+   project paths so the workflow remains fully portable across machines.
+8. Standard code fence rule of thumb for non-Markdown languages:
+   Except Markdown itself, any other language (such as LaTeX, Python, YAML, C,
+   C++, Java, or any language added in the future) MUST use fenced code block
+   syntax (```<lang> ... ``` or ```{.<lang>} ... ```) for execution, configuration,
+   metadata, or rendering. Non-fenced delimiters (such as raw YAML `--- ... ---`,
+   unescaped top-level language directives, or custom boundary tokens) are
+   strictly prohibited to prevent collisions with Markdown syntax and ensure
+   consistent, uniform workflow parsing and maintenance.
 
 2. Implementation comments and source changes
 ----------------------------------------------
@@ -195,6 +207,13 @@ Change ledger
   2026-11-05 | Versioned title-rule option as 1.2.0 (MINOR)
 
 Version 1.2.0 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-07 | Fenced YAML metadata, unified fence rules, and console color themes | source +109 / -15 | 124 / 500
+  2026-11-07 | Versioned fenced YAML, unified fences, and console theme as 1.2.1 (PATCH)
+
+Version 1.2.1 cycle
   Starting count: 0 / 500
 
 For each later accepted change, append one entry in this format:

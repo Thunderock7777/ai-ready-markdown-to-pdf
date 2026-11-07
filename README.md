@@ -4,7 +4,7 @@ A Windows workflow for turning Markdown or plain-text notes into a PDF with
 Pandoc, XeLaTeX, and two Lua filters. Python code fences can run during the
 build, while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.2.0**.
+**Current project version: 1.2.1**.
 
 > **Paste an AI chat response and compile it directly.** An intact, uncorrupted
 > copied response from ChatGPT, Gemini chat, or NotebookLM can be compiled as-is
@@ -18,6 +18,7 @@ build, while LaTeX fences render source snippets without executing them.
 - Compile AI-generated responses from ChatGPT, Gemini, or NotebookLM directly,
   without manual editing of supported content.
 - Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order.
+- Uniform fence syntax: Except Markdown itself, every language (Python, LaTeX, YAML metadata, C, etc.) uses standard fenced code blocks (```` ```<lang> ... ``` ````); raw delimiters like `---` are not used for metadata.
 - Keep default A4 output or select a 16:9 landscape presentation page size in YAML.
 - Render Markdown, math, tables, citations, selected pasted LaTeX, and code.
 - Execute Python fences with optional output, source, figure, and cache controls.
@@ -147,9 +148,7 @@ The PDF uses A4 by default. To use a 16:9 landscape page with 0.5-inch margins,
 add this YAML metadata block at the start of the input:
 
 ```yaml
----
 page-layout: presentation
----
 ```
 
 Other `page-layout` values are unsupported; they produce a warning and use A4.
@@ -162,6 +161,13 @@ title-rule: false
 ```
 
 Omit this option or set it to `true` to keep the rule.
+
+Document metadata (such as `title`, `author`, `date`, `page-layout`, and
+`title-rule`) must be authored inside fenced ```` ```yaml ... ``` ```` blocks
+(or ```` ```{.yaml} ... ``` ````). Traditional `--- ... ---` blocks are NOT
+recognized as metadata and are treated as standard Markdown content (horizontal
+rules or body text). If you want to show a verbatim YAML code listing in the PDF
+without applying it as metadata, add `run=false` (e.g. ```` ```yaml run=false ````).
 
 Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 
@@ -270,6 +276,8 @@ To test hiding the title rule, compile the focused fixture:
   companion input for the multi-file regression check.
 - [title-rule-regression.txt](documentation/title-rule-regression.txt) —
   focused input that disables the title rule with YAML metadata.
+- [yaml-fence-test.txt](documentation/yaml-fence-test.txt) —
+  focused input that validates fenced YAML metadata blocks and verbatim YAML code listings.
 - [normalizer-fix-manual-test.txt](documentation/normalizer-fix-manual-test.txt) —
   focused manual checks for nested table math formatting and mixed-input fallback.
 

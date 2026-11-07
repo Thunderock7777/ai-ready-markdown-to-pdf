@@ -100,8 +100,13 @@ Inputs, metadata, and citations
 The documented/common inputs are .md, .markdown, and .txt. For these types,
 the custom reader enables YAML metadata, raw TeX, dollar and single-backslash
 math, fenced Divs, pipe tables, and bare-URL autolinking while disabling
-Markdown subscript/superscript parsing. Standard Markdown lists and Pandoc task
-lists are recognized: `- item` is a bullet, and `- [ ] item` / `- [x] item`
+Markdown subscript/superscript parsing. Document metadata (including title, author, date, page-layout, and title-rule)
+is authored exclusively using fenced code blocks (```yaml ... ``` or ```{.yaml} ... ```).
+Traditional `--- ... ---` blocks are deliberately NOT recognized as metadata,
+ensuring hyphens and horizontal rules never cause metadata collisions. Fenced
+YAML metadata is extracted in Stage A unless marked with `run=false` for verbatim
+code listings. Standard Markdown lists
+and Pandoc task lists are recognized: `- item` is a bullet, and `- [ ] item` / `- [x] item`
 are task-list entries. A bare `[ ] item` without the list marker is paragraph
 text, not a list. This distinction is covered in documentation\installation-and-usage.txt and
 documentation\filter-feature-regression.txt. Multiple files retain command-line content
@@ -149,8 +154,15 @@ the template rule while retaining its surrounding vertical spacing.
 The focused `documentation\title-rule-regression.txt` input exercises the
 disabled case through the normal compile workflow.
 
-Fenced-code attributes
-----------------------
+Fenced-code attributes and language uniformity
+-----------------------------------------------
+Rule of thumb: Except Markdown itself, any other language (such as LaTeX, Python,
+YAML, C, C++, Java, or any future addition) MUST use standard fenced code syntax
+(```<lang> ... ``` or ```{.<lang>} ... ```) for execution, configuration, metadata,
+or rendering. Custom non-fenced delimiters (e.g. traditional YAML `--- ... ---`)
+are excluded by design so that hyphens, dashes, and other Markdown syntax never
+cause ambiguity or delimiter clashes.
+
 Recognized executable languages are Python (python, py, python3, py3) and
 LaTeX/TeX (latex, tex). Attributes use Pandoc fenced-code syntax, for example:
 

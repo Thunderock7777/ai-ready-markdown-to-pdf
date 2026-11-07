@@ -112,6 +112,9 @@ LaTeX spec
   source is converted to raw LaTeX blocks. It is not run by a shell.
 
 LaTeX extraction policy tables
+  SCAFFOLDING_MACROS:
+    maketitle tableofcontents title author date @title @author @date (redefinition
+    triggers automatic run=false demotion to a syntax-highlighted code block)
   DEF_NAMES:
     newcommand renewcommand providecommand DeclareRobustCommand
   TEMPLATE_THEOREMS:
@@ -421,17 +424,17 @@ Function reference: registration and LaTeX recovery
     require all three groups. Newtheorem allows an optional parent-counter
     group before its required counter-name group.
   render_latex(CodeBlock, class, preamble) -> Pandoc blocks
-    Optionally shows source when show=true; for full documents keeps body
-    between begin/end document and appends recognized preamble commands to
-    the shared preamble array. It searches for literal begin{document}; when
-    present, it uses the first following body start and the last matching
-    end{document} delimiter. If there is no end delimiter it keeps all text
-    after the begin delimiter and warns. It extracts commands only from the
-    text before begin{document}. For snippets with no full-document delimiter,
-    it emits source as raw LaTeX. If usepackage or documentclass appears in a
-    snippet without begin{document}, it warns that the pasted preamble is
-    likely to fail. Source display is opt-in for LaTeX (show=true); the source
-    is not executed in either case.
+    Optionally shows source when show=true. For full documents (with begin/end document),
+    extracts preamble commands: package and library imports (\usepackage, \usetikzlibrary, etc.)
+    are automatically hoisted to preamble (header-includes), while macro definitions and settings
+    stay local to the block body rather than leaking globally. For snippets with no full-document
+    delimiter, it emits source directly. In all cases, enforces Universal Code Fence Isolation by wrapping the emitted body in
+    {\begingroup\n ... \n\par\endgroup}, ensuring that definitions, colors, font sizes,
+    lengths, and counter modifications remain strictly isolated to the block and cannot
+    leak to outer Markdown prose or subsequent fences. If usepackage or documentclass appears
+    in a snippet without begin{document}, it warns that the pasted preamble is likely to fail.
+    Source display is opt-in for LaTeX (show=true). Redefinitions of document scaffolding macros
+    trigger automatic demotion to a code listing (run=false).
 
 Function reference: execution and rendering
 --------------------------------------------

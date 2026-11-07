@@ -261,8 +261,12 @@ Simple writing rules
 
 Rule of thumb:
     Normal writing, headings, lists, tables, links, and formulas: use Markdown
-    or plain text without a language fence.
+    or plain text without a language fence. Headings use standard `#`, `##`, `###` syntax;
+    standalone `---` produces a horizontal divider line; tables use pipe syntax (`| col | col |`).
     Pasted LaTeX source that should be rendered: use a latex fence.
+    All non-Markdown code must be fenced; unfenced LaTeX in Markdown prose is treated
+    as literal text and will not execute (-raw_tex). Each LaTeX fence is strictly isolated
+    ({\begingroup ... \par\endgroup}) so local commands and styles never leak.
     Python source that should execute: use a python fence.
 
 Markdown / ordinary text — no fence:

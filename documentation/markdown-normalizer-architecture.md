@@ -72,11 +72,11 @@ CONFIG
     cleaned: md, markdown, txt. Other input types receive AST processing only.
   reader
     The Pandoc Markdown reader extensions used to parse cleaned source:
-    dollar/single-backslash TeX math, raw TeX, list continuation support, pipe
-    tables, YAML metadata, fenced Divs, bare URI autolinking, and disabled
-    subscript/superscript interpretation, and disabled non-standard simple_tables.
+    dollar/single-backslash TeX math, disabled raw TeX (-raw_tex), list continuation support,
+    pipe tables, disabled YAML metadata block, fenced Divs, bare URI autolinking,
+    disabled subscript/superscript interpretation, and disabled non-standard simple_tables.
     The literal reader string is
-    "markdown+tex_math_dollars+tex_math_single_backslash+raw_tex"
+    "markdown+tex_math_dollars+tex_math_single_backslash-raw_tex"
     .. "+lists_without_preceding_blankline+pipe_tables-yaml_metadata_block"
     .. "+fenced_divs+autolink_bare_uris-subscript-superscript-simple_tables".
 
@@ -100,10 +100,9 @@ Exact name-set contents in the current source
   DIV_ENVS:
     proof abstract quote, plus every name in THEOREMS.
   BODY_HOIST:
-    usepackage usetikzlibrary usepgfplotslibrary usepgflibrary pgfplotsset
-    tikzset newcommand providecommand DeclareRobustCommand
-    NewDocumentCommand DeclareDocumentCommand DeclareMathOperator newtheorem
-    newenvironment sisetup DeclarePairedDelimiter theoremstyle
+    Emptied under strict code fence isolation and disabled raw_tex (-raw_tex).
+    Unfenced LaTeX commands in the Markdown body are treated as literal text and
+    are never hoisted to the preamble; all executable LaTeX must reside inside fenced blocks.
   PREAMBLE_DROP:
     documentclass geometry pagestyle thispagestyle setmainfont setsansfont
     setmonofont maketitle
@@ -209,8 +208,9 @@ later passes do not operate on stale placeholders.
    continuation only when the open formula is clearly math and closes within
    the same paragraph.
 6. hoist-commands
-   Move selected LaTeX commands from body text to State.hoisted, process
-   commands found in a full-document preamble, and repair one-line math.
+   Runs process_lines on body text to repair one-line math via fix_math_line.
+   Under strict fence isolation, REGISTRY.BODY_HOIST is empty, so body commands
+   remain in the body (treated as literal text under -raw_tex) rather than being hoisted.
 7. markdown-in-lists
    Convert Markdown bold/italic markers inside itemize, enumerate, and
    description environments to LaTeX emphasis commands.

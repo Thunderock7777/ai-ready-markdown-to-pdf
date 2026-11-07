@@ -1,105 +1,35 @@
----
-title: "My Custom Title"
-author: "Your Name"
-date: "November 2026"
-title-rule: false
-header-includes:
-  - |
-    \renewcommand{\maketitle}{%
-      \begin{center}
-        \begingroup
-        \setlength{\fboxsep}{12pt}
-        \fbox{%
-          \begin{minipage}{0.85\textwidth}
-            \centering
-            {\Huge\bfseries \csname @title\endcsname\par}
-            \vspace{0.8em}
-            {\large \csname @author\endcsname\par}
-            \vspace{0.4em}
-            {\small \csname @date\endcsname\par}
-          \end{minipage}%
-        }
-        \endgroup
-      \end{center}
-    }
----
-```latex
-\lhead{}
-```
-Your document content starts here.
-```python
+Yes. In fact, that is exactly how `\renewcommand` is meant to be used.
 
-import os
-import random
+Once a command has been brought into existence—whether by the LaTeX core, a package you loaded, or your own `\newcommand`—you can use `\renewcommand` to overwrite it at any point in the document.
 
-# Determine the absolute path of the directory containing this script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-file_path = os.path.join(script_dir, 'input.txt')
-
-try:
-    with open(file_path, 'r', encoding='utf-8') as file:
-        # Read all lines and remove empty ones
-        lines = [line.strip() for line in file.readlines() if line.strip()]
-        
-    if not lines:
-        print("The file 'input.txt' is empty.")
-    else:
-        # Pick a random line and reverse it
-        chosen_line = random.choice(lines)
-        print(f"Random line selected: {chosen_line}")
-        print(f"Reversed text: {chosen_line[::-1]}")
-        
-except FileNotFoundError:
-    print(f"Error: Make sure 'input.txt' is located at {script_dir}")
-
-```
+### Example Sequence
 
 ```latex
+% 1. Create the command initially
+\newcommand{\mygreeting}{Hello World!}
+\mygreeting
+```
+\newpage
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-% Welcome to Overleaf --- just edit your LaTeX on the left,
-% and we'll compile it for you on the right. If you open the
-% 'Share' menu, you can invite other users to edit at the same
-% time. See www.overleaf.com/learn for more info. Enjoy!
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\documentclass{article}
-\usepackage{blindtext}
-\usepackage{multicol}
-\title{Multicols Demo}
-\author{Overleaf}
-\date{April 2021}
+% If you type \mygreeting here, it outputs: Hello World!
 
-\begin{document}
-\maketitle
 
-\begin{multicols}{3}
-[
-\section{First Section}
-All human things are subject to decay. And when fate summons, Monarchs must obey.
-]
-\blindtext\blindtext
-\end{multicols}
+```latex
+% 2. Overwrite it later in the document
+\renewcommand{\mygreeting}{Welcome to the new chapter!}
+\mygreeting
+% If you type \mygreeting now, it outputs: Welcome to the new chapter!
 
-\end{document}
 ```
 
+\newcommand{\mygreeting}{Hello World!}
+\mygreeting
+\renewcommand{\mygreeting}{Welcome to the new chapter!}
+\mygreeting
 
-```{.latex}
-\renewcommand{\maketitle}{%
-  \begin{center}
-    \fbox{%
-      \begin{minipage}{0.88\textwidth}
-        \centering
-        {\Huge\bfseries \csname @title\endcsname\par}
-        \vspace{0.8em}
-        {\large \csname @author\endcsname\par}
-        \vspace{0.4em}
-        {\small \csname @date\endcsname\par}
-      \end{minipage}%
-    }
-  \end{center}
-}
-```
-Using `os.path.abspath(__file__)` guarantees the script finds the file even if you run the Python command from a completely different working directory in your terminal.
+### The Scoping Rule
+
+Where you place the `\renewcommand` determines how long the change lasts:
+
+* **In the preamble or main body:** The command is permanently changed from that line forward.
+* **Inside an environment or group:** If you use `\renewcommand` inside an environment (like `\begin{minipage}...\end{minipage}`) or inside curly braces (`{ ... }`), the overwrite is temporary. The moment that environment or group ends, the command automatically reverts to its original `\newcommand` definition.

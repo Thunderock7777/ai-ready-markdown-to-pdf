@@ -75,7 +75,7 @@ beside the first input when combining notes from different folders.
 Pipeline and ordering
 ---------------------
 1. compile.bat validates inputs and companion files, then invokes Pandoc with
-   markdown+yaml_metadata_block, --citeproc, and the custom template.
+   markdown-yaml_metadata_block-simple_tables-raw_tex, --citeproc, and the custom template.
 2. config\markdown-normalizer.lua is the first Lua filter. For an all-Markdown/TXT input set,
    it reads each original file, cleans and reparses it, joins the parsed blocks
    in argument order, merges cleaned YAML metadata, and overlays Pandoc's
@@ -84,13 +84,16 @@ Pipeline and ordering
    parse and applies AST repairs only. It never writes to the source files.
 3. config\markdown-normalizer.lua runs its ordered text-cleaning passes, AST passes, and
    finalization. Among other things, it normalizes supported pasted LaTeX,
-   repairs selected math and Unicode cases, collects preamble commands, handles
-   images/tables, and reports notable changes on stderr. Citeproc is run after
+   repairs selected math and Unicode cases, ensures boundary padding for rules and fences,
+   handles images/tables, and reports notable changes on stderr. Citeproc is run after
    reparsing when bibliography or references metadata is present.
 4. config\code-fence-runner.lua walks the normalized combined AST once. Recognized executable
    code blocks therefore run in source order across all input files. LaTeX/TeX
-   fences are rendered rather than executed. Preambles rescued from full
-   LaTeX code blocks are prepended to the collected header-includes.
+   fences are rendered with universal code fence isolation ({\begingroup ... \par\endgroup}),
+   preventing definitions, styles, and colors from leaking to outer text or across blocks.
+   Preambles in full LaTeX code blocks are kept local to the block. Stray unfenced LaTeX
+   commands in body text are treated as literal Markdown prose (-raw_tex). Redefinitions of
+   template scaffolding macros in LaTeX fences automatically demote to syntax-highlighted code listings.
 5. Pandoc writes temporary LaTeX. XeLaTeX runs in the temporary build folder
    with -cnf-line=max_print_line=1000 and -file-line-error, repeating up to
    three times when its log requests another reference pass. If XeLaTeX encounters

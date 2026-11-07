@@ -44,6 +44,9 @@ if errorlevel 1 (
     if exist "%LOCALAPPDATA%\Programs\Quarto\bin\tools\pandoc.exe" (
         set "PATH=%PATH%;%LOCALAPPDATA%\Programs\Quarto\bin\tools"
     )
+    if exist "%LOCALAPPDATA%\Pandoc\pandoc.exe" (
+        set "PATH=%PATH%;%LOCALAPPDATA%\Pandoc"
+    )
 )
 
 set "MD2PDF_CACHE=%SCRIPT_DIR%md2pdf_cache"
@@ -144,7 +147,7 @@ set "MD2PDF_CONFIRM_C=1"
 set "MD2PDF_CONFIRM_CPP=1"
 set "MD2PDF_CONFIRM_JAVA=1"
 set "MD2PDF_WORKING_DIR=%INPUT_DIR%"
-pandoc %PANDOC_INPUTS% -f markdown-yaml_metadata_block-simple_tables --citeproc --lua-filter="%NORMALIZER_FILTER%" --lua-filter="%CODE_FENCE_FILTER%" --wrap=none --template="%TEMPLATE%" -o "%TEX_OUTPUT%"
+pandoc %PANDOC_INPUTS% -f markdown-yaml_metadata_block-simple_tables-raw_tex --citeproc --lua-filter="%NORMALIZER_FILTER%" --lua-filter="%CODE_FENCE_FILTER%" --wrap=none --template="%TEMPLATE%" -o "%TEX_OUTPUT%"
 if errorlevel 1 (
     echo.
     echo ==========================================

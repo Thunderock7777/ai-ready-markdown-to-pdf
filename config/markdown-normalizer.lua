@@ -113,10 +113,12 @@ local CONFIG = {
 
   -- Reader used for the real parse.  tex_math_single_backslash gives \( \) and \[ \]
   -- natively; lists_without_preceding_blankline fixes AI lists glued to a paragraph;
-  -- subscript/superscript are OFF so a stray ~ or ^ in prose is never reinterpreted.
-  reader = "markdown+tex_math_dollars+tex_math_single_backslash+raw_tex"
+  -- subscript/superscript are OFF so a stray ~ or ^ in prose is never reinterpreted;
+  -- simple_tables is OFF so horizontal rules touching text are never misparsed as narrow tables;
+  -- raw_tex is OFF so stray unfenced TeX commands in prose never execute outside code fences.
+  reader = "markdown+tex_math_dollars+tex_math_single_backslash-raw_tex"
         .. "+lists_without_preceding_blankline+pipe_tables-yaml_metadata_block"
-        .. "+fenced_divs+autolink_bare_uris-subscript-superscript",
+        .. "+fenced_divs+autolink_bare_uris-subscript-superscript-simple_tables",
 }
 
 
@@ -155,12 +157,8 @@ REGISTRY.DIV_ENVS = word_set("proof abstract quote")
 for name in pairs(REGISTRY.THEOREMS) do REGISTRY.DIV_ENVS[name] = true end
 
 -- Commands that are moved to the LaTeX preamble when found in the BODY.
-REGISTRY.BODY_HOIST = word_set([[
-  usepackage usetikzlibrary usepgfplotslibrary usepgflibrary pgfplotsset tikzset
-  newcommand providecommand DeclareRobustCommand NewDocumentCommand DeclareDocumentCommand
-  DeclareMathOperator newtheorem newenvironment sisetup DeclarePairedDelimiter
-  theoremstyle
-]])
+-- Disallowed under strict fence isolation: stray body commands must not be hoisted.
+REGISTRY.BODY_HOIST = word_set("")
 
 -- Commands of a pasted full document's preamble that are discarded (the template owns them).
 REGISTRY.PREAMBLE_DROP = word_set([[
@@ -1243,6 +1241,56 @@ local function mask_literals(text)
   return masked, restore
 end
 
+-- Block elements (code fences and horizontal rules) require blank line boundaries.
+-- AI responses and user notes often omit them (e.g. text directly touching ```python
+-- or --- touching questions/headings). Ensure an empty line precedes and follows
+-- every opening/closing code fence and every horizontal rule (---, ***, ___).
+local function space_fences(text)
+  local lines = {}
+  for line in each_line(text) do lines[#lines + 1] = line end
+  local out = {}
+  local fence = nil
+  for i, line in ipairs(lines) do
+    if not fence then
+      local mark = fence_mark(line, nil)
+      if mark then
+        if #out > 0 and out[#out]:match("%S") then
+          out[#out + 1] = ""
+        end
+        out[#out + 1] = line
+        fence = mark
+      else
+        local is_hr = line:match("^%s*%-%-%-+%s*$") or line:match("^%s*%*%*%*+%s*$") or line:match("^%s*___+%s*$")
+        if is_hr then
+          if #out > 0 and out[#out]:match("%S") then
+            out[#out + 1] = ""
+          end
+          out[#out + 1] = line
+          local next_line = lines[i + 1]
+          if next_line and next_line:match("%S") then
+            out[#out + 1] = ""
+          end
+        else
+          out[#out + 1] = line
+        end
+      end
+    else
+      local mark = fence_mark(line, fence)
+      if mark then
+        out[#out + 1] = line
+        fence = nil
+        local next_line = lines[i + 1]
+        if next_line and next_line:match("%S") then
+          out[#out + 1] = ""
+        end
+      else
+        out[#out + 1] = line
+      end
+    end
+  end
+  return table.concat(out, "\n")
+end
+
 local function normalize_fence_attributes(text)
   local out, fence = {}, nil
   for line in each_line(text) do
@@ -1267,6 +1315,7 @@ local function clean(text)
   text = text:gsub("^" .. U(0xFEFF), ""):gsub("\r\n?", "\n")
   local file_meta
   text, file_meta = extract_yaml_fences(text)
+  text = space_fences(text)
   text = normalize_fence_attributes(text)
   local fence, malformed = nil, 0
   for line in each_line(text) do

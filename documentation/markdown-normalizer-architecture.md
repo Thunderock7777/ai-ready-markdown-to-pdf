@@ -72,12 +72,13 @@ CONFIG
     cleaned: md, markdown, txt. Other input types receive AST processing only.
   reader
     The Pandoc Markdown reader extensions used to parse cleaned source:
-    dollar/single-backslash TeX math, raw TeX, list continuation support, pipe
-    tables, YAML metadata, fenced Divs, bare URI autolinking, and disabled
-    subscript/superscript interpretation. The literal reader string is
-    "markdown+tex_math_dollars+tex_math_single_backslash+raw_tex"
+    dollar/single-backslash TeX math, disabled raw TeX (-raw_tex), list continuation support,
+    pipe tables, disabled YAML metadata block, fenced Divs, bare URI autolinking,
+    disabled subscript/superscript interpretation, and disabled non-standard simple_tables.
+    The literal reader string is
+    "markdown+tex_math_dollars+tex_math_single_backslash-raw_tex"
     .. "+lists_without_preceding_blankline+pipe_tables-yaml_metadata_block"
-    .. "+fenced_divs+autolink_bare_uris-subscript-superscript".
+    .. "+fenced_divs+autolink_bare_uris-subscript-superscript-simple_tables".
 
 REGISTRY
   Pure lookup data. It controls package skips; theorem/div/list/math
@@ -99,10 +100,9 @@ Exact name-set contents in the current source
   DIV_ENVS:
     proof abstract quote, plus every name in THEOREMS.
   BODY_HOIST:
-    usepackage usetikzlibrary usepgfplotslibrary usepgflibrary pgfplotsset
-    tikzset newcommand providecommand DeclareRobustCommand
-    NewDocumentCommand DeclareDocumentCommand DeclareMathOperator newtheorem
-    newenvironment sisetup DeclarePairedDelimiter theoremstyle
+    Emptied under strict code fence isolation and disabled raw_tex (-raw_tex).
+    Unfenced LaTeX commands in the Markdown body are treated as literal text and
+    are never hoisted to the preamble; all executable LaTeX must reside inside fenced blocks.
   PREAMBLE_DROP:
     documentclass geometry pagestyle thispagestyle setmainfont setsansfont
     setmonofont maketitle
@@ -179,8 +179,8 @@ Derived tables
   maps a math-font kind to the LaTeX wrapper function for recognized Greek
   commands.
   GREEK_WRAP has exactly three entries: bf emits \boldsymbol, rm emits
-  \mathnormal after removing a leading var from the Greek command name, and it
-  emits \mathnormal{\var...}.
+  \mathnormal after removing a leading var from the Greek command name, and
+  it (italic) emits \mathnormal{\var...}.
 
 STAGE A: source text passes
 ---------------------------
@@ -208,8 +208,9 @@ later passes do not operate on stale placeholders.
    continuation only when the open formula is clearly math and closes within
    the same paragraph.
 6. hoist-commands
-   Move selected LaTeX commands from body text to State.hoisted, process
-   commands found in a full-document preamble, and repair one-line math.
+   Runs process_lines on body text to repair one-line math via fix_math_line.
+   Under strict fence isolation, REGISTRY.BODY_HOIST is empty, so body commands
+   remain in the body (treated as literal text under -raw_tex) rather than being hoisted.
 7. markdown-in-lists
    Convert Markdown bold/italic markers inside itemize, enumerate, and
    description environments to LaTeX emphasis commands.
@@ -451,6 +452,10 @@ Preamble collection and structural text
     into a document metadata table prior to literal masking, while removing
     the block from body text. Traditional `--- ... ---` blocks are deliberately
     ignored as metadata. Preserves verbatim YAML code listings marked with run=false.
+  space_fences(text) -> spaced source
+    Ensures an empty line precedes and follows every opening/closing code fence
+    and every standalone horizontal rule (---, ***, ___), guaranteeing universal
+    block boundary separation and preventing table, heading, or code fence misparsing.
   normalize_fence_attributes(text) -> normalized source
     Scans code fence openers and normalizes space-separated attributes lacking
     braces (e.g., ```c run=false or ```java trusted=true) to standard Pandoc
@@ -463,7 +468,8 @@ Preamble collection and structural text
     closure substitutes the original literal strings back into processed text.
   clean(text) -> normalized source, meta table
     Removes leading BOM, normalizes newlines, extracts fenced YAML metadata
-    via extract_yaml_fences, normalizes fence attributes via normalize_fence_attributes,
+    via extract_yaml_fences, spaces code fences and horizontal rules via space_fences,
+    normalizes fence attributes via normalize_fence_attributes,
     warns about malformed/unclosed fences, then runs each TEXT_PASSES entry with
     a fresh literal mask/restore cycle. Called once for each cleanable input file.
 

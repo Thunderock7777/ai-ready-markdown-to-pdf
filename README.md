@@ -21,6 +21,8 @@ while LaTeX fences render source snippets without executing them.
 - Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order.
 - Universal executable code fences: Python, C, C++, and Java fenced blocks execute with persistent SHA-1 caching, confirmation prompts, output capture, and compiler/runtime error reporting.
 - Uniform fence syntax: Except Markdown itself, every language (Python, LaTeX, YAML metadata, C, C++, Java, etc.) uses standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````); raw delimiters like `---` are not used for metadata.
+- Universal block boundary spacing: Standalone horizontal rules (`---`) and code fences are automatically padded with empty line boundaries prior to Pandoc parsing. Non-standard `simple_tables` are disabled to prevent narrow column collapses, ensuring `---` reliably renders as a divider line and Markdown tables use standard pipe syntax (`| col | col |`).
+- Universal code fence isolation & stray TeX protection: LaTeX fences are scoped in local groups (`{\begingroup...\par\endgroup}`), preventing definitions, styles, and colors from leaking across blocks. Unfenced LaTeX commands in prose are treated as literal text (`-raw_tex`). Core template scaffolding macro redefinitions automatically demote to syntax-highlighted code listings (`run=false`).
 - Localized XeLaTeX error recovery: Automatically marks localized document-body LaTeX errors directly in the final PDF using red bold `[!!!]` badges with neutralized (detokenized) code, accompanied by yellow console diagnostics.
 - Keep default A4 output or select a 16:9 landscape presentation page size in YAML.
 - Render Markdown, math, tables, citations, selected pasted LaTeX, and code.
@@ -136,7 +138,9 @@ suggestions can still be compiled as text.
 ## Writing rules
 
 Use ordinary Markdown or plain text for prose, headings, lists, tables, and
-formulas. Do not fence normal Markdown:
+formulas. Headings use standard `#`, `##`, `###` syntax. Standalone `---` produces
+a horizontal divider rule (`\hrulefill`). Tables use standard Markdown pipe syntax
+(`| col | col |`). Do not fence normal Markdown:
 
 ```markdown
 # Results

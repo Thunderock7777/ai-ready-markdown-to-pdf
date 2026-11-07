@@ -619,8 +619,9 @@ end
 local function java_command(exe, script, out, err, prefix, text)
   local class_name = has_java_main(text) and (detect_java_class(text) or "Main") or "Main"
   local java_dir = prefix .. "_java"
-  local javac = os.getenv("JAVAC_COMPILER") or "javac"
-  local has_javac = os.getenv("JAVAC_COMPILER") ~= nil or (os.execute((IS_WIN and "where " or "which ") .. javac .. " > " .. NULL_DEV .. " 2>&1") == 0)
+  local javac_env = os.getenv("JAVAC_COMPILER")
+  local javac = (javac_env and javac_env ~= "") and javac_env or "javac"
+  local has_javac = (javac_env and javac_env ~= "") or (os.execute((IS_WIN and "where " or "which ") .. javac .. " > " .. NULL_DEV .. " 2>&1") == 0)
   if has_javac then
     local comp = quote_executable(javac) .. ' -d "' .. to_os_path(java_dir) .. '" ' .. quote_executable(script)
     local run = quote_executable(exe) .. ' -cp "' .. to_os_path(java_dir) .. '" ' .. class_name
@@ -806,6 +807,31 @@ local function extract_commands(pre)
   return commands
 end
 
+-- Template scaffolding macros that cannot safely execute in the document body.
+-- If a latex/tex code fence redefines them, it is treated as a code listing (run=false).
+local SCAFFOLDING_MACROS = {
+  maketitle = true,
+  tableofcontents = true,
+  title = true,
+  author = true,
+  date = true,
+  ["@title"] = true,
+  ["@author"] = true,
+  ["@date"] = true,
+}
+
+local function has_scaffolding_redefinition(text)
+  for name in pairs(SCAFFOLDING_MACROS) do
+    local pat_name = name:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
+    if text:match("\\re?newcommand%*?%s*{?%s*\\" .. pat_name .. "[%A]") or
+       text:match("\\def%s*\\" .. pat_name .. "[%A]") or
+       text:match("\\let%s*\\" .. pat_name .. "[%A]") then
+      return name
+    end
+  end
+  return nil
+end
+
 local function render_latex(el, class, preamble)
   local out = {}
   if el.attributes["show"] == "true" then
@@ -821,13 +847,28 @@ local function render_latex(el, class, preamble)
     else
       warn("latex block has \\begin{document} but no \\end{document}: using everything after it")
     end
+    -- Scope-isolated: packages and libraries go to the preamble; macros stay local
     local commands = extract_commands(el.text:sub(1, bs - 1))
-    for _, command in ipairs(commands) do preamble[#preamble+1] = command end
+    local local_cmds = {}
+    for _, cmd in ipairs(commands) do
+      if cmd:match("^%s*\\usepackage") or cmd:match("^%s*\\usetikzlibrary")
+          or cmd:match("^%s*\\usepgfplotslibrary") or cmd:match("^%s*\\usepgflibrary") then
+        preamble[#preamble + 1] = cmd
+      else
+        local_cmds[#local_cmds + 1] = cmd
+      end
+    end
+    if #local_cmds > 0 then
+      body = table.concat(local_cmds, "\n") .. "\n" .. body
+    end
   elseif el.text:find("\\usepackage") or el.text:find("\\documentclass") then
     warn("latex block has a preamble but no \\begin{document}: it is pasted as is and will " ..
          "fail; wrap the body in \\begin{document}...\\end{document}")
   end
-  out[#out + 1] = pandoc.RawBlock("latex", body)
+  -- Universal Code Fence Isolation: wrap every block in a local scope
+  -- so colors, styles, font sizes, lengths, and local macros never leak to outer document.
+  local isolated_body = "{\\begingroup\n" .. body .. "\n\\par\\endgroup}"
+  out[#out + 1] = pandoc.RawBlock("latex", isolated_body)
   return out
 end
 
@@ -1053,6 +1094,13 @@ local function process_code_block(el, preamble)
   local class = (el.classes[1] or ""):lower()
   local spec = LANGS[class]
   if not spec then return nil end
+  if spec.id == "latex" then
+    local scaffold = has_scaffolding_redefinition(el.text)
+    if scaffold then
+      warn(string.format("latex block redefines template scaffolding macro '\\%s'; rendering as code listing (run=false)", scaffold))
+      return nil
+    end
+  end
   if spec.render then return spec.render(el, class, preamble) end
   local result = run_exec(el, spec)
   if not result then return pandoc.CodeBlock(el.text, pandoc.Attr("", { spec.id })) end

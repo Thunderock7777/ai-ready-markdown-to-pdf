@@ -72,3 +72,12 @@ C++ snippet without explicit `main` is wrapped inside standard headers and `int 
 ```cpp trusted=true
 std::cout << "Hello from C++ snippet!" << std::endl;
 ```
+
+## 5. Java Code Snippet (trusted=true)
+
+Java snippet without explicit `main` or class declaration is wrapped inside a synthetic `Main` class with standard imports.
+
+```java trusted=true
+System.out.println("Hello from Java bare snippet!");
+```
+

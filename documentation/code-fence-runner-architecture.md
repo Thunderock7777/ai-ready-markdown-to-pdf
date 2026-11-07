@@ -581,7 +581,7 @@ Step-by-step change and validation guide
    For normalizer-only syntax/AST checks, use Pandoc's --to=native path; for a
    runner test, include only benign test code and approve its prompt as needed.
 9. When a supported behavior changes, update the lasting regression fixture.
-   Run filter-feature-regression.txt when its affected integration surface
+   Run filter-feature-regression.md when its affected integration surface
    warrants the broader test; its Python failure is deliberate. Do not claim a
    build was performed unless it actually was.
 10. Run git diff --check, inspect the source/documentation diff, and exclude cache,

@@ -1,6 +1,6 @@
 MULTI_INPUT_PART_TWO_TEXT
 
-This companion input must appear after filter-feature-regression.txt in the
+This companion input must appear after filter-feature-regression.md in the
 combined PDF.
 
 ```{.python show=false}

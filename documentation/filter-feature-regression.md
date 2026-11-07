@@ -20,7 +20,7 @@ FILTER FEATURE REGRESSION AND WORKFLOW DEMONSTRATION
 
 Purpose
 -------
-This is a self-contained .txt fixture for the Markdown-to-PDF workflow.
+This is a self-contained .md fixture for the Markdown-to-PDF workflow.
 Compile this file by itself with compile.bat. A successful build exercises the
 real Windows wrapper, Pandoc, config\markdown-normalizer.lua,
 config\code-fence-runner.lua,
@@ -36,7 +36,7 @@ documentation change. Contributors should choose focused tests for routine
 changes; use this full fixture when its behavior is affected, for end-to-end
 validation, or before a release. Any user can run it at any time to check the
 workflow. Every feature addition or bug fix must still be tested with a
-focused .txt input through compile.bat; that targeted test does not require
+focused test input through compile.bat; that targeted test does not require
 rebuilding this full fixture.
 
 Run this exact fixture
@@ -45,10 +45,10 @@ In File Explorer, drag this file onto compile.bat, or run the following from
 PowerShell after changing to the tool folder (the folder containing
 compile.bat):
 
-    .\compile.bat ".\documentation\filter-feature-regression.txt"
+    .\compile.bat ".\documentation\filter-feature-regression.md"
 
 The template and filters are read from the config folder beside compile.bat.
-The PDF should be created beside this .txt file with the same base name.
+The PDF should be created beside this .md file with the same base name.
 Expected console notices include summaries for intentionally cleaned citation
 markers / unsupported emoji, Python consent prompts for uncached/forced runs,
 and the deliberately failing Python demonstration. Review and approve only the
@@ -57,12 +57,12 @@ should still complete and produce a PDF.
 
 1. Document metadata, order, and Markdown basics
 ------------------------------------------------
-The YAML title and author below exercise YAML metadata in a .txt input. The
+The YAML title and author below exercise YAML metadata in a .md input. The
 title in the produced PDF should be "Filter Feature Regression".
 
 The first input's content order is preserved. This standalone file is one
 input. Its multi-file behavior is tested separately below with
-filter-feature-regression-part-2.txt.
+filter-feature-regression-part-2.md.
 
 Multi-file regression markers from input 1:
 MULTI_INPUT_PART_ONE_TEXT
@@ -415,10 +415,10 @@ print("This output is intentionally hidden in the PDF.")
 
 The explicit deps attribute adds the named file's content to the cache key:
 
-```{.python deps="filter-feature-regression.txt" show=false}
+```{.python deps="filter-feature-regression.md" show=false}
 from pathlib import Path
 
-print("Explicit input dependency bytes:", Path("filter-feature-regression.txt").stat().st_size)
+print("Explicit input dependency bytes:", Path("filter-feature-regression.md").stat().st_size)
 ```
 
 run=false does not execute this recognized Python fence; it remains a normal
@@ -572,16 +572,16 @@ Other known constraints: XeLaTeX is required; bibliography support is Pandoc
 citeproc, not raw natbib/biblatex; Python caching cannot track every network,
 environment, or external-state dependency; remote images are not embedded;
 complex Markdown or raw-LaTeX combinations may need explicit blank lines or
-simpler markup. See workflow-architecture.txt for the implementation details.
+simpler markup. See workflow-architecture.md for the implementation details.
 
 8. Validation checklist
 -----------------------
 After compiling this file:
 
-- PDF exists beside this .txt file.
+- PDF exists beside this .md file.
 - PDF title and author match the YAML metadata.
 - With no `title-rule` option, the horizontal title rule remains visible; the
-  focused title-rule-regression.txt fixture verifies `title-rule: false`.
+  focused title-rule-regression.md fixture verifies `title-rule: false`.
 - Both citation text and a CSL-formatted reference list appear.
 - Headings, lists, table, inline/display math, theorem, proof, and TikZ render.
 - Real Python output appears; run=false source appears without its output.
@@ -597,7 +597,7 @@ After compiling this file:
 - The controlled Python failure is visible on the console but does not stop PDF creation.
 - Matplotlib figure appears when the optional dependency is installed.
 - Console warnings explain intentionally removed markers/emoji and dropped remote SVG.
-- The input .txt file remains unchanged.
+- The input .md file remains unchanged.
 
 Expected output file:
 filter-feature-regression.pdf
@@ -623,7 +623,7 @@ Title-rule check
 The title rule is visible by default. Set `title-rule: false` as a YAML boolean
 to omit it; the space below the title remains unchanged. Quoted `"false"` is a
 string, not a boolean, and warns while keeping the rule. The focused
-title-rule-regression.txt input exercises the disabled case through compile.bat.
+title-rule-regression.md input exercises the disabled case through compile.bat.
 The feature's focused input is listed in the README and installation guide.
 
 Multi-file regression
@@ -632,8 +632,8 @@ The single-input build above does not test multi-file merging. From the tool
 root, run this additional build with the companion input as the second file:
 
     .\compile.bat `
-        ".\documentation\filter-feature-regression.txt" `
-        ".\documentation\filter-feature-regression-part-2.txt"
+        ".\documentation\filter-feature-regression.md" `
+        ".\documentation\filter-feature-regression-part-2.md"
 
 The resulting PDF is again written beside the first input. Extract or inspect
 its text and verify the four unique markers occur exactly once in this order:
@@ -655,13 +655,13 @@ The table above also covers the nested-formatting fix. In the PDF, **Bold
 the matrix rendered as math between them: $\begin{matrix}a&b\\c&d\end{matrix}$.
 The matrix is outside the formatting spans. Before the fix, nested formatting
 around complex table math could cause a XeLaTeX error such as
-"Forbidden control sequence ... \check@nocorr@" or lose surrounding text.
+"Forbidden control sequence ... `\check@nocorr@`" or lose surrounding text.
 
 To check mixed-input fallback, run this fixture with compile.bat as the second
 input from the tool root:
 
     .\compile.bat `
-        ".\documentation\filter-feature-regression.txt" `
+        ".\documentation\filter-feature-regression.md" `
         ".\compile.bat"
 
 The unsupported .bat input intentionally makes the normalizer retain Pandoc's
@@ -681,5 +681,5 @@ Fallback marker one: [cite_start] FALLBACK_STATE_ALPHA
 
 Fallback marker two: [cite: 3] FALLBACK_STATE_BETA
 
-The standalone normalizer-fix-manual-test.txt provides the same focused checks
+The standalone normalizer-fix-manual-test.md provides the same focused checks
 without running the full fixture.

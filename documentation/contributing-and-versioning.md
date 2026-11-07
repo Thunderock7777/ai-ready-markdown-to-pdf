@@ -63,7 +63,7 @@ time rebuilding the full regression document for every small edit.
 3. Documentation review after every project change
 --------------------------------------------------
 After a behavior, feature, bug-fix, or architecture change:
-1. Re-read README.md and review every .txt file in documentation\ for statements
+1. Re-read README.md and review every .md file in documentation\ for statements
    affected by the change.
 2. Update README.md and each affected guide in the same change. At minimum,
    update the architecture guide for pipeline, ordering, cache, or contract
@@ -83,38 +83,38 @@ one.
 4. Testing and the regression fixture
 -------------------------------------
 - Mandatory for every feature addition and bug fix: create or update a focused
-  `.txt` test input that exercises the changed behavior, then run that input
+  test input (.md or .txt) that exercises the changed behavior, then run that input
   through the real `compile.bat` workflow. Verify the relevant PDF content,
   console warning/error, or Python side effect—not merely that the process
   exited. Keep the case in the regression fixture when it is a lasting
-  supported behavior; otherwise use a disposable `.txt` file and remove it
+  supported behavior; otherwise use a disposable test file and remove it
   after the test.
-- If the behavior is specifically multi-input, use at least two `.txt` inputs.
+- If the behavior is specifically multi-input, use at least two inputs.
   If it involves Python, exercise it only with trusted test code and verify the
   expected output/cache/side effect. For an expected failure, confirm the
   expected diagnostic and whether the PDF is or is not produced/preserved.
 - Additional focused checks such as Lua filter loading, static path/link
   checks, or cache-unit probes are useful, but do not replace the required
-  `.txt`-based workflow test for a feature or bug fix.
+  workflow test for a feature or bug fix.
 - Documentation-only, comment-only, and formatting-only changes do not require
-  a `.txt` compile unless they alter a documented example or expected behavior;
+  a compile test unless they alter a documented example or expected behavior;
   validate links, paths, and wording instead.
-- Do NOT compile filter-feature-regression.txt after every change. It is a
+- Do NOT compile filter-feature-regression.md after every change. It is a
   comparatively large end-to-end demonstration; rebuilding it for an unrelated
   documentation edit or a small isolated change wastes time and compute.
-- The mandatory `.txt` test is a small, targeted test case, not a requirement to
+- The mandatory test is a small, targeted test case, not a requirement to
   rebuild the full FILTER_FEATURE_REGRESSION fixture. A short disposable test
   input is sufficient when it verifies the exact change.
 - The regression fixture is available to any user as an end-to-end workflow
   check. Its single-input and two-input commands, expected warnings, marker
   checks, and output location are documented in
-  filter-feature-regression.txt.
+  filter-feature-regression.md.
 - Run the relevant fixture when changing the pipeline, either Lua filter,
   template behavior, Python execution/cache behavior, or when a complete
   integration check is needed. Run it before a release when practical, or when
   the user explicitly requests full validation. Do not claim it was run if it
   was not run.
-- Do not mark a feature or bug fix complete until its focused `.txt` test has
+- Do not mark a feature or bug fix complete until its focused test has
   run through `compile.bat` and its expected behavior has been checked. If
   required dependencies or tools are unavailable, report the test as blocked
   and state the blocker; do not silently substitute a weaker check.
@@ -229,6 +229,9 @@ Change ledger
 
 Version 1.3.0 cycle
   Starting count: 0 / 500
+
+Change ledger
+  2026-11-07 | Migrated documentation files from .txt to .md and updated cross-references | source +0 / -0 | 0 / 500
 
 For each later accepted change, append one entry in this format:
 

@@ -27,4 +27,5 @@ build/
 !README.md
 !documentation/
 !documentation/**
-!.vscode/
+*.vscode/
+*.exe/

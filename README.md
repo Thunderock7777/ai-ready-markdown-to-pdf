@@ -45,17 +45,18 @@ your-tool-folder/
 ├── compile.bat
 ├── README.md
 ├── documentation/
-│   ├── installation-and-usage.txt
-│   ├── workflow-architecture.txt
-│   ├── markdown-normalizer-architecture.txt
-│   ├── code-fence-runner-architecture.txt
-│   ├── contributing-and-versioning.txt
-│   ├── workflow-assessment.txt
-│   ├── filter-feature-regression.txt
-│   ├── filter-feature-regression-part-2.txt
-│   ├── title-rule-regression.txt
-│   ├── compiled-fence-test.txt
-│   └── normalizer-fix-manual-test.txt
+│   ├── installation-and-usage.md
+│   ├── workflow-architecture.md
+│   ├── markdown-normalizer-architecture.md
+│   ├── code-fence-runner-architecture.md
+│   ├── contributing-and-versioning.md
+│   ├── workflow-assessment.md
+│   ├── filter-feature-regression.md
+│   ├── filter-feature-regression-part-2.md
+│   ├── title-rule-regression.md
+│   ├── yaml-fence-test.md
+│   ├── compiled-fence-test.md
+│   └── normalizer-fix-manual-test.md
 └── config/
     ├── custom.tex
     ├── markdown-normalizer.lua
@@ -80,7 +81,7 @@ that folder when no build is running; cached results will be regenerated.
   it: `py -m pip install matplotlib`.
 
 For LaTeX packages, use MiKTeX with automatic package installation enabled or a
-full TeX Live installation. See [installation-and-usage.txt](documentation/installation-and-usage.txt) for
+full TeX Live installation. See [installation-and-usage.md](documentation/installation-and-usage.md) for
 installation steps, command-line options, troubleshooting, and examples.
 
 ## Quick start
@@ -103,7 +104,7 @@ These two cases show how to specify the input:
 ```
 
 You can also pass a relative path from the tool folder, for example
-`.\compile.bat ".\documentation\filter-feature-regression.txt"`. The PDF is saved
+`.\compile.bat ".\documentation\filter-feature-regression.md"`. The PDF is saved
 beside the first input file, not necessarily beside `compile.bat`.
 
 Combine files by passing their quoted paths in the desired order:
@@ -225,7 +226,7 @@ Options are written as Pandoc fence attributes (e.g. ```` ```{.python run=new sh
 
 The regression guide compares default cached Python, `run=new` fresh execution,
 and `run=false` source-only rendering with a NumPy/Matplotlib running-average
-coin-flip graph. Compile `documentation\compiled-fence-test.txt` to verify C, C++,
+coin-flip graph. Compile `documentation\compiled-fence-test.md` to verify C, C++,
 and Java compilation, snippet wrapping, execution, and error reporting. To enable optional Python graphs, install both packages with
 `py -m pip install numpy matplotlib`.
 
@@ -241,7 +242,7 @@ permissions and can access files and resources available to your account.
 To run the bundled end-to-end regression document, compile it by itself:
 
 ```powershell
-.\compile.bat ".\documentation\filter-feature-regression.txt"
+.\compile.bat ".\documentation\filter-feature-regression.md"
 ```
 
 Run this command from the tool root. The fixture PDF is written beside the
@@ -252,7 +253,7 @@ expected results.
 The companion fixture also tests combining two inputs in order:
 
 ```powershell
-.\compile.bat ".\documentation\filter-feature-regression.txt" ".\documentation\filter-feature-regression-part-2.txt"
+.\compile.bat ".\documentation\filter-feature-regression.md" ".\documentation\filter-feature-regression-part-2.md"
 ```
 
 The expected markers and verification steps are documented in the regression
@@ -261,30 +262,32 @@ fixture.
 To test hiding the title rule, compile the focused fixture:
 
 ```powershell
-.\compile.bat ".\documentation\title-rule-regression.txt"
+.\compile.bat ".\documentation\title-rule-regression.md"
 ```
 
-- [installation-and-usage.txt](documentation/installation-and-usage.txt) — installation and usage guide.
-- [workflow-architecture.txt](documentation/workflow-architecture.txt) — detailed pipeline,
+- [installation-and-usage.md](documentation/installation-and-usage.md) — installation and usage guide.
+- [workflow-architecture.md](documentation/workflow-architecture.md) — detailed pipeline,
   filter-order, cache, and maintenance documentation.
-- [markdown-normalizer-architecture.txt](documentation/markdown-normalizer-architecture.txt) —
+- [markdown-normalizer-architecture.md](documentation/markdown-normalizer-architecture.md) —
   normalizer function reference, stages, state, and change/test guide.
-- [code-fence-runner-architecture.txt](documentation/code-fence-runner-architecture.txt) —
+- [code-fence-runner-architecture.md](documentation/code-fence-runner-architecture.md) —
   runner function reference, Python wrapper/cache flow, and change/test guide.
-- [contributing-and-versioning.txt](documentation/contributing-and-versioning.txt) —
-  project change, documentation, mandatory focused `.txt` testing, and
+- [contributing-and-versioning.md](documentation/contributing-and-versioning.md) —
+  project change, documentation, mandatory focused testing, and
   version-tracking rules.
-- [workflow-assessment.txt](documentation/workflow-assessment.txt) — candid scorecard,
+- [workflow-assessment.md](documentation/workflow-assessment.md) — candid scorecard,
   limitations, and documentation audit.
-- [filter-feature-regression.txt](documentation/filter-feature-regression.txt) — broad
+- [filter-feature-regression.md](documentation/filter-feature-regression.md) — broad
   feature and failure-path validation input.
-- [filter-feature-regression-part-2.txt](documentation/filter-feature-regression-part-2.txt) —
+- [filter-feature-regression-part-2.md](documentation/filter-feature-regression-part-2.md) —
   companion input for the multi-file regression check.
-- [title-rule-regression.txt](documentation/title-rule-regression.txt) —
+- [title-rule-regression.md](documentation/title-rule-regression.md) —
   focused input that disables the title rule with YAML metadata.
-- [yaml-fence-test.txt](documentation/yaml-fence-test.txt) —
+- [yaml-fence-test.md](documentation/yaml-fence-test.md) —
   focused input that validates fenced YAML metadata blocks and verbatim YAML code listings.
-- [normalizer-fix-manual-test.txt](documentation/normalizer-fix-manual-test.txt) —
+- [compiled-fence-test.md](documentation/compiled-fence-test.md) —
+  focused input that validates C, C++, and Java code fences.
+- [normalizer-fix-manual-test.md](documentation/normalizer-fix-manual-test.md) —
   focused manual checks for nested table math formatting and mixed-input fallback.
 
 ## Known limitations

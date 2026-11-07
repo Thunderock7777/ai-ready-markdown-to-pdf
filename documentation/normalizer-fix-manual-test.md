@@ -20,12 +20,12 @@ Run from the folder containing compile.bat.
 ------------------------
 Compile this file by itself:
 
-    .\compile.bat ".\documentation\normalizer-fix-manual-test.txt"
+    .\compile.bat ".\documentation\normalizer-fix-manual-test.md"
 
 Inspect the PDF table and console output.
 
 Before the fix, nested formatting around complex table math could cause
-XeLaTeX errors, including "Forbidden control sequence ... \check@nocorr@".
+XeLaTeX errors, including "Forbidden control sequence ... `\check@nocorr@`".
 The affected cell's text before the math could also disappear from the output.
 
 After the fix, the build should complete without a LaTeX error for this table.
@@ -43,12 +43,12 @@ Compile this file with compile.bat as the second input. Its .bat extension is
 intentionally unsupported by the normalizer's text-cleaning stage and triggers
 the original-Pandoc-parse fallback:
 
-    .\compile.bat ".\documentation\normalizer-fix-manual-test.txt" ".\compile.bat"
+    .\compile.bat ".\documentation\normalizer-fix-manual-test.md" ".\compile.bat"
 
 The compiler will also include compile.bat as input content in the resulting
 PDF; that is expected for this fallback test.
 
-Before the fix, cleanup state gathered from this .txt file could leak into
+Before the fix, cleanup state gathered from this .md file could leak into
 finalization even though the original Pandoc parse was retained. For example,
 the console could report removed citation-marker characters while the markers
 were still present in the PDF.

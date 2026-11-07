@@ -33,7 +33,7 @@ Scorecard
    markdown-normalizer.lua cleans/rebuilds the supported text AST, then
    code-fence-runner.lua executes or renders blocks, and XeLaTeX produces the
    PDF. Reordering the filters would be a serious regression, and that
-   constraint is documented in both code and documentation\workflow-architecture.txt.
+   constraint is documented in both code and documentation\workflow-architecture.md.
 
 2. Content handling and feature depth:     8.0 / 10
    The tool supports a useful mix of ordinary Markdown, math, citations,
@@ -60,9 +60,9 @@ Scorecard
    document; users should read the console and inspect the output.
 
 5. Validation and regression coverage:     8.0 / 10
-   documentation\filter-feature-regression.txt exercises the real wrapper, filters,
+   documentation\filter-feature-regression.md exercises the real wrapper, filters,
    template, Pandoc, Python behavior, and XeLaTeX. Its paired
-   filter-feature-regression-part-2.txt adds a documented two-input check for
+   filter-feature-regression-part-2.md adds a documented two-input check for
    argument order and one rendered output per Python fence. The combined PDF
    was rebuilt and its four unique markers were asserted exactly once and in
    order. The fixtures provide broad coverage, not proof of every possible
@@ -72,12 +72,12 @@ Scorecard
    run=false using optional NumPy/Matplotlib probability graphs.
 
 6. User experience and documentation:      9.0 / 10
-   README.md gives a quick overview and examples; documentation\installation-and-usage.txt
-   covers setup and beginner usage; documentation\workflow-architecture.txt provides the technical
+   README.md gives a quick overview and examples; documentation\installation-and-usage.md
+   covers setup and beginner usage; documentation\workflow-architecture.md provides the technical
    pipeline and extension guidance. The Python package pre-install requirement,
    Windows-only invocation, filter ordering, run=new behavior, and relative
    asset resolution are documented. The AI-response workflow now explicitly
-   says intact, uncorrupted chat responses can be pasted into a .txt file and
+   says intact, uncorrupted chat responses can be pasted into a .txt/.md file and
    compiled with zero editing when supported. It distinguishes Gemini
    search-engine suggestions, which usually lack fences needed to recognize and
    execute code, and avoids claiming universal compatibility.
@@ -88,7 +88,7 @@ Scorecard
    prompt is not a permission boundary; trusted=true can bypass ordinary
    first-run confirmation, and valid cache hits do not execute code. It is not
    safe to treat an arbitrary downloaded response or repository as inert.
-   The warning in README.md and documentation\installation-and-usage.txt is important and should
+   The warning in README.md and documentation\installation-and-usage.md is important and should
    remain prominent.
 
 8. Portability and reproducibility:        5.5 / 10
@@ -156,7 +156,7 @@ README.md
   PowerShell examples work from the tool root and demonstrate both single-file
   and multi-file compilation.
 
-documentation\installation-and-usage.txt
+documentation\installation-and-usage.md
   Status: current after this audit.
   It covers installation, command-line/web sources, Python 3.8+ and the `py`
   launcher, separate Python-package installation, single/multiple inputs,
@@ -165,17 +165,17 @@ documentation\installation-and-usage.txt
   (the tool root only when the input is kept there), and added the no-manual-
   editing AI-response steps with a compatibility boundary.
 
-documentation\contributing-and-versioning.txt
+documentation\contributing-and-versioning.md
   Status: added as the project maintenance policy.
   It requires repository/documentation review, source comments for non-obvious
   behavior and architecture changes, an impact review of all documentation and the
-  README, a focused .txt compile through compile.bat for every feature addition
+  README, a focused test compile through compile.bat for every feature addition
   or bug fix, avoiding unnecessary rebuilds of the large regression fixture,
   and a 500-changed-line version ledger starting at 1.0.0. The ledger counts
   changes only in project-maintained system files that affect workflow behavior,
   excluding documentation, regression fixtures, and sample/user inputs.
 
-documentation\workflow-architecture.txt
+documentation\workflow-architecture.md
   Status: current after this audit.
   It describes the config layout, invocation, multi-file metadata/content
   behavior, filter order, citeproc stage, LaTeX/Python processing, cache
@@ -183,16 +183,16 @@ documentation\workflow-architecture.txt
   regression command now uses a portable relative path and says to run it from
   the tool root instead of embedding a machine-specific D:\latex_editor path.
 
-documentation\markdown-normalizer-architecture.txt and
-documentation\code-fence-runner-architecture.txt
+documentation\markdown-normalizer-architecture.md and
+documentation\code-fence-runner-architecture.md
   Status: added as filter implementation guides.
   They document each filter's entry point and function responsibilities,
   configuration/state, execution order, and practical change/validation steps.
 
-documentation\filter-feature-regression.txt
+documentation\filter-feature-regression.md
   Status: current after this audit.
   It is the executable regression fixture rather than a setup guide and is
-  paired with filter-feature-regression-part-2.txt for multi-input validation.
+  paired with filter-feature-regression-part-2.md for multi-input validation.
   It describes intentional warnings/failures, expected outputs, and the
   two-input ordering/output-count check. The documented commands run from the
   tool root and avoid machine-specific paths. Continue to update expected

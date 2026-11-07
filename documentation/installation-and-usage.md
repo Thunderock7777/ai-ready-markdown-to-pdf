@@ -18,16 +18,18 @@ Keep this folder structure together:
             code-fence-runner.lua
             error-annotator.lua
         documentation\
-            installation-and-usage.txt
-            workflow-architecture.txt
-            markdown-normalizer-architecture.txt
-            code-fence-runner-architecture.txt
-            workflow-assessment.txt
-            contributing-and-versioning.txt
-            filter-feature-regression.txt
-            filter-feature-regression-part-2.txt
-            title-rule-regression.txt
-            normalizer-fix-manual-test.txt
+            installation-and-usage.md
+            workflow-architecture.md
+            markdown-normalizer-architecture.md
+            code-fence-runner-architecture.md
+            workflow-assessment.md
+            contributing-and-versioning.md
+            filter-feature-regression.md
+            filter-feature-regression-part-2.md
+            title-rule-regression.md
+            yaml-fence-test.md
+            compiled-fence-test.md
+            normalizer-fix-manual-test.md
 
 The documentation\ folder contains the workflow guides and regression fixture; it is
 not a required location for your own notes. Keep personal input files wherever
@@ -113,8 +115,8 @@ add this YAML boolean to the input's metadata block:
 Omit the option or set it to true to keep the rule. Quoted values are not
 booleans; invalid values produce a warning and keep the rule.
 
-Compile `documentation\title-rule-regression.txt` to check the disabled case.
-Compile `documentation\yaml-fence-test.txt` to check fenced YAML metadata.
+Compile `documentation\title-rule-regression.md` to check the disabled case.
+Compile `documentation\yaml-fence-test.md` to check fenced YAML metadata.
 
 Document metadata blocks
 ------------------------
@@ -177,7 +179,7 @@ verbatim YAML code listing without treating it as metadata, specify `run=false`
      execution is supported even when `javac` is not installed on PATH.
    All three languages support full standalone programs (with `main`) and bare
    snippets (automatically wrapped in standard headers and a `main` entry point).
-   Compile `documentation\compiled-fence-test.txt` to verify these fences.
+   Compile `documentation\compiled-fence-test.md` to verify these fences.
 
 Quick installation by command line
 ----------------------------------
@@ -227,7 +229,7 @@ Create your first PDF
    path from the current directory):
 
        .\compile.bat "C:\Users\you\Documents\my-notes.txt"
-       .\compile.bat ".\documentation\filter-feature-regression.txt"
+       .\compile.bat ".\documentation\filter-feature-regression.md"
 
 4. Find the PDF beside the first input file. Therefore, a file in
    Documents\ produces its PDF in Documents\, not beside compile.bat. The config
@@ -357,4 +359,4 @@ What you do not need
 
 For detailed filter order, cache internals, metadata behavior, supported input
 contracts, failure modes, and extension guidance, read
-documentation\workflow-architecture.txt.
+documentation\workflow-architecture.md.

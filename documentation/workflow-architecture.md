@@ -112,7 +112,7 @@ Inputs, metadata, and citations
 The documented/common inputs are .md, .markdown, and .txt. For these types,
 the custom reader enables YAML metadata, raw TeX, dollar and single-backslash
 math, fenced Divs, pipe tables, and bare-URL autolinking while disabling
-Markdown subscript/superscript parsing. Document metadata (including title, author, date, page-layout, and title-rule)
+Markdown subscript/superscript and non-standard simple_tables parsing. Document metadata (including title, author, date, page-layout, and title-rule)
 is authored exclusively using fenced code blocks (```yaml ... ``` or ```{.yaml} ... ```).
 Traditional `--- ... ---` blocks are deliberately NOT recognized as metadata,
 ensuring hyphens and horizontal rules never cause metadata collisions. Fenced

@@ -232,6 +232,7 @@ Version 1.3.0 cycle
 
 Change ledger
   2026-11-07 | Migrated documentation files from .txt to .md and updated cross-references | source +0 / -0 | 0 / 500
+  2026-11-07 | Universal block boundary spacing and disabled simple_tables | source +55 / -3 | 58 / 500
 
 For each later accepted change, append one entry in this format:
 

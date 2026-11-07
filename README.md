@@ -1,11 +1,11 @@
 # Markdown to PDF
 
 A Windows workflow for turning Markdown or plain-text notes into a PDF with
-Pandoc, XeLaTeX, and two Lua filters. Executable code fences (Python, C, C++,
-and Java) can run during the build to capture output, while LaTeX fences render
-source snippets without executing them.
+Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
+and Java can run during the build with universal caching and approval controls,
+while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.2.1**.
+**Current project version: 1.3.0**.
 
 > **Paste an AI chat response and compile it directly.** An intact, uncorrupted
 > copied response from ChatGPT, Gemini chat, or NotebookLM can be compiled as-is
@@ -19,13 +19,14 @@ source snippets without executing them.
 - Compile AI-generated responses from ChatGPT, Gemini, or NotebookLM directly,
   without manual editing of supported content.
 - Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order.
+- Universal executable code fences: Python, C, C++, and Java fenced blocks execute with persistent SHA-1 caching, confirmation prompts, output capture, and compiler/runtime error reporting.
+- Uniform fence syntax: Except Markdown itself, every language (Python, LaTeX, YAML metadata, C, C++, Java, etc.) uses standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````); raw delimiters like `---` are not used for metadata.
+- Localized XeLaTeX error recovery: Automatically marks localized document-body LaTeX errors directly in the final PDF using red bold `[!!!]` badges with neutralized (detokenized) code, accompanied by yellow console diagnostics.
 - Keep default A4 output or select a 16:9 landscape presentation page size in YAML.
 - Render Markdown, math, tables, citations, selected pasted LaTeX, and code.
-- Execute Python, C, C++, and Java fences with optional output, source, error, and cache controls.
-- Reuse valid execution results with persistent SHA-1 caching, or force a fresh
-  run when needed.
-- The text-processing stages leave source files unchanged. Executable fences can
-  still write files they explicitly open; PDFs are saved beside the first input.
+- Execute code fences with optional output, source, error, and cache controls.
+- Reuse valid cached results scoped to the input folder, or force a fresh run when needed.
+- The text-processing stages leave source files unchanged. Fences can still write files they explicitly open; PDFs are saved beside the first input.
 
 ## Best use
 
@@ -44,21 +45,23 @@ your-tool-folder/
 ├── compile.bat
 ├── README.md
 ├── documentation/
-│   ├── installation-and-usage.txt
-│   ├── workflow-architecture.txt
-│   ├── markdown-normalizer-architecture.txt
-│   ├── code-fence-runner-architecture.txt
-│   ├── contributing-and-versioning.txt
-│   ├── workflow-assessment.txt
-│   ├── filter-feature-regression.txt
-│   ├── filter-feature-regression-part-2.txt
-│   ├── title-rule-regression.txt
-│   ├── normalizer-fix-manual-test.txt
-│   └── code-fence-languages-test.txt
+│   ├── installation-and-usage.md
+│   ├── workflow-architecture.md
+│   ├── markdown-normalizer-architecture.md
+│   ├── code-fence-runner-architecture.md
+│   ├── contributing-and-versioning.md
+│   ├── workflow-assessment.md
+│   ├── filter-feature-regression.md
+│   ├── filter-feature-regression-part-2.md
+│   ├── title-rule-regression.md
+│   ├── yaml-fence-test.md
+│   ├── compiled-fence-test.md
+│   └── normalizer-fix-manual-test.md
 └── config/
     ├── custom.tex
     ├── markdown-normalizer.lua
-    └── code-fence-runner.lua
+    ├── code-fence-runner.lua
+    └── error-annotator.lua
 ```
 
 The compiler creates `md2pdf_cache/` beside `compile.bat`. It is safe to remove
@@ -72,18 +75,13 @@ that folder when no build is running; cached results will be regenerated.
   [TeX Live for Windows](https://tug.org/texlive/windows.html)
 - **Python 3.8 or newer**, only if using Python fences. The workflow invokes the
   Windows Python launcher, `py`: [Python downloads](https://www.python.org/downloads/windows/)
-- **C / C++ Compiler (optional)**: GCC (`gcc`/`g++`) or Clang, if compiling and
-  running C or C++ fences. `CC` / `CXX` (or `MD2PDF_CC` / `MD2PDF_CXX`) can override
-  the compiler executable.
-- **Java 11 or newer (optional)**: `java` runtime with single-source file support,
-  if running Java fences. `JAVA` or `MD2PDF_JAVA` can override the executable path.
 - **Python packages are not installed by this workflow.** Install third-party
   packages imported by your Python blocks into the interpreter used by `py`
   before compiling. For example, Matplotlib is needed only for code that imports
   it: `py -m pip install matplotlib`.
 
 For LaTeX packages, use MiKTeX with automatic package installation enabled or a
-full TeX Live installation. See [installation-and-usage.txt](documentation/installation-and-usage.txt) for
+full TeX Live installation. See [installation-and-usage.md](documentation/installation-and-usage.md) for
 installation steps, command-line options, troubleshooting, and examples.
 
 ## Quick start
@@ -106,7 +104,7 @@ These two cases show how to specify the input:
 ```
 
 You can also pass a relative path from the tool folder, for example
-`.\compile.bat ".\documentation\filter-feature-regression.txt"`. The PDF is saved
+`.\compile.bat ".\documentation\filter-feature-regression.md"`. The PDF is saved
 beside the first input file, not necessarily beside `compile.bat`.
 
 Combine files by passing their quoted paths in the desired order:
@@ -154,9 +152,7 @@ The PDF uses A4 by default. To use a 16:9 landscape page with 0.5-inch margins,
 add this YAML metadata block at the start of the input:
 
 ```yaml
----
 page-layout: presentation
----
 ```
 
 Other `page-layout` values are unsupported; they produce a warning and use A4.
@@ -170,6 +166,13 @@ title-rule: false
 
 Omit this option or set it to `true` to keep the rule.
 
+Document metadata (such as `title`, `author`, `date`, `page-layout`, and
+`title-rule`) must be authored inside fenced ```` ```yaml ... ``` ```` blocks
+(or ```` ```{.yaml} ... ``` ````). Traditional `--- ... ---` blocks are NOT
+recognized as metadata and are treated as standard Markdown content (horizontal
+rules or body text). If you want to show a verbatim YAML code listing in the PDF
+without applying it as metadata, add `run=false` (e.g. ```` ```yaml run=false ````).
+
 Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 
 ````markdown
@@ -180,58 +183,51 @@ Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 ```
 ````
 
-Executable code fences (Python, C, C++, Java) execute by default. On the first run
-of a block without a valid cached result, the build asks whether you trust the code
-and displays it for review. Enter `Y` to run it; any other response leaves it as a code listing.
-A valid cached result is reused without asking. `trusted=true` skips the
-confirmation for a normal first run:
+Executable code fences (`python`, `c`, `cpp` / `c++`, `java`) execute by default.
+On the first run of a block without a valid cached result, the build asks whether you
+trust the code and displays it for review. Enter `Y` to run it; any other response leaves
+it as a code listing. A valid cached result is reused without asking. `trusted=true`
+skips the confirmation for a normal first run:
 
 ````markdown
 ```{.python}
 print("This block runs after you approve it.")
 ```
-
-```{.c}
-#include <stdio.h>
-int main() { printf("C code runs after approval.\n"); return 0; }
-```
 ````
 
-Supported executable-language names include:
-- `python`, `py`, `python3`, `py3` (Python)
-- `c` (C, compiled with GCC / `CC` and executed)
-- `cpp`, `c++`, `cxx`, `cc` (C++, compiled with G++ / `CXX` and executed)
-- `java` (Java, executed via single-file source runner)
+For C, C++, and Java, both full standalone programs (with `main`) and bare snippets
+(statements without `main`) are supported. Snippets are automatically wrapped in
+standard includes and a `main` entry point for compilation.
 
-LaTeX rendering recognizes `latex` and `tex`.
+Supported executable-language names:
+- **Python**: `python`, `py`, `python3`, `py3` (configurable via `PYTHON`, default `py`)
+- **C**: `c` (configurable via `C_COMPILER`, default `gcc`)
+- **C++**: `cpp`, `c++`, `cxx`, `cc` (configurable via `CPP_COMPILER`, default `g++`)
+- **Java**: `java` (configurable via `JAVA_RUNNER`, default `java`; `JAVAC_COMPILER`, default `javac`)
+- **LaTeX rendering**: `latex`, `tex` (rendered into the PDF, not executed)
 
-### Executable fence options
+### Code fence options
 
-Options are written as Pandoc fence attributes:
-
-````markdown
-```{.python run=new show=false}
-print("This block runs freshly for this build.")
-```
-````
+Options are written as Pandoc fence attributes (e.g. ```` ```{.python run=new show=false} ```` or ```` ```python run=new show=false ````):
 
 | Attribute | Effect |
 |---|---|
-| `trusted=true` | Skip confirmation for a normal first run. Forced fresh runs still ask. |
+| `trusted=true` | Skip confirmation for a normal first run across any executable language. Forced fresh runs still ask. |
 | Omitted `run` or `run=true` | Execute by default; ask before the first uncached run and reuse a valid cached result. |
 | `run=new` | Ask and force execution for this build; refresh the cache on success. |
 | `cache=false` | Also ask and force a fresh execution. |
-| `run=false` | Do not execute; render as a code listing. |
+| `run=false` | Do not execute; render as a syntax-highlighted code listing. |
 | `show=false` | Hide the source listing. |
 | `output=false` | Hide captured standard output in the PDF. |
 | `error=false` | Hide the rendered error; the error is still reported in the console. |
-| `figures=false` | Do not embed captured Python figures. |
 | `maxlines=N` | Limit the number of displayed output lines. |
-| `deps="a.csv,b.npy"` | Include these files in the Python block's cache key. |
+| `deps="a.csv,b.npy"` | Include these files in the block's cache key. |
+| `figures=false` | Python only: do not embed captured figures in the PDF. |
 
 The regression guide compares default cached Python, `run=new` fresh execution,
 and `run=false` source-only rendering with a NumPy/Matplotlib running-average
-coin-flip graph. To enable the optional graphs, install both packages with
+coin-flip graph. Compile `documentation\compiled-fence-test.md` to verify C, C++,
+and Java compilation, snippet wrapping, execution, and error reporting. To enable optional Python graphs, install both packages with
 `py -m pip install numpy matplotlib`.
 
 Use `run=new` or `cache=false` for blocks whose results depend on changing
@@ -246,7 +242,7 @@ permissions and can access files and resources available to your account.
 To run the bundled end-to-end regression document, compile it by itself:
 
 ```powershell
-.\compile.bat ".\documentation\filter-feature-regression.txt"
+.\compile.bat ".\documentation\filter-feature-regression.md"
 ```
 
 Run this command from the tool root. The fixture PDF is written beside the
@@ -257,7 +253,7 @@ expected results.
 The companion fixture also tests combining two inputs in order:
 
 ```powershell
-.\compile.bat ".\documentation\filter-feature-regression.txt" ".\documentation\filter-feature-regression-part-2.txt"
+.\compile.bat ".\documentation\filter-feature-regression.md" ".\documentation\filter-feature-regression-part-2.md"
 ```
 
 The expected markers and verification steps are documented in the regression
@@ -266,31 +262,33 @@ fixture.
 To test hiding the title rule, compile the focused fixture:
 
 ```powershell
-.\compile.bat ".\documentation\title-rule-regression.txt"
+.\compile.bat ".\documentation\title-rule-regression.md"
 ```
 
-- [installation-and-usage.txt](documentation/installation-and-usage.txt) — installation and usage guide.
-- [workflow-architecture.txt](documentation/workflow-architecture.txt) — detailed pipeline,
+- [installation-and-usage.md](documentation/installation-and-usage.md) — installation and usage guide.
+- [workflow-architecture.md](documentation/workflow-architecture.md) — detailed pipeline,
   filter-order, cache, and maintenance documentation.
-- [markdown-normalizer-architecture.txt](documentation/markdown-normalizer-architecture.txt) —
+- [markdown-normalizer-architecture.md](documentation/markdown-normalizer-architecture.md) —
   normalizer function reference, stages, state, and change/test guide.
-- [code-fence-runner-architecture.txt](documentation/code-fence-runner-architecture.txt) —
+- [code-fence-runner-architecture.md](documentation/code-fence-runner-architecture.md) —
   runner function reference, Python wrapper/cache flow, and change/test guide.
-- [contributing-and-versioning.txt](documentation/contributing-and-versioning.txt) —
-  project change, documentation, mandatory focused `.txt` testing, and
+- [contributing-and-versioning.md](documentation/contributing-and-versioning.md) —
+  project change, documentation, mandatory focused testing, and
   version-tracking rules.
-- [workflow-assessment.txt](documentation/workflow-assessment.txt) — candid scorecard,
+- [workflow-assessment.md](documentation/workflow-assessment.md) — candid scorecard,
   limitations, and documentation audit.
-- [filter-feature-regression.txt](documentation/filter-feature-regression.txt) — broad
+- [filter-feature-regression.md](documentation/filter-feature-regression.md) — broad
   feature and failure-path validation input.
-- [filter-feature-regression-part-2.txt](documentation/filter-feature-regression-part-2.txt) —
+- [filter-feature-regression-part-2.md](documentation/filter-feature-regression-part-2.md) —
   companion input for the multi-file regression check.
-- [title-rule-regression.txt](documentation/title-rule-regression.txt) —
+- [title-rule-regression.md](documentation/title-rule-regression.md) —
   focused input that disables the title rule with YAML metadata.
-- [normalizer-fix-manual-test.txt](documentation/normalizer-fix-manual-test.txt) —
+- [yaml-fence-test.md](documentation/yaml-fence-test.md) —
+  focused input that validates fenced YAML metadata blocks and verbatim YAML code listings.
+- [compiled-fence-test.md](documentation/compiled-fence-test.md) —
+  focused input that validates C, C++, and Java code fences.
+- [normalizer-fix-manual-test.md](documentation/normalizer-fix-manual-test.md) —
   focused manual checks for nested table math formatting and mixed-input fallback.
-- [code-fence-languages-test.txt](documentation/code-fence-languages-test.txt) —
-  focused validation input for C, C++, and Java code execution and compiler error rendering.
 
 ## Known limitations
 
@@ -308,4 +306,3 @@ feature regression document.
 ## License
 
 This project is distributed under the [MIT License](LICENSE).
-

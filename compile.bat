@@ -1,5 +1,5 @@
 @echo off
-color 0A
+color 07
 setlocal EnableExtensions
 
 REM =========================================================
@@ -31,7 +31,20 @@ set "PANDOC_INPUTS="
 set "TEMPLATE=%CONFIG_DIR%\custom.tex"
 set "NORMALIZER_FILTER=%CONFIG_DIR%\markdown-normalizer.lua"
 set "CODE_FENCE_FILTER=%CONFIG_DIR%\code-fence-runner.lua"
-set "PYTHON=py"
+set "ANNOTATOR_SCRIPT=%CONFIG_DIR%\error-annotator.lua"
+if not defined PYTHON set "PYTHON=py"
+if not defined C_COMPILER set "C_COMPILER=gcc"
+if not defined CPP_COMPILER set "CPP_COMPILER=g++"
+if not defined JAVA_RUNNER set "JAVA_RUNNER=java"
+if not defined JAVAC_COMPILER set "JAVAC_COMPILER=javac"
+
+REM If pandoc is not on PATH directly, check standard Quarto tools directory
+where pandoc >nul 2>&1
+if errorlevel 1 (
+    if exist "%LOCALAPPDATA%\Programs\Quarto\bin\tools\pandoc.exe" (
+        set "PATH=%PATH%;%LOCALAPPDATA%\Programs\Quarto\bin\tools"
+    )
+)
 
 set "MD2PDF_CACHE=%SCRIPT_DIR%md2pdf_cache"
 if not exist "%MD2PDF_CACHE%" mkdir "%MD2PDF_CACHE%" >nul 2>&1
@@ -47,6 +60,7 @@ REM =========================================================
 REM CHECKS
 REM =========================================================
 if "%INPUT%"=="" (
+    color 0E
     echo ERROR: No input file was supplied.
     echo Supply one or more .md or .txt files to compile.bat.
     echo.
@@ -57,6 +71,7 @@ if "%INPUT%"=="" (
 :VALIDATE_INPUTS
 if "%~1"=="" goto INPUTS_VALIDATED
 if not exist "%~f1" (
+    color 0E
     echo ERROR: Input file does not exist:
     echo "%~f1"
     echo.
@@ -70,6 +85,7 @@ goto VALIDATE_INPUTS
 :INPUTS_VALIDATED
 
 if not exist "%TEMPLATE%" (
+    color 0E
     echo ERROR: config\custom.tex not found:
     echo "%TEMPLATE%"
     echo.
@@ -78,6 +94,7 @@ if not exist "%TEMPLATE%" (
 )
 
 if not exist "%NORMALIZER_FILTER%" (
+    color 0E
     echo ERROR: config\markdown-normalizer.lua not found:
     echo "%NORMALIZER_FILTER%"
     echo.
@@ -86,8 +103,18 @@ if not exist "%NORMALIZER_FILTER%" (
 )
 
 if not exist "%CODE_FENCE_FILTER%" (
+    color 0E
     echo ERROR: config\code-fence-runner.lua not found:
     echo "%CODE_FENCE_FILTER%"
+    echo.
+    pause
+    exit /b 1
+)
+
+if not exist "%ANNOTATOR_SCRIPT%" (
+    color 0E
+    echo ERROR: config\error-annotator.lua not found:
+    echo "%ANNOTATOR_SCRIPT%"
     echo.
     pause
     exit /b 1
@@ -106,18 +133,18 @@ echo ==========================================
 echo               PREPARING
 echo ==========================================
 echo.
-echo Executable fences (Python, C, C++, Java) run by default.
-echo You will be asked to approve uncached runs.
+echo Executable code fences run by default. You will be asked to approve uncached runs.
 echo Forced fresh runs (run=new or cache=false) always require approval.
 echo.
 
 REM Filter order is intentional: normalize/rebuild the AST before executing or rendering code fences.
+set "MD2PDF_CONFIRM_EXEC=1"
 set "MD2PDF_CONFIRM_PYTHON=1"
 set "MD2PDF_CONFIRM_C=1"
 set "MD2PDF_CONFIRM_CPP=1"
 set "MD2PDF_CONFIRM_JAVA=1"
 set "MD2PDF_WORKING_DIR=%INPUT_DIR%"
-pandoc %PANDOC_INPUTS% -f markdown+yaml_metadata_block --citeproc --lua-filter="%NORMALIZER_FILTER%" --lua-filter="%CODE_FENCE_FILTER%" --wrap=none --template="%TEMPLATE%" -o "%TEX_OUTPUT%"
+pandoc %PANDOC_INPUTS% -f markdown-yaml_metadata_block --citeproc --lua-filter="%NORMALIZER_FILTER%" --lua-filter="%CODE_FENCE_FILTER%" --wrap=none --template="%TEMPLATE%" -o "%TEX_OUTPUT%"
 if errorlevel 1 (
     echo.
     echo ==========================================
@@ -136,20 +163,45 @@ echo ==========================================
 echo.
 
 set "PASS=1"
+set "RECOVERY_ATTEMPTED="
+set "ERRORS_RECOVERED="
 
 :RUN_XELATEX
 echo --- XeLaTeX pass %PASS% ---
-xelatex -output-directory="%WORK%" -interaction=nonstopmode -file-line-error "%TEX_OUTPUT%" >nul 2>&1
+xelatex -cnf-line=max_print_line=1000 -output-directory="%WORK%" -interaction=nonstopmode -file-line-error "%TEX_OUTPUT%" >nul 2>&1
 
-if not exist "%WORK_PDF%" goto PDF_FAILED
+if not exist "%WORK_PDF%" goto ATTEMPT_RECOVERY
 
-if %PASS% GEQ 3 goto REPORT
+if %PASS% GEQ 3 goto CHECK_POST_PASS_RECOVERY
 findstr /C:"Rerun to get" /C:"Label(s) may have changed" "%LOG_FILE%" >nul 2>&1
-if errorlevel 1 goto REPORT
+if errorlevel 1 goto CHECK_POST_PASS_RECOVERY
 set /a PASS+=1
 goto RUN_XELATEX
 
+:CHECK_POST_PASS_RECOVERY
+if "%RECOVERY_ATTEMPTED%"=="1" goto REPORT
+goto ATTEMPT_RECOVERY
+
+:ATTEMPT_RECOVERY
+REM Invariant: error recovery pass is attempted at most once for localized body errors.
+if "%RECOVERY_ATTEMPTED%"=="1" goto PDF_FAILED
+set "RECOVERY_ATTEMPTED=1"
+if exist "%ANNOTATOR_SCRIPT%" (
+    texlua "%ANNOTATOR_SCRIPT%" "%TEX_OUTPUT%" "%LOG_FILE%" >nul 2>&1
+    if not errorlevel 1 (
+        color 0E
+        echo.
+        echo --- XeLaTeX error recovery pass ^(marking [!!!]^) ---
+        xelatex -cnf-line=max_print_line=1000 -output-directory="%WORK%" -interaction=nonstopmode -file-line-error "%TEX_OUTPUT%" >nul 2>&1
+        set "ERRORS_RECOVERED=1"
+        if exist "%WORK_PDF%" goto REPORT
+    )
+)
+if not exist "%WORK_PDF%" goto PDF_FAILED
+goto REPORT
+
 :PDF_FAILED
+color 0E
 echo.
 echo ==========================================
 echo             PDF CREATION FAILED
@@ -163,8 +215,15 @@ REM REPORT LaTeX ERRORS (the PDF is still produced)
 REM =========================================================
 :REPORT
 echo.
+if "%ERRORS_RECOVERED%"=="1" (
+    color 0E
+    echo ------------------------------------------
+    echo  LaTeX errors were mapped into the PDF with red [!!!].
+    echo ------------------------------------------
+)
 findstr /R /C:"\.tex:[0-9][0-9]*:" "%LOG_FILE%" 2>nul | findstr /V /C:"Missing character" >nul 2>&1
 if not errorlevel 1 (
+    color 0E
     echo ------------------------------------------
     echo  LaTeX reported errors ^(PDF may be incomplete^):
     echo ------------------------------------------
@@ -189,6 +248,7 @@ REM Do not delete the previous PDF before the new build succeeds; a failed copy
 REM should leave the last good output intact (for example, when it is open).
 copy /Y "%WORK_PDF%" "%PDF_OUTPUT%" >nul
 if errorlevel 1 (
+    color 0E
     echo ERROR: Could not write or replace the generated PDF at:
     echo "%PDF_OUTPUT%"
     echo Close it in any PDF viewer and check that the folder is writable.
@@ -208,6 +268,7 @@ endlocal
 exit /b 0
 
 :CLEANUP_FAIL
+color 0E
 echo.
 rmdir /s /q "%WORK%" >nul 2>&1
 pause

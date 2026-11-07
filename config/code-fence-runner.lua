@@ -1,22 +1,13 @@
 -- code-fence-runner.lua : executes/renders fenced blocks, with a persistent SHA-1 cache.
 --
 -- ================================ USER GUIDE ================================
---  python        Python blocks run by default after confirmation on a cache miss.
---                  trusted=true skips confirmation for the first run.
---                  print() / child-process output is captured and shown under the code.
---                  Figures are captured automatically (savefig / plt.show / unsaved figures).
---                  A user's own savefig("x.png") still writes x.png, exactly as in plain Python.
---                  figures=false suppresses PDF embedding, not file creation.
---                  __file__ is <working-directory>/__md2pdf_block__.py, not a cache path;
+--  Executable languages: python, c, cpp (c++, cxx, cc), java
+--                  Fenced blocks execute by default after confirmation on a cache miss.
+--                  trusted=true skips confirmation for a normal first run.
+--                  print() / standard output is captured and shown under the code.
+--                  If the block fails, compiler errors or tracebacks are shown in the PDF.
+--                  Python additionally captures figures automatically (savefig / plt.show).
 --                  compile.bat sets the working directory to the first input's directory.
---                  If the block fails, the traceback is shown in the PDF (not only on the console).
---  c / cpp       C/C++ blocks compile and execute to capture stdout.
---                  trusted=true skips confirmation for the first run.
---                  Temporary binaries are cleaned up immediately; output is cached.
---                  Compilation and runtime errors are rendered in the PDF.
---  java          Java blocks run directly via the Java single-file source launcher.
---                  trusted=true skips confirmation for the first run.
---                  stdout is captured and shown under the code; output is cached.
 --  latex / tex   every block is rendered (source hidden).  If it contains
 --                  \begin{document}...\end{document}, ONLY the text between them is kept,
 --                  with ONE exception: command definitions in the preamble (before
@@ -47,7 +38,7 @@
 --     error=false         hide the error report in the PDF (it is still printed on the console)
 --     maxlines=N          show only the first N lines of printed text
 --     cache=false         always re-run this block (equivalent cache bypass to run=new)
---     figures=false       save Python figures normally but do not embed them in the PDF
+--     figures=false       python only: save figures normally but do not embed them in the PDF
 --     deps="a.csv,b.npy"  extra files whose CONTENT is part of the cache key
 --     img="fig.png"       python only, legacy: a figure the code writes itself
 --  Python tracks the data files a block READS automatically; other languages need deps=.
@@ -103,7 +94,16 @@ local function file_exists(p)
 end
 local function file_hash(p) local s = read_file(p); return s and pandoc.sha1(s) or nil end
 local function slash(p)     return (p:gsub("\\", "/")) end
-local function win_path(p)  return IS_WIN and (p:gsub("/", "\\")) or p end
+local function to_os_path(p)
+  if IS_WIN and type(p) == "string" then return (p:gsub("/", "\\")) end
+  return p
+end
+
+local function quote_executable(exe)
+  if exe:match('^".*"$') or exe:match("^'.*'$") then return exe end
+  if IS_WIN then return '"' .. to_os_path(exe) .. '"' end
+  return "'" .. exe:gsub("'", "'\\''") .. "'"
+end
 local function trim_end(s)  return (s:gsub("%s+$", "")) end
 local function crlf_to_lf(s) return (s:gsub("\r\n", "\n")) end
 
@@ -153,13 +153,25 @@ local CACHE_SCHEMA = "rf4"
 local CACHE_LIMIT = 200
 local CACHE_INDEX = CACHE_DIR .. "/.index"
 
+local function remove_tree(p)
+  local ok, entries = pcall(pandoc.system.list_directory, p)
+  if ok and entries then
+    for _, item in ipairs(entries) do
+      remove_tree(p .. "/" .. item)
+    end
+  end
+  os.remove(p)
+end
+
 -- every artifact of one block is named  fence_<hash>.<something>  or  fence_<hash>_<something>
 local function purge(name)
   local n = #name
-  for _, f in ipairs(pandoc.system.list_directory(CACHE_DIR)) do
+  local ok, entries = pcall(pandoc.system.list_directory, CACHE_DIR)
+  if not ok or not entries then return end
+  for _, f in ipairs(entries) do
     local tail = f:sub(n + 1, n + 1)
     if f:sub(1, n) == name and (tail == "." or tail == "_") then
-      os.remove(CACHE_DIR .. "/" .. f)
+      remove_tree(CACHE_DIR .. "/" .. f)
     end
   end
 end
@@ -294,12 +306,6 @@ local LANGS = {}
 
 local function lua_quote(p) return string.format("%q", p) end
 
-local function quote_executable(exe)
-  if exe:match('^".*"$') or exe:match("^'.*'$") then return exe end
-  if IS_WIN then return '"' .. exe .. '"' end
-  return "'" .. exe:gsub("'", "'\\''") .. "'"
-end
-
 local function register(spec)
   assert(spec.id and spec.names, "register: id and names are required")
   if not spec.render then                          -- executable language: validate the entry
@@ -307,7 +313,8 @@ local function register(spec)
            "register(" .. spec.id .. "): exe_env, exe_default, ext and template are required")
     spec.quote = spec.quote or lua_quote
     spec.label = spec.label or spec.id
-    spec.fp    = pandoc.sha1(spec.template)        -- template change => automatic cache miss
+    local fp_src = spec.fp_source or (type(spec.template) == "string" and spec.template or (spec.id .. "_v1"))
+    spec.fp    = pandoc.sha1(fp_src)        -- template change => automatic cache miss
   end
   for _, n in ipairs(spec.names) do LANGS[n:lower()] = spec end
 end
@@ -481,62 +488,161 @@ _main()
 
 register{
   id = "python", label = "Python", names = { "python", "py", "python3", "py3" },
-  exe_env = "PYTHON", exe_default = "python", ext = "py",
+  exe_env = "PYTHON", exe_default = IS_WIN and "py" or "python", ext = "py",
   auto_deps = true,
   template = PY_TEMPLATE,
 }
 
--- ---- C (compiled and executed for stdout capture) ---------------------------
--- Invariant: C source code is compiled to a temporary executable inside CACHE_DIR,
--- executed to capture stdout, and the binary is deleted immediately to prevent cache bloat.
-local C_TEMPLATE = "/* C runner template @@CODE@@ */\n"
+-- ---- C ----------------------------------------------------------------------
+local function has_c_main(code)
+  return code:find("[%s\n]main%s*%(") ~= nil or code:find("^main%s*%(") ~= nil
+end
 
-local function c_command(exe, script)
-  local bin = script:gsub("_run%.c$", IS_WIN and "_bin.exe" or "_bin")
-  local code = script:gsub("_run%.c$", "_code.c")
-  return quote_executable(exe) .. ' -O2 -o "' .. win_path(bin) .. '" "' .. win_path(code) .. '" && "' .. win_path(bin) .. '"'
+local function c_template(code, codef, prefix)
+  if has_c_main(code) then
+    return code
+  end
+  return [[#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+int main(int argc, char **argv) {
+#line 1 "code"
+]] .. code .. [[
+
+    return 0;
+}
+]]
+end
+
+local function c_command(exe, script, out, err, prefix, text)
+  local bin = prefix .. (IS_WIN and "_bin.exe" or "_bin")
+  local comp = quote_executable(exe) .. ' -O2 -o ' .. quote_executable(bin) .. ' ' .. quote_executable(script) .. ' -lm'
+  local run = quote_executable(bin)
+  return comp .. ' < ' .. NULL_DEV .. ' > "' .. to_os_path(out) .. '" 2> "' .. to_os_path(err) .. '" && ' ..
+         run .. ' < ' .. NULL_DEV .. ' >> "' .. to_os_path(out) .. '" 2>> "' .. to_os_path(err) .. '"'
 end
 
 register{
   id = "c", label = "C", names = { "c" },
-  exe_env = "CC", exe_default = "gcc", ext = "c",
-  template = C_TEMPLATE,
+  exe_env = "C_COMPILER", exe_default = "gcc", ext = "c",
+  template = c_template,
+  fp_source = "c_template_v1",
   command = c_command,
+  cleanup = function(prefix)
+    local bin = prefix .. (IS_WIN and "_bin.exe" or "_bin")
+    os.remove(bin)
+  end,
 }
 
--- ---- C++ (compiled and executed for stdout capture) -------------------------
--- Invariant: C++ blocks use C++17 standard, compile to temporary cache binaries,
--- and clean up binaries after running.
-local CPP_TEMPLATE = "// C++ runner template @@CODE@@\n"
+-- ---- C++ --------------------------------------------------------------------
+local function has_cpp_main(code)
+  return code:find("[%s\n]main%s*%(") ~= nil or code:find("^main%s*%(") ~= nil
+end
 
-local function cpp_command(exe, script)
-  local bin = script:gsub("_run%.cpp$", IS_WIN and "_bin.exe" or "_bin")
-  local code = script:gsub("_run%.cpp$", "_code.cpp")
-  return quote_executable(exe) .. ' -O2 -std=c++17 -o "' .. win_path(bin) .. '" "' .. win_path(code) .. '" && "' .. win_path(bin) .. '"'
+local function cpp_template(code, codef, prefix)
+  if has_cpp_main(code) then
+    return code
+  end
+  return [[#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <cmath>
+
+int main(int argc, char **argv) {
+#line 1 "code"
+]] .. code .. [[
+
+    return 0;
+}
+]]
+end
+
+local function cpp_command(exe, script, out, err, prefix, text)
+  local bin = prefix .. (IS_WIN and "_bin.exe" or "_bin")
+  local comp = quote_executable(exe) .. ' -O2 -std=c++17 -o ' .. quote_executable(bin) .. ' ' .. quote_executable(script)
+  local run = quote_executable(bin)
+  return comp .. ' < ' .. NULL_DEV .. ' > "' .. to_os_path(out) .. '" 2> "' .. to_os_path(err) .. '" && ' ..
+         run .. ' < ' .. NULL_DEV .. ' >> "' .. to_os_path(out) .. '" 2>> "' .. to_os_path(err) .. '"'
 end
 
 register{
   id = "cpp", label = "C++", names = { "cpp", "c++", "cxx", "cc" },
-  exe_env = "CXX", exe_default = "g++", ext = "cpp",
-  template = CPP_TEMPLATE,
+  exe_env = "CPP_COMPILER", exe_default = "g++", ext = "cpp",
+  template = cpp_template,
+  fp_source = "cpp_template_v1",
   command = cpp_command,
+  cleanup = function(prefix)
+    local bin = prefix .. (IS_WIN and "_bin.exe" or "_bin")
+    os.remove(bin)
+  end,
 }
 
--- ---- Java (executed directly via single-file source runner) -----------------
--- Invariant: Java 11+ single-file launcher executes source directly without class
--- name / file name coupling or creating disk .class files.
-local JAVA_TEMPLATE = "// Java runner template @@CODE@@\n"
+-- ---- Java -------------------------------------------------------------------
+local function detect_java_class(code)
+  local name = code:match("public%s+class%s+([%a_][%w_]*)")
+            or code:match("[%s\n]class%s+([%a_][%w_]*)")
+            or code:match("^class%s+([%a_][%w_]*)")
+  return name
+end
 
-local function java_command(exe, script)
-  local code = script:gsub("_run%.java$", "_code.java")
-  return quote_executable(exe) .. ' "' .. win_path(code) .. '"'
+local function has_java_main(code)
+  return code:find("public%s+static%s+void%s+main") ~= nil
+end
+
+local function java_template(code, codef, prefix)
+  if has_java_main(code) then
+    return code
+  end
+  return [[import java.util.*;
+import java.io.*;
+import java.math.*;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+]] .. code .. [[
+
+    }
+}
+]]
+end
+
+local function java_script_file(prefix, code)
+  local class_name = has_java_main(code) and (detect_java_class(code) or "Main") or "Main"
+  local java_dir = prefix .. "_java"
+  pandoc.system.make_directory(java_dir, true)
+  return java_dir .. "/" .. class_name .. ".java"
+end
+
+local function java_command(exe, script, out, err, prefix, text)
+  local class_name = has_java_main(text) and (detect_java_class(text) or "Main") or "Main"
+  local java_dir = prefix .. "_java"
+  local javac = os.getenv("JAVAC_COMPILER") or "javac"
+  local has_javac = os.getenv("JAVAC_COMPILER") ~= nil or (os.execute((IS_WIN and "where " or "which ") .. javac .. " > " .. NULL_DEV .. " 2>&1") == 0)
+  if has_javac then
+    local comp = quote_executable(javac) .. ' -d "' .. to_os_path(java_dir) .. '" ' .. quote_executable(script)
+    local run = quote_executable(exe) .. ' -cp "' .. to_os_path(java_dir) .. '" ' .. class_name
+    return comp .. ' < ' .. NULL_DEV .. ' > "' .. to_os_path(out) .. '" 2> "' .. to_os_path(err) .. '" && ' ..
+           run .. ' < ' .. NULL_DEV .. ' >> "' .. to_os_path(out) .. '" 2>> "' .. to_os_path(err) .. '"'
+  else
+    return quote_executable(exe) .. ' ' .. quote_executable(script) ..
+           ' < ' .. NULL_DEV .. ' > "' .. to_os_path(out) .. '" 2> "' .. to_os_path(err) .. '"'
+  end
 end
 
 register{
   id = "java", label = "Java", names = { "java" },
-  exe_env = "JAVA", exe_default = "java", ext = "java",
-  template = JAVA_TEMPLATE,
+  exe_env = "JAVA_RUNNER", exe_default = "java", ext = "java",
+  template = java_template,
+  fp_source = "java_template_v1",
+  script_file = java_script_file,
   command = java_command,
+  cleanup = function(prefix, code)
+    local java_dir = prefix .. "_java"
+    remove_tree(java_dir)
+  end,
 }
 
 -- ---- latex / tex (rendered, not executed) --------------------------------------
@@ -738,30 +844,58 @@ local function fill(template, vars)
 end
 
 local function executable(spec)
-  local e = os.getenv("MD2PDF_" .. spec.exe_env) or os.getenv(spec.exe_env)
+  local e = os.getenv(spec.exe_env)
   if not e or e == "" then e = spec.exe_default end
   return e
 end
 
-local PYTHON_FINGERPRINT = {}
+local COMPILER_FINGERPRINTS = {}
 local function runtime_fingerprint(spec, exe)
-  if spec.id ~= "python" then return "" end
-  if PYTHON_FINGERPRINT[exe] then return PYTHON_FINGERPRINT[exe] end
-  local command = exe:match('^"(.*)"$') or exe
-  local code = "import importlib.metadata as m,sys; print(sys.version); " ..
-      "print('\\n'.join(sorted((d.metadata.get('Name') or '')+'=='+d.version for d in m.distributions())))"
-  local ok, result = pcall(pandoc.pipe, command, { "-c", code }, "")
-  if not ok then
-    warn("could not inspect Python package versions; caching is disabled for this execution")
-    return nil
+  local cache_key = spec.id .. ":" .. exe
+  if COMPILER_FINGERPRINTS[cache_key] then return COMPILER_FINGERPRINTS[cache_key] end
+  if spec.id == "python" then
+    local command = exe:match('^"(.*)"$') or exe
+    local code = "import importlib.metadata as m,sys; print(sys.version); " ..
+        "print('\\n'.join(sorted((d.metadata.get('Name') or '')+'=='+d.version for d in m.distributions())))"
+    local ok, result = pcall(pandoc.pipe, command, { "-c", code }, "")
+    if not ok then
+      warn("could not inspect Python package versions; caching is disabled for this execution")
+      return nil
+    end
+    COMPILER_FINGERPRINTS[cache_key] = result
+    return result
+  elseif spec.id == "c" or spec.id == "cpp" then
+    local command = exe:match('^"(.*)"$') or exe
+    local ok, result = pcall(pandoc.pipe, command, { "--version" }, "")
+    if ok and result and result ~= "" then
+      local first_line = result:match("^[^\r\n]+") or result
+      COMPILER_FINGERPRINTS[cache_key] = first_line
+      return first_line
+    end
+    return "default"
+  elseif spec.id == "java" then
+    local command = exe:match('^"(.*)"$') or exe
+    local ok, result = pcall(pandoc.pipe, command, { "-version" }, "")
+    if ok and result and result ~= "" then
+      local first_line = result:match("^[^\r\n]+") or result
+      COMPILER_FINGERPRINTS[cache_key] = first_line
+      return first_line
+    end
+    return "default"
   end
-  PYTHON_FINGERPRINT[exe] = result
-  return result
+  return ""
 end
 
-local function command_line(spec, exe, script, out, err)
-  local launch = spec.command and spec.command(exe, script) or (quote_executable(exe) .. ' "' .. script .. '"')
-  local cmd = launch .. " < " .. NULL_DEV .. ' > "' .. out .. '" 2> "' .. err .. '"'
+local function command_line(spec, exe, script, out, err, prefix, text)
+  if spec.command then
+    local custom_cmd = spec.command(exe, script, out, err, prefix, text)
+    if custom_cmd then
+      if IS_WIN and custom_cmd:find('^"') then custom_cmd = '"' .. custom_cmd .. '"' end
+      return custom_cmd
+    end
+  end
+  local launch = quote_executable(exe) .. ' "' .. to_os_path(script) .. '"'
+  local cmd = launch .. " < " .. NULL_DEV .. ' > "' .. to_os_path(out) .. '" 2> "' .. to_os_path(err) .. '"'
   if IS_WIN and launch:find('^"') then cmd = '"' .. cmd .. '"' end   -- cmd.exe /c quote rule
   return cmd
 end
@@ -783,22 +917,27 @@ end
 -- one fresh execution; returns { ok, out, err, figs }
 local function run_fresh(el, spec, exe, name)
   local prefix = CACHE_DIR .. "/" .. name
-  local codef, scriptf = prefix .. "_code." .. spec.ext, prefix .. "_run." .. spec.ext
+  local codef = prefix .. "_code." .. spec.ext
+  local scriptf = spec.script_file and spec.script_file(prefix, el.text) or (prefix .. "_run." .. spec.ext)
   local outf, errf, rawdeps = prefix .. ".out", prefix .. ".err", prefix .. ".rawdeps"
   local rawwrites = prefix .. ".rawwrites"
 
   purge(name)
   write_file(codef, el.text)
-  write_file(scriptf, fill(spec.template, {
-    CODE = spec.quote(codef), PREFIX = spec.quote(prefix), DEPS = spec.quote(rawdeps),
-    WRITES = spec.quote(rawwrites),
-    FIGURES = el.attributes["figures"] == "false" and "False" or "True" }))
+  local script_content
+  if type(spec.template) == "function" then
+    script_content = spec.template(el.text, codef, prefix)
+  else
+    script_content = fill(spec.template, {
+      CODE = spec.quote(codef), PREFIX = spec.quote(prefix), DEPS = spec.quote(rawdeps),
+      WRITES = spec.quote(rawwrites),
+      FIGURES = el.attributes["figures"] == "false" and "False" or "True" })
+  end
+  write_file(scriptf, script_content)
 
-  local ok, code = execute(command_line(spec, exe, scriptf, outf, errf))
+  local ok, code = execute(command_line(spec, exe, scriptf, outf, errf, prefix, el.text))
   os.remove(scriptf); os.remove(codef)
-  local bin_exe, bin_raw = prefix .. "_bin.exe", prefix .. "_bin"
-  if file_exists(bin_exe) then os.remove(bin_exe) end
-  if file_exists(bin_raw) then os.remove(bin_raw) end
+  if spec.cleanup then spec.cleanup(prefix, el.text) end
 
   local out = crlf_to_lf(read_file(outf) or "")
   local err = crlf_to_lf(read_file(errf) or "")
@@ -807,12 +946,12 @@ local function run_fresh(el, spec, exe, name)
 
   if not ok then
     local msg = spec.label .. " exited with an error (exit code " .. tostring(code) .. ")"
-    if code == 127 or code == 9009 then            -- sh / cmd.exe use these for "command not found"
+    if code == 127 or code == 9009 or err:find("not recognized") then            -- sh / cmd.exe use these for "command not found"
       msg = msg .. string.format(" -- if '%s' itself is missing, install it or set the %s environment variable",
                                  exe, spec.exe_env)
     end
     warn(msg)
-    for _, v in ipairs({ slash(codef), (codef:gsub("/", "\\")) }) do   -- show a readable name in the PDF
+    for _, v in ipairs({ slash(codef), (codef:gsub("/", "\\")), slash(scriptf), (scriptf:gsub("/", "\\")) }) do   -- show a readable name in the PDF
       err = replace_plain(err, v, "<code block>")
     end
     if trim_end(err) == "" then err = msg end
@@ -855,9 +994,10 @@ local function run_exec(el, spec)
       return { ok = true, out = read_file(prefix .. ".out") or "", err = "", figs = figs }
     end
   end
-  local confirm_val = os.getenv("MD2PDF_CONFIRM_" .. spec.id:upper())
-  if confirm_val ~= "0" and (force_run or a["trusted"] ~= "true") then
-    io.write("\n" .. spec.label .. " code needs to run")
+  local confirm_env = os.getenv("MD2PDF_CONFIRM_EXEC") or os.getenv("MD2PDF_CONFIRM_" .. spec.id:upper()) or "1"
+  if confirm_env ~= "0" and (force_run or a["trusted"] ~= "true") then
+    local lang_label = spec.label or spec.id
+    io.write(string.format("\n%s code needs to run", lang_label))
     if force_run then io.write(" (fresh run requested)") end
     io.write(":\n")
     io.write(el.text, "\n")
@@ -865,7 +1005,7 @@ local function run_exec(el, spec)
     io.flush()
     local answer = io.read("*l")
     if not answer or not answer:match("^[Yy]$") then
-      warn(spec.label .. " execution declined; rendering the block as source.")
+      warn(string.format("%s execution declined; rendering the block as source.", lang_label))
       return nil
     end
   end

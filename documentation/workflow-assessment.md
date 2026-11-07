@@ -1,0 +1,219 @@
+WORKFLOW ASSESSMENT
+===================
+
+Purpose
+-------
+This is a technical assessment of the complete Markdown-to-PDF workflow as it
+currently exists: compile.bat, the two Lua filters, the XeLaTeX template, the
+regression fixture, and the user-facing documentation. Scores describe this project
+as a focused Windows desktop tool, not as a cross-platform publishing service
+or a secure execution platform.
+
+Overall rating: 7.8 / 10
+------------------------
+The workflow is thoughtfully engineered and unusually well documented for a
+personal conversion tool. Its strongest qualities are its explicit filter
+ordering, useful content-normalization features, cache-aware Python execution,
+preservation of the last successful PDF during a failed replacement, and an
+end-to-end regression document. It is credible for a technically comfortable
+Windows user who controls the input and installed toolchain.
+
+The score is not higher because Python fences run as the current user without
+isolation, external tools and packages are not version-pinned or provisioned,
+and several real-world dependencies remain outside cache tracking. It is also
+a Windows batch workflow rather than a portable or unattended build system.
+The advertised "paste an AI response and compile" convenience is valuable, but
+applies to supported text/Markdown/math/LaTeX patterns, not every possible
+response, attachment, command, or service-specific format.
+
+Scorecard
+---------
+1. Pipeline architecture:                 8.5 / 10
+   The responsibilities and order are clear: compile.bat invokes Pandoc,
+   markdown-normalizer.lua cleans/rebuilds the supported text AST, then
+   code-fence-runner.lua executes or renders blocks, and XeLaTeX produces the
+   PDF. Reordering the filters would be a serious regression, and that
+   constraint is documented in both code and documentation\workflow-architecture.md.
+
+2. Content handling and feature depth:     8.0 / 10
+   The tool supports a useful mix of ordinary Markdown, math, citations,
+   selected pasted-LaTeX recovery, Python output, and figures. The normalizer
+   deliberately reports notable cleanup and documents unsupported cases.
+   "Selected" matters: this is a pragmatic normalizer, not a complete parser
+   for every AI service's private markup or arbitrary LaTeX preamble.
+
+3. Python runner and cache:                8.0 / 10
+   run=new and cache=false make cache bypass explicit; code/runtime and
+   dependency fingerprints, best-effort file-read tracking, side-effect
+   restoration, and LRU pruning are strong capabilities for this scale of
+   tool. Cache entries are scoped to the first input's directory, while the
+   architecture guide correctly warns that environment state, network
+   responses, and some external inputs cannot be tracked. Users must
+   declare dependencies with deps= or force a rerun when needed.
+
+4. Failure handling and output safety:     8.0 / 10
+   compile.bat validates inputs and companion files, uses a temporary build
+   directory, and preserves an existing destination PDF until a new PDF is
+   ready to copy. Python exceptions are rendered/reported without necessarily
+   aborting the document build. XeLaTeX can still produce a PDF with logged
+   errors, so a successful file copy is not by itself proof of a clean
+   document; users should read the console and inspect the output.
+
+5. Validation and regression coverage:     8.0 / 10
+   documentation\filter-feature-regression.md exercises the real wrapper, filters,
+   template, Pandoc, Python behavior, and XeLaTeX. Its paired
+   filter-feature-regression-part-2.md adds a documented two-input check for
+   argument order and one rendered output per Python fence. The combined PDF
+   was rebuilt and its four unique markers were asserted exactly once and in
+   order. The fixtures provide broad coverage, not proof of every possible
+   case; intentional Python failures are included. This remains a manual
+   regression procedure, not a fully automated test suite or multi-version CI
+   matrix. The fixture also compares default cached Python, run=new, and
+   run=false using optional NumPy/Matplotlib probability graphs.
+
+6. User experience and documentation:      9.0 / 10
+   README.md gives a quick overview and examples; documentation\installation-and-usage.md
+   covers setup and beginner usage; documentation\workflow-architecture.md provides the technical
+   pipeline and extension guidance. The Python package pre-install requirement,
+   Windows-only invocation, filter ordering, run=new behavior, and relative
+   asset resolution are documented. The AI-response workflow now explicitly
+   says intact, uncorrupted chat responses can be pasted into a .txt/.md file and
+   compiled with zero editing when supported. It distinguishes Gemini
+   search-engine suggestions, which usually lack fences needed to recognize and
+   execute code, and avoids claiming universal compatibility.
+
+7. Security and isolation:                 5.0 / 10
+   Python fences execute with the user's permissions and are not sandboxed.
+   The workflow asks before uncached and forced fresh runs, but a confirmation
+   prompt is not a permission boundary; trusted=true can bypass ordinary
+   first-run confirmation, and valid cache hits do not execute code. It is not
+   safe to treat an arbitrary downloaded response or repository as inert.
+   The warning in README.md and documentation\installation-and-usage.md is important and should
+   remain prominent.
+
+8. Portability and reproducibility:        5.5 / 10
+   compile.bat, the `py` launcher, and XeLaTeX make this a Windows-specific
+   workflow. Pandoc, TeX packages/fonts, Python, and third-party Python
+   packages are installed separately and can vary by machine. The cache
+   fingerprints runtime/package state, but it does not make different
+   installations identical or provide a lockfile/environment bootstrap.
+
+Strong points worth preserving
+------------------------------
+- Keep markdown-normalizer.lua before code-fence-runner.lua. The first filter
+  rebuilds the supported text AST; the second must receive that normalized AST.
+- Keep generated TeX/PDF/log artifacts in a temporary build directory and
+  replace the destination PDF only after successful PDF creation.
+- Keep warnings visible for cleanup, unsupported content, missing glyphs, and
+  Python failures. Silent content loss would undermine the direct-paste goal.
+- Keep the distinction between ordinary Markdown (unfenced), LaTeX fences
+  (rendered), and Python fences (executed) clear in every user-facing guide.
+- Keep Python dependency installation separate and explicit; the compiler
+  should not silently install packages into a user's environment.
+
+Concrete limitations and their impact
+--------------------------------------
+1. Executable Python is not sandboxed.
+   Impact: a malicious or careless block can read, modify, or delete files
+   available to the user's account, or access the network. Only compile trusted
+   inputs. This is the most important operational risk.
+
+2. The cache cannot observe every dependency.
+   Impact: a block can reuse stale output if it depends on an undeclared file,
+   environment variable, network service, clock, or other external state.
+   Declare file inputs with deps= and use run=new/cache=false when the result
+   must be refreshed.
+
+3. Toolchain setup is not reproducible by the compiler.
+   Impact: missing Python modules, LaTeX packages, or fonts can cause a block
+   or document to fail or render differently. Python packages must be installed
+   into the interpreter used by `py`; this workflow does not install them.
+   TeX package auto-install behavior depends on the selected distribution.
+
+4. Multi-input relative paths use one working directory.
+   Impact: assets referenced by every input resolve relative to the first
+   input's folder, not independently relative to each later input. Keep shared
+   assets there or use absolute paths.
+
+5. Build success and document correctness are not identical.
+   Impact: XeLaTeX may emit a PDF despite logged errors or missing glyphs.
+   Review reported warnings/errors and inspect the PDF for important work.
+
+6. The wrapper is designed for interactive Windows use.
+   Impact: it pauses for input and depends on Windows paths/commands; it is not
+   directly suitable for unattended CI, macOS, or Linux without a separate
+   wrapper and validation effort.
+
+Documentation-file currency audit
+-------------------------------
+README.md
+  Status: current after this audit.
+  It matches the present root/config layout, multi-input ordering, output next
+  to the first input, required tools, Python package responsibility, supported
+  fence attributes, and known limitations. It now gives a direct AI-response
+  workflow: paste an unedited response into a .txt file and compile it. The
+  compatibility claim is explicitly limited to supported content. Its
+  PowerShell examples work from the tool root and demonstrate both single-file
+  and multi-file compilation.
+
+documentation\installation-and-usage.md
+  Status: current after this audit.
+  It covers installation, command-line/web sources, Python 3.8+ and the `py`
+  launcher, separate Python-package installation, single/multiple inputs,
+  output placement, Markdown/LaTeX/Python rules, cache attributes, and
+  troubleshooting. This audit clarified that output is beside the first input
+  (the tool root only when the input is kept there), and added the no-manual-
+  editing AI-response steps with a compatibility boundary.
+
+documentation\contributing-and-versioning.md
+  Status: added as the project maintenance policy.
+  It requires repository/documentation review, source comments for non-obvious
+  behavior and architecture changes, an impact review of all documentation and the
+  README, a focused test compile through compile.bat for every feature addition
+  or bug fix, avoiding unnecessary rebuilds of the large regression fixture,
+  and a 500-changed-line version ledger starting at 1.0.0. The ledger counts
+  changes only in project-maintained system files that affect workflow behavior,
+  excluding documentation, regression fixtures, and sample/user inputs.
+
+documentation\workflow-architecture.md
+  Status: current after this audit.
+  It describes the config layout, invocation, multi-file metadata/content
+  behavior, filter order, citeproc stage, LaTeX/Python processing, cache
+  behavior, failure cases, regression process, and extension points. The
+  regression command now uses a portable relative path and says to run it from
+  the tool root instead of embedding a machine-specific D:\latex_editor path.
+
+documentation\markdown-normalizer-architecture.md and
+documentation\code-fence-runner-architecture.md
+  Status: added as filter implementation guides.
+  They document each filter's entry point and function responsibilities,
+  configuration/state, execution order, and practical change/validation steps.
+
+documentation\filter-feature-regression.md
+  Status: current after this audit.
+  It is the executable regression fixture rather than a setup guide and is
+  paired with filter-feature-regression-part-2.md for multi-input validation.
+  It describes intentional warnings/failures, expected outputs, and the
+  two-input ordering/output-count check. The documented commands run from the
+  tool root and avoid machine-specific paths. Continue to update expected
+  results whenever filter behavior changes.
+
+Assessment method and confidence
+-------------------------------
+The ratings are an engineering judgment based on reading the current wrapper,
+filters, template, regression fixtures, and user-facing documents.
+This assessment does not claim exhaustive fuzzing, a security penetration test,
+or validation across every Pandoc/Python/TeX distribution version. The
+single- and two-input regression builds completed successfully in this workflow.
+The two-input PDF was additionally checked for marker count and order.
+Documentation-only edits do not require another PDF rebuild.
+
+Final judgment
+--------------
+For an interactive, Windows-based personal workflow, this is a capable,
+well-structured tool with thoughtful cache and failure behavior. Its standout
+feature is making common AI-generated Markdown/LaTeX responses usable without
+hand-cleaning. Its principal boundary is equally clear: it is not a universal
+AI-output converter, a reproducible package manager, or a secure sandbox for
+untrusted executable fences. Treating those boundaries as explicit product
+contracts is the best way to keep the project professional and reliable.

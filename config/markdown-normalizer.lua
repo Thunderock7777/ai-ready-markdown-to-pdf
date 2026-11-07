@@ -115,7 +115,7 @@ local CONFIG = {
   -- natively; lists_without_preceding_blankline fixes AI lists glued to a paragraph;
   -- subscript/superscript are OFF so a stray ~ or ^ in prose is never reinterpreted.
   reader = "markdown+tex_math_dollars+tex_math_single_backslash+raw_tex"
-        .. "+lists_without_preceding_blankline+pipe_tables+yaml_metadata_block"
+        .. "+lists_without_preceding_blankline+pipe_tables-yaml_metadata_block"
         .. "+fenced_divs+autolink_bare_uris-subscript-superscript",
 }
 
@@ -282,6 +282,86 @@ local function fence_next(fence, mark)
   if not fence then return mark end
   if mark:sub(1, 1) == fence:sub(1, 1) and #mark >= #fence then return nil end
   return fence
+end
+
+-- YAML metadata fences ---------------------------------------------------
+-- Recognise fenced YAML metadata blocks (```yaml ... ``` or ~~~yaml ... ~~~)
+-- and extract document metadata (title, author, date, page-layout, title-rule,
+-- header-includes, references, etc.). Traditional `--- ... ---` blocks are
+-- intentionally NOT recognized as metadata.
+-- Verbatim YAML code blocks marked with run=false (or run="false") are preserved.
+local function is_yaml_metadata_opener(line)
+  local run, rest = line:match("^%s*(```+)(.*)$")
+  if not run then run, rest = line:match("^%s*(~~~+)(.*)$") end
+  if not run then return nil, false end
+  local info = rest:match("^%s*{(.-)}%s*$") or rest:match("^%s*(%S.*)$")
+  if not info then return run, false end
+  local lower = info:lower()
+  if lower:find("run%s*=%s*['\"]?false") then
+    return run, false
+  end
+  if lower == "yaml" or lower:match("^yaml%s") or lower == ".yaml" or lower:match("^%.yaml%s") then
+    return run, true
+  end
+  local inside_brace = rest:match("^%s*{(.-)}%s*$")
+  if inside_brace then
+    for item in inside_brace:lower():gmatch("%S+") do
+      if item == "yaml" or item == ".yaml" then
+        return run, true
+      end
+    end
+  end
+  return run, false
+end
+
+local function extract_yaml_fences(text)
+  local out = {}
+  local open_fence = nil
+  local opener_line = nil
+  local yaml_buf = {}
+  local meta = {}
+
+  for line in each_line(text) do
+    if open_fence then
+      if fence_mark(line, open_fence) then
+        open_fence = nil
+        while #yaml_buf > 0 and yaml_buf[1]:match("^%s*%-%-%-%s*$") do
+          table.remove(yaml_buf, 1)
+        end
+        while #yaml_buf > 0 and yaml_buf[#yaml_buf]:match("^%s*%-%-%-%s*$") do
+          table.remove(yaml_buf, #yaml_buf)
+        end
+        if #yaml_buf > 0 then
+          local yaml_str = table.concat(yaml_buf, "\n")
+          local meta_doc = pandoc.read("---\n" .. yaml_str .. "\n---", "markdown+yaml_metadata_block")
+          for k, v in pairs(meta_doc.meta) do
+            if meta[k] == nil then meta[k] = v end
+          end
+        end
+        yaml_buf = {}
+      else
+        yaml_buf[#yaml_buf + 1] = line
+      end
+    else
+      local run, is_yaml = is_yaml_metadata_opener(line)
+      if is_yaml then
+        open_fence = run
+        opener_line = line
+        yaml_buf = {}
+      else
+        out[#out + 1] = line
+      end
+    end
+  end
+
+  if open_fence then
+    out[#out + 1] = opener_line
+    for _, yline in ipairs(yaml_buf) do
+      out[#out + 1] = yline
+    end
+  end
+
+  return table.concat(out, "\n"), meta
 end
 
 -- Brace balance of one line.  Escaped characters (\{ \} \\ \%) and comments are ignored,
@@ -674,10 +754,11 @@ local function single_dollar_positions(s)
   return positions
 end
 
--- A line that is never part of running paragraph text: blank, table row, heading, \begin / \end.
+-- A line that is never part of running paragraph text: blank, table row, heading, \begin / \end, horizontal rule / YAML boundary.
 local function is_structural_line(line)
   return not line:match("%S") or line:match("^%s*|") or line:match("^%s*#+%s")
       or line:match("^%s*\\begin%s*{") or line:match("^%s*\\end%s*{")
+      or line:match("^%s*%-%-%-+%s*$")
       or line:find("FIXGROUPS_LITERAL", 1, true) ~= nil
 end
 
@@ -1136,8 +1217,16 @@ local function mask_literals(text)
         if line:find("\\end{" .. env .. "}", 1, true) then flush_block()
         else verbatim = env end
       elseif line:match("^    ") or line:match("^\t") then
-        flush_prose()
-        out[#out+1] = stash(line)
+        local is_list_item = line:match("^%s*[%*%-%+]%s+")
+            or line:match("^%s*%d+[%.%]%)]%s+")
+            or line:match("^%s*%([%a%d]+%)%s+")
+            or line:match("^%s*[%a][%.)]%s+")
+        if is_list_item then
+          prose[#prose+1] = line
+        else
+          flush_prose()
+          out[#out+1] = stash(line)
+        end
       else
         prose[#prose+1] = line
       end
@@ -1154,8 +1243,31 @@ local function mask_literals(text)
   return masked, restore
 end
 
+local function normalize_fence_attributes(text)
+  local out, fence = {}, nil
+  for line in each_line(text) do
+    if not fence then
+      local mark = fence_mark(line)
+      if mark then
+        local run, lang, rest = line:match("^(%s*[`~]+)%s*([%a_][%w_%+%-]*)%s+([^{%s].*)$")
+        if run and lang and rest then
+          line = run .. "{." .. lang .. " " .. rest .. "}"
+        end
+        fence = mark
+      end
+    else
+      if fence_mark(line, fence) then fence = nil end
+    end
+    out[#out+1] = line
+  end
+  return table.concat(out, "\n")
+end
+
 local function clean(text)
   text = text:gsub("^" .. U(0xFEFF), ""):gsub("\r\n?", "\n")
+  local file_meta
+  text, file_meta = extract_yaml_fences(text)
+  text = normalize_fence_attributes(text)
   local fence, malformed = nil, 0
   for line in each_line(text) do
     if fence then
@@ -1175,7 +1287,7 @@ local function clean(text)
     local masked, restore = mask_literals(text)
     text = restore(pass.apply(masked))
   end
-  return text
+  return text, file_meta
 end
 
 
@@ -1706,17 +1818,18 @@ local function load_cleaned_input(doc)
       return doc
     end
     local raw = fh:read("a"); fh:close()
-    local parsed = pandoc.read(clean(raw), CONFIG.reader)
-    if not cleaned_meta then cleaned_meta = parsed.meta
+    local cleaned_text, file_meta = clean(raw)
+    local parsed = pandoc.read(cleaned_text, CONFIG.reader)
+    if not cleaned_meta then cleaned_meta = file_meta
     else
-      for key, value in pairs(parsed.meta) do
+      for key, value in pairs(file_meta) do
         if cleaned_meta[key] == nil then cleaned_meta[key] = value end
       end
     end
     for _, block in ipairs(parsed.blocks) do blocks[#blocks+1] = block end
   end
-  for key, value in pairs(doc.meta) do cleaned_meta[key] = value end
-  return pandoc.Pandoc(blocks, cleaned_meta)                -- preserve cleaned YAML and CLI overrides
+  cleaned_meta = cleaned_meta or {}
+  return pandoc.Pandoc(blocks, cleaned_meta)
 end
 
 function Pandoc(doc)

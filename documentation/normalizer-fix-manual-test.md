@@ -1,0 +1,74 @@
+```yaml
+title: Normalizer Fix Manual Test
+author: Manual Regression
+date: 2026
+```
+
+NORMALIZER FIX MANUAL TEST
+=========================
+
+Purpose
+-------
+This small manual test covers the two normalizer fixes made on 2026-11-05:
+preserving inline formatting around complex math in table cells, and rolling
+back partial cleanup state when an unsupported input causes mixed-input
+fallback.
+
+Run from the folder containing compile.bat.
+
+1. Table formatting test
+------------------------
+Compile this file by itself:
+
+    .\compile.bat ".\documentation\normalizer-fix-manual-test.md"
+
+Inspect the PDF table and console output.
+
+Before the fix, nested formatting around complex table math could cause
+XeLaTeX errors, including "Forbidden control sequence ... `\check@nocorr@`".
+The affected cell's text before the math could also disappear from the output.
+
+After the fix, the build should complete without a LaTeX error for this table.
+The PDF should show **Bold *emphasis before*** and **and after remains bold**
+in bold, with the matrix rendered between them as math, outside the formatting
+spans: $\begin{matrix}a&b\\c&d\end{matrix}$.
+
+| Case | Expected rendering |
+|---|---|
+| Nested bold and emphasis around matrix math | **Bold *emphasis before*** $\begin{matrix}a&b\\c&d\end{matrix}$ **and after remains bold** |
+
+2. Mixed-input fallback test
+----------------------------
+Compile this file with compile.bat as the second input. Its .bat extension is
+intentionally unsupported by the normalizer's text-cleaning stage and triggers
+the original-Pandoc-parse fallback:
+
+    .\compile.bat ".\documentation\normalizer-fix-manual-test.md" ".\compile.bat"
+
+The compiler will also include compile.bat as input content in the resulting
+PDF; that is expected for this fallback test.
+
+Before the fix, cleanup state gathered from this .md file could leak into
+finalization even though the original Pandoc parse was retained. For example,
+the console could report removed citation-marker characters while the markers
+were still present in the PDF.
+
+After the fix, the PDF should retain both citation markers below, and the
+console should not report that citation-marker characters were removed.
+
+Fallback marker one: [cite_start] FALLBACK_STATE_ALPHA
+
+Fallback marker two: [cite: 3] FALLBACK_STATE_BETA
+
+Expected output summary
+-----------------------
+Before the fix:
+- The nested table case could report a LaTeX error or lose formatted text.
+- Mixed-input fallback could report cleanup performed only on its abandoned
+  cleaned-input path.
+
+After the fix:
+- The table builds without a LaTeX error and keeps the surrounding text
+  formatting.
+- Mixed-input fallback keeps the citation-marker source text and does not
+  report partial cleanup from the abandoned path.

@@ -187,7 +187,10 @@ Attributes use Pandoc fenced-code syntax, for example:
     ```
 
 Executable fence attributes:
-- run=false leaves a recognized block as an ordinary code listing.
+- run=false leaves a recognized block as an ordinary code listing (e.g.,
+  ```` ```latex run=false ```` displays LaTeX code without rendering). In Markdown
+  rules, 4 backticks on the outside prevent the 3 backticks on the inside from
+  closing the block, so the entire code fence prints visibly as plain text in the PDF.
 - An omitted run attribute and run=true both execute normally when needed and
   use the cache when the entry is valid. On a Python cache miss, compile.bat
   shows the source and asks for confirmation; only Y approves execution.

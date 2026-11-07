@@ -223,6 +223,13 @@ Change ledger
 Version 1.2.2 cycle
   Starting count: 0 / 500
 
+Change ledger
+  2026-11-07 | Executable C, C++, and Java code fences with universal attributes and persistent caching | source +281 / -42 | 323 / 500
+  2026-11-07 | Versioned C, C++, and Java code fences as 1.3.0 (MINOR)
+
+Version 1.3.0 cycle
+  Starting count: 0 / 500
+
 For each later accepted change, append one entry in this format:
 
   YYYY-MM-DD | commit-or-change-id | short description | source +added / -deleted | cumulative / 500

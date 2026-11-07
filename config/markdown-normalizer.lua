@@ -1243,10 +1243,31 @@ local function mask_literals(text)
   return masked, restore
 end
 
+local function normalize_fence_attributes(text)
+  local out, fence = {}, nil
+  for line in each_line(text) do
+    if not fence then
+      local mark = fence_mark(line)
+      if mark then
+        local run, lang, rest = line:match("^(%s*[`~]+)%s*([%a_][%w_%+%-]*)%s+([^{%s].*)$")
+        if run and lang and rest then
+          line = run .. "{." .. lang .. " " .. rest .. "}"
+        end
+        fence = mark
+      end
+    else
+      if fence_mark(line, fence) then fence = nil end
+    end
+    out[#out+1] = line
+  end
+  return table.concat(out, "\n")
+end
+
 local function clean(text)
   text = text:gsub("^" .. U(0xFEFF), ""):gsub("\r\n?", "\n")
   local file_meta
   text, file_meta = extract_yaml_fences(text)
+  text = normalize_fence_attributes(text)
   local fence, malformed = nil, 0
   for line in each_line(text) do
     if fence then

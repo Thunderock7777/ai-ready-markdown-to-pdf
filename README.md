@@ -1,10 +1,11 @@
 # Markdown to PDF
 
 A Windows workflow for turning Markdown or plain-text notes into a PDF with
-Pandoc, XeLaTeX, and two Lua filters. Python code fences can run during the
-build, while LaTeX fences render source snippets without executing them.
+Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
+and Java can run during the build with universal caching and approval controls,
+while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.2.2**.
+**Current project version: 1.3.0**.
 
 > **Paste an AI chat response and compile it directly.** An intact, uncorrupted
 > copied response from ChatGPT, Gemini chat, or NotebookLM can be compiled as-is
@@ -18,15 +19,14 @@ build, while LaTeX fences render source snippets without executing them.
 - Compile AI-generated responses from ChatGPT, Gemini, or NotebookLM directly,
   without manual editing of supported content.
 - Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order.
-- Uniform fence syntax: Except Markdown itself, every language (Python, LaTeX, YAML metadata, C, etc.) uses standard fenced code blocks (```` ```<lang> ... ``` ````); raw delimiters like `---` are not used for metadata.
+- Universal executable code fences: Python, C, C++, and Java fenced blocks execute with persistent SHA-1 caching, confirmation prompts, output capture, and compiler/runtime error reporting.
+- Uniform fence syntax: Except Markdown itself, every language (Python, LaTeX, YAML metadata, C, C++, Java, etc.) uses standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````); raw delimiters like `---` are not used for metadata.
 - Localized XeLaTeX error recovery: Automatically marks localized document-body LaTeX errors directly in the final PDF using red bold `[!!!]` badges with neutralized (detokenized) code, accompanied by yellow console diagnostics.
 - Keep default A4 output or select a 16:9 landscape presentation page size in YAML.
 - Render Markdown, math, tables, citations, selected pasted LaTeX, and code.
-- Execute Python fences with optional output, source, figure, and cache controls.
-- Reuse valid Python results only for the same input folder, or force a fresh
-  run when needed.
-- The text-processing stages leave source files unchanged. Python fences can
-  still write files they explicitly open; PDFs are saved beside the first input.
+- Execute code fences with optional output, source, error, and cache controls.
+- Reuse valid cached results scoped to the input folder, or force a fresh run when needed.
+- The text-processing stages leave source files unchanged. Fences can still write files they explicitly open; PDFs are saved beside the first input.
 
 ## Best use
 
@@ -54,6 +54,7 @@ your-tool-folder/
 │   ├── filter-feature-regression.txt
 │   ├── filter-feature-regression-part-2.txt
 │   ├── title-rule-regression.txt
+│   ├── compiled-fence-test.txt
 │   └── normalizer-fix-manual-test.txt
 └── config/
     ├── custom.tex
@@ -181,11 +182,11 @@ Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 ```
 ````
 
-Python fences execute by default. On the first run of a block without a valid
-cached result, the build asks whether you trust the code and displays it for
-review. Enter `Y` to run it; any other response leaves it as a code listing. A
-valid cached result is reused without asking. `trusted=true` skips the
-confirmation for a normal first run:
+Executable code fences (`python`, `c`, `cpp` / `c++`, `java`) execute by default.
+On the first run of a block without a valid cached result, the build asks whether you
+trust the code and displays it for review. Enter `Y` to run it; any other response leaves
+it as a code listing. A valid cached result is reused without asking. `trusted=true`
+skips the confirmation for a normal first run:
 
 ````markdown
 ```{.python}
@@ -193,36 +194,39 @@ print("This block runs after you approve it.")
 ```
 ````
 
-Supported executable-language names include `python`, `py`, `python3`, and
-`py3`; LaTeX rendering recognizes `latex` and `tex`.
+For C, C++, and Java, both full standalone programs (with `main`) and bare snippets
+(statements without `main`) are supported. Snippets are automatically wrapped in
+standard includes and a `main` entry point for compilation.
 
-### Python fence options
+Supported executable-language names:
+- **Python**: `python`, `py`, `python3`, `py3` (configurable via `PYTHON`, default `py`)
+- **C**: `c` (configurable via `C_COMPILER`, default `gcc`)
+- **C++**: `cpp`, `c++`, `cxx`, `cc` (configurable via `CPP_COMPILER`, default `g++`)
+- **Java**: `java` (configurable via `JAVA_RUNNER`, default `java`; `JAVAC_COMPILER`, default `javac`)
+- **LaTeX rendering**: `latex`, `tex` (rendered into the PDF, not executed)
 
-Options are written as Pandoc fence attributes:
+### Code fence options
 
-````markdown
-```{.python run=new show=false}
-print("This block runs freshly for this build.")
-```
-````
+Options are written as Pandoc fence attributes (e.g. ```` ```{.python run=new show=false} ```` or ```` ```python run=new show=false ````):
 
 | Attribute | Effect |
 |---|---|
-| `trusted=true` | Skip confirmation for a normal first run. Forced fresh runs still ask. |
+| `trusted=true` | Skip confirmation for a normal first run across any executable language. Forced fresh runs still ask. |
 | Omitted `run` or `run=true` | Execute by default; ask before the first uncached run and reuse a valid cached result. |
 | `run=new` | Ask and force execution for this build; refresh the cache on success. |
 | `cache=false` | Also ask and force a fresh execution. |
-| `run=false` | Do not execute; render as a code listing. |
+| `run=false` | Do not execute; render as a syntax-highlighted code listing. |
 | `show=false` | Hide the source listing. |
 | `output=false` | Hide captured standard output in the PDF. |
 | `error=false` | Hide the rendered error; the error is still reported in the console. |
-| `figures=false` | Do not embed captured Python figures. |
 | `maxlines=N` | Limit the number of displayed output lines. |
-| `deps="a.csv,b.npy"` | Include these files in the Python block's cache key. |
+| `deps="a.csv,b.npy"` | Include these files in the block's cache key. |
+| `figures=false` | Python only: do not embed captured figures in the PDF. |
 
 The regression guide compares default cached Python, `run=new` fresh execution,
 and `run=false` source-only rendering with a NumPy/Matplotlib running-average
-coin-flip graph. To enable the optional graphs, install both packages with
+coin-flip graph. Compile `documentation\compiled-fence-test.txt` to verify C, C++,
+and Java compilation, snippet wrapping, execution, and error reporting. To enable optional Python graphs, install both packages with
 `py -m pip install numpy matplotlib`.
 
 Use `run=new` or `cache=false` for blocks whose results depend on changing

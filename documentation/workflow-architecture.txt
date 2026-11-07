@@ -45,6 +45,9 @@ Requirements
 - XeLaTeX (XeTeX/fontspec is required by the template).
 - Python for Python fences. compile.bat sets PYTHON=py for the Python launcher;
   config\code-fence-runner.lua also accepts a PYTHON environment override when used directly.
+- C, C++, and Java toolchains for compiled executable fences: C_COMPILER (default gcc),
+  CPP_COMPILER (default g++), JAVA_RUNNER (default java), and JAVAC_COMPILER (default javac).
+  Snippets without an explicit main() entry point are automatically wrapped in boilerplate.
 - Python packages are not installed by this workflow. Install every non-standard-
   library package imported by a Python fence into the exact interpreter selected
   by PYTHON before compiling (for example, `py -m pip install matplotlib`).

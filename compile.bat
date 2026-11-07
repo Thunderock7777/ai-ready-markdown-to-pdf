@@ -32,7 +32,19 @@ set "TEMPLATE=%CONFIG_DIR%\custom.tex"
 set "NORMALIZER_FILTER=%CONFIG_DIR%\markdown-normalizer.lua"
 set "CODE_FENCE_FILTER=%CONFIG_DIR%\code-fence-runner.lua"
 set "ANNOTATOR_SCRIPT=%CONFIG_DIR%\error-annotator.lua"
-set "PYTHON=py"
+if not defined PYTHON set "PYTHON=py"
+if not defined C_COMPILER set "C_COMPILER=gcc"
+if not defined CPP_COMPILER set "CPP_COMPILER=g++"
+if not defined JAVA_RUNNER set "JAVA_RUNNER=java"
+if not defined JAVAC_COMPILER set "JAVAC_COMPILER=javac"
+
+REM If pandoc is not on PATH directly, check standard Quarto tools directory
+where pandoc >nul 2>&1
+if errorlevel 1 (
+    if exist "%LOCALAPPDATA%\Programs\Quarto\bin\tools\pandoc.exe" (
+        set "PATH=%PATH%;%LOCALAPPDATA%\Programs\Quarto\bin\tools"
+    )
+)
 
 set "MD2PDF_CACHE=%SCRIPT_DIR%md2pdf_cache"
 if not exist "%MD2PDF_CACHE%" mkdir "%MD2PDF_CACHE%" >nul 2>&1
@@ -128,6 +140,9 @@ echo.
 REM Filter order is intentional: normalize/rebuild the AST before executing or rendering code fences.
 set "MD2PDF_CONFIRM_EXEC=1"
 set "MD2PDF_CONFIRM_PYTHON=1"
+set "MD2PDF_CONFIRM_C=1"
+set "MD2PDF_CONFIRM_CPP=1"
+set "MD2PDF_CONFIRM_JAVA=1"
 set "MD2PDF_WORKING_DIR=%INPUT_DIR%"
 pandoc %PANDOC_INPUTS% -f markdown-yaml_metadata_block --citeproc --lua-filter="%NORMALIZER_FILTER%" --lua-filter="%CODE_FENCE_FILTER%" --wrap=none --template="%TEMPLATE%" -o "%TEX_OUTPUT%"
 if errorlevel 1 (

@@ -4,14 +4,14 @@ CODE FENCE RUNNER: ARCHITECTURE AND BUILD GUIDE
 Purpose and scope
 -----------------
 This guide documents config\code-fence-runner.lua: how Pandoc invokes it,
-language registration and dispatch, Python and LaTeX/TeX behavior, cache and
-figure artifacts, every named Lua and embedded Python function, and a
+language registration and dispatch, Python, C, C++, Java, and LaTeX/TeX behavior, cache and
+figure artifacts, every named Lua and embedded wrapper function, and a
 step-by-step extension and validation procedure.
 
 The runner is the second Lua filter in compile.bat. It receives the normalized
 combined Pandoc AST from markdown-normalizer.lua. It executes recognized
-executable-language blocks, renders their source/output/errors/figures, and
-renders LaTeX/TeX blocks without executing them. Python runs with the invoking
+executable-language blocks (Python, C, C++, Java), renders their source/output/errors/figures, and
+renders LaTeX/TeX blocks without executing them. Executable blocks run with the invoking
 user's permissions; the filter is not a sandbox.
 
 Build and call lifecycle
@@ -28,9 +28,12 @@ build exists.
    name, preserving the original block. It sends a registered rendered
    language to its render handler (currently latex/tex), or routes an
    executable language through run_exec and render.
-5. Python names python, py, python3, and py3 resolve to one Python language
-   specification. The executable is selected from PYTHON or the spec default.
-   The runner fingerprints the runtime, builds a cache key, restores a valid
+5. Executable language aliases resolve to their registered language specifications:
+   - Python: python, py, python3, py3 (selected via PYTHON or default "py" on Windows)
+   - C: c (selected via C_COMPILER or default "gcc")
+   - C++: cpp, c++, cxx, cc (selected via CPP_COMPILER or default "g++")
+   - Java: java (selected via JAVA_RUNNER or default "java"; compiler via JAVAC_COMPILER or "javac")
+   The runner fingerprints the runtime/compiler, builds a cache key, restores a valid
    result when possible, and otherwise asks before execution unless trusted=true.
    run=new and cache=false always require a fresh confirmation.
 6. run_fresh writes the user source and generated wrapper in MD2PDF_CACHE,
@@ -82,6 +85,27 @@ Python spec
   variable PYTHON; default python for direct filter invocation; cached files
   use .py; automatic dependency tracking is enabled. compile.bat sets PYTHON
   to py.
+
+C spec
+  id=c; alias c; compiler environment variable C_COMPILER; default gcc;
+  cached files use .c; supports full programs with main() and bare snippets
+  (automatically wrapped with standard includes and int main). Compiled
+  with -O2 -lm and executed with OS redirection; compiled binaries are purged
+  immediately after run.
+
+C++ spec
+  id=cpp; aliases cpp, c++, cxx, cc; compiler environment variable CPP_COMPILER;
+  default g++; cached files use .cpp; supports full programs with main()
+  and bare snippets (automatically wrapped with standard C++ headers and
+  int main). Compiled with -O2 -std=c++17 and executed with OS redirection;
+  binaries are purged immediately.
+
+Java spec
+  id=java; alias java; runner environment variable JAVA_RUNNER (default java);
+  compiler environment variable JAVAC_COMPILER (default javac); cached files
+  use .java. Supports classes with main() and bare snippets (wrapped in public
+  class Main). Uses javac -d <dir> when available or falls back to single-file
+  source execution via java. Isolates Java classes in per-block cache directories.
 
 LaTeX spec
   latex and tex aliases resolve to render_latex. It has no executable and its

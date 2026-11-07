@@ -451,6 +451,11 @@ Preamble collection and structural text
     into a document metadata table prior to literal masking, while removing
     the block from body text. Traditional `--- ... ---` blocks are deliberately
     ignored as metadata. Preserves verbatim YAML code listings marked with run=false.
+  normalize_fence_attributes(text) -> normalized source
+    Scans code fence openers and normalizes space-separated attributes lacking
+    braces (e.g., ```c run=false or ```java trusted=true) to standard Pandoc
+    braced attribute syntax (e.g., ```{.c run=false}), ensuring universal
+    attribute parsing across all languages.
   mask_literals(text) -> masked text, restore function
     Stashes fenced code, indented code, selected verbatim/listing environments,
     and inline code while leaving prose transformable. Local stash,
@@ -458,9 +463,9 @@ Preamble collection and structural text
     closure substitutes the original literal strings back into processed text.
   clean(text) -> normalized source, meta table
     Removes leading BOM, normalizes newlines, extracts fenced YAML metadata
-    via extract_yaml_fences, warns about malformed/unclosed fences, then runs
-    each TEXT_PASSES entry with a fresh literal mask/restore cycle. Called once
-    for each cleanable input file.
+    via extract_yaml_fences, normalizes fence attributes via normalize_fence_attributes,
+    warns about malformed/unclosed fences, then runs each TEXT_PASSES entry with
+    a fresh literal mask/restore cycle. Called once for each cleanable input file.
 
 Function reference: AST and finalization
 ----------------------------------------

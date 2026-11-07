@@ -232,7 +232,7 @@ if not errorlevel 1 (
     echo ------------------------------------------
     findstr /R /C:"\.tex:[0-9][0-9]*:" "%LOG_FILE%" | findstr /V /C:"Missing character"
     echo ------------------------------------------
-    echo Line numbers refer to the temporary .tex ^(already deleted^).
+    echo Line numbers refer to the temporary .tex ^(deleted on cleanup^).
 )
 
 findstr /C:"Missing character" "%LOG_FILE%" >nul 2>&1

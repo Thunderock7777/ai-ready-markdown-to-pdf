@@ -42,7 +42,7 @@ local function split_lines(s)
   return lines
 end
 
--- TeX log files wrap long lines at 79 columns (max_print_line).
+-- TeX log files wrap long lines at max_print_line columns (compile.bat sets 1000).
 -- Unwrap wrapped lines before matching file:line:error records.
 local function unwrap_tex_log(content)
   local lines = {}
@@ -50,11 +50,11 @@ local function unwrap_tex_log(content)
   for line in (content .. "\n"):gmatch("(.-)\r?\n") do
     if #buffer > 0 then
       buffer = buffer .. line
-      if #line < 79 then
+      if #line < 1000 then
         lines[#lines + 1] = buffer
         buffer = ""
       end
-    elseif #line >= 79 then
+    elseif #line >= 1000 then
       buffer = line
     else
       lines[#lines + 1] = line

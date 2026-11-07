@@ -619,8 +619,9 @@ end
 local function java_command(exe, script, out, err, prefix, text)
   local class_name = has_java_main(text) and (detect_java_class(text) or "Main") or "Main"
   local java_dir = prefix .. "_java"
-  local javac = os.getenv("JAVAC_COMPILER") or "javac"
-  local has_javac = os.getenv("JAVAC_COMPILER") ~= nil or (os.execute((IS_WIN and "where " or "which ") .. javac .. " > " .. NULL_DEV .. " 2>&1") == 0)
+  local javac_env = os.getenv("JAVAC_COMPILER")
+  local javac = (javac_env and javac_env ~= "") and javac_env or "javac"
+  local has_javac = (javac_env and javac_env ~= "") or (os.execute((IS_WIN and "where " or "which ") .. javac .. " > " .. NULL_DEV .. " 2>&1") == 0)
   if has_javac then
     local comp = quote_executable(javac) .. ' -d "' .. to_os_path(java_dir) .. '" ' .. quote_executable(script)
     local run = quote_executable(exe) .. ' -cp "' .. to_os_path(java_dir) .. '" ' .. class_name

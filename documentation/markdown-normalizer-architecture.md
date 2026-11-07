@@ -179,8 +179,8 @@ Derived tables
   maps a math-font kind to the LaTeX wrapper function for recognized Greek
   commands.
   GREEK_WRAP has exactly three entries: bf emits \boldsymbol, rm emits
-  \mathnormal after removing a leading var from the Greek command name, and it
-  emits \mathnormal{\var...}.
+  \mathnormal after removing a leading var from the Greek command name, and
+  it (italic) emits \mathnormal{\var...}.
 
 STAGE A: source text passes
 ---------------------------

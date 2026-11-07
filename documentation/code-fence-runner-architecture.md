@@ -152,7 +152,7 @@ Other file-scope variables
   NULL_DEV           NUL on Windows or /dev/null on Unix-like systems.
   IMG_EXT            image extensions discovered from the cache: PNG/JPG/PDF.
   LANGS              language alias -> specification map.
-  PYTHON_FINGERPRINT memo table indexed by executable string.
+  COMPILER_FINGERPRINTS memo table indexed by spec.id .. ":" .. exe string.
   PY_TEMPLATE        Python wrapper source used by the Python specification.
   DEF_NAMES          definitions retained by full-document LaTeX extraction.
   SKIP_PACKAGE_NAMES readable package-name list; SKIP_PACKAGES is its set.
@@ -446,7 +446,7 @@ Function reference: execution and rendering
     Reads spec.exe_env and falls back to spec.exe_default when missing/empty.
   runtime_fingerprint(spec, exe) -> fingerprint, empty string, or nil
     For Python, asks the selected interpreter for Python version and sorted
-    installed distribution versions, caches the result in PYTHON_FINGERPRINT,
+    installed distribution versions, caches the result in COMPILER_FINGERPRINTS,
     and returns nil with a warning if inspection fails. Nil disables reuse.
     Non-Python executable specs return an empty fingerprint.
   quote_executable(exe) -> shell-quoted executable

@@ -178,8 +178,9 @@ or rendering. Custom non-fenced delimiters (e.g. traditional YAML `--- ... ---`)
 are excluded by design so that hyphens, dashes, and other Markdown syntax never
 cause ambiguity or delimiter clashes.
 
-Recognized executable languages are Python (python, py, python3, py3) and
-LaTeX/TeX (latex, tex). Attributes use Pandoc fenced-code syntax, for example:
+Recognized executable languages are Python (python, py, python3, py3),
+C (c), C++ (cpp, c++, cxx, cc), Java (java), and LaTeX/TeX (latex, tex).
+Attributes use Pandoc fenced-code syntax, for example:
 
     ```{.python run=new show=false maxlines=20}
     print("fresh execution")

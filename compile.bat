@@ -31,6 +31,7 @@ set "PANDOC_INPUTS="
 set "TEMPLATE=%CONFIG_DIR%\custom.tex"
 set "NORMALIZER_FILTER=%CONFIG_DIR%\markdown-normalizer.lua"
 set "CODE_FENCE_FILTER=%CONFIG_DIR%\code-fence-runner.lua"
+set "ANNOTATOR_SCRIPT=%CONFIG_DIR%\error-annotator.lua"
 set "PYTHON=py"
 
 set "MD2PDF_CACHE=%SCRIPT_DIR%md2pdf_cache"
@@ -97,6 +98,15 @@ if not exist "%CODE_FENCE_FILTER%" (
     pause
     exit /b 1
 )
+
+if not exist "%ANNOTATOR_SCRIPT%" (
+    color 0E
+    echo ERROR: config\error-annotator.lua not found:
+    echo "%ANNOTATOR_SCRIPT%"
+    echo.
+    pause
+    exit /b 1
+)
 cd /d "%INPUT_DIR%"
 mkdir "%WORK%" >nul 2>&1
 
@@ -138,18 +148,42 @@ echo ==========================================
 echo.
 
 set "PASS=1"
+set "RECOVERY_ATTEMPTED="
+set "ERRORS_RECOVERED="
 
 :RUN_XELATEX
 echo --- XeLaTeX pass %PASS% ---
-xelatex -output-directory="%WORK%" -interaction=nonstopmode -file-line-error "%TEX_OUTPUT%" >nul 2>&1
+xelatex -cnf-line=max_print_line=1000 -output-directory="%WORK%" -interaction=nonstopmode -file-line-error "%TEX_OUTPUT%" >nul 2>&1
 
-if not exist "%WORK_PDF%" goto PDF_FAILED
+if not exist "%WORK_PDF%" goto ATTEMPT_RECOVERY
 
-if %PASS% GEQ 3 goto REPORT
+if %PASS% GEQ 3 goto CHECK_POST_PASS_RECOVERY
 findstr /C:"Rerun to get" /C:"Label(s) may have changed" "%LOG_FILE%" >nul 2>&1
-if errorlevel 1 goto REPORT
+if errorlevel 1 goto CHECK_POST_PASS_RECOVERY
 set /a PASS+=1
 goto RUN_XELATEX
+
+:CHECK_POST_PASS_RECOVERY
+if "%RECOVERY_ATTEMPTED%"=="1" goto REPORT
+goto ATTEMPT_RECOVERY
+
+:ATTEMPT_RECOVERY
+REM Invariant: error recovery pass is attempted at most once for localized body errors.
+if "%RECOVERY_ATTEMPTED%"=="1" goto PDF_FAILED
+set "RECOVERY_ATTEMPTED=1"
+if exist "%ANNOTATOR_SCRIPT%" (
+    texlua "%ANNOTATOR_SCRIPT%" "%TEX_OUTPUT%" "%LOG_FILE%" >nul 2>&1
+    if not errorlevel 1 (
+        color 0E
+        echo.
+        echo --- XeLaTeX error recovery pass ^(marking [!!!]^) ---
+        xelatex -cnf-line=max_print_line=1000 -output-directory="%WORK%" -interaction=nonstopmode -file-line-error "%TEX_OUTPUT%" >nul 2>&1
+        set "ERRORS_RECOVERED=1"
+        if exist "%WORK_PDF%" goto REPORT
+    )
+)
+if not exist "%WORK_PDF%" goto PDF_FAILED
+goto REPORT
 
 :PDF_FAILED
 color 0E
@@ -166,8 +200,15 @@ REM REPORT LaTeX ERRORS (the PDF is still produced)
 REM =========================================================
 :REPORT
 echo.
+if "%ERRORS_RECOVERED%"=="1" (
+    color 0E
+    echo ------------------------------------------
+    echo  LaTeX errors were mapped into the PDF with red [!!!].
+    echo ------------------------------------------
+)
 findstr /R /C:"\.tex:[0-9][0-9]*:" "%LOG_FILE%" 2>nul | findstr /V /C:"Missing character" >nul 2>&1
 if not errorlevel 1 (
+    color 0E
     echo ------------------------------------------
     echo  LaTeX reported errors ^(PDF may be incomplete^):
     echo ------------------------------------------

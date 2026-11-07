@@ -4,7 +4,7 @@ A Windows workflow for turning Markdown or plain-text notes into a PDF with
 Pandoc, XeLaTeX, and two Lua filters. Python code fences can run during the
 build, while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.2.1**.
+**Current project version: 1.2.2**.
 
 > **Paste an AI chat response and compile it directly.** An intact, uncorrupted
 > copied response from ChatGPT, Gemini chat, or NotebookLM can be compiled as-is
@@ -19,6 +19,7 @@ build, while LaTeX fences render source snippets without executing them.
   without manual editing of supported content.
 - Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order.
 - Uniform fence syntax: Except Markdown itself, every language (Python, LaTeX, YAML metadata, C, etc.) uses standard fenced code blocks (```` ```<lang> ... ``` ````); raw delimiters like `---` are not used for metadata.
+- Localized XeLaTeX error recovery: Automatically marks localized document-body LaTeX errors directly in the final PDF using red bold `[!!!]` badges with neutralized (detokenized) code, accompanied by yellow console diagnostics.
 - Keep default A4 output or select a 16:9 landscape presentation page size in YAML.
 - Render Markdown, math, tables, citations, selected pasted LaTeX, and code.
 - Execute Python fences with optional output, source, figure, and cache controls.
@@ -57,7 +58,8 @@ your-tool-folder/
 └── config/
     ├── custom.tex
     ├── markdown-normalizer.lua
-    └── code-fence-runner.lua
+    ├── code-fence-runner.lua
+    └── error-annotator.lua
 ```
 
 The compiler creates `md2pdf_cache/` beside `compile.bat`. It is safe to remove

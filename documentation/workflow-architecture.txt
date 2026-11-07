@@ -18,6 +18,7 @@ Recommended folder layout
             custom.tex
             markdown-normalizer.lua
             code-fence-runner.lua
+            error-annotator.lua
         documentation\
             installation-and-usage.txt
             workflow-architecture.txt
@@ -32,7 +33,7 @@ Recommended folder layout
         md2pdf_cache\                    (created as needed; disposable)
         your own input .md/.txt files and PDFs (wherever convenient)
 
-Keep compile.bat at the root and the three configuration files under config\.
+Keep compile.bat at the root and the four configuration files under config\.
 The documentation\ folder is only for workflow documentation and its regression
 fixture; user input files may live anywhere. The output PDF stays beside the
 first input, not in config\. The cache is rooted beside compile.bat so generated
@@ -86,7 +87,13 @@ Pipeline and ordering
    fences are rendered rather than executed. Preambles rescued from full
    LaTeX code blocks are prepended to the collected header-includes.
 5. Pandoc writes temporary LaTeX. XeLaTeX runs in the temporary build folder
-   and repeats up to three times when its log requests another reference pass.
+   with -cnf-line=max_print_line=1000 and -file-line-error, repeating up to
+   three times when its log requests another reference pass. If XeLaTeX encounters
+   localized document-body errors, config\error-annotator.lua unwraps the log,
+   locates offending body lines between \begin{document} and \end{document},
+   balances braces/percent signs, and wraps the offending lines in red bold
+   [!!!] badges and \detokenize{...} before triggering a recovery compilation.
+   The console switches to yellow (color 0E) on error recovery or diagnostics.
    The completed PDF is copied beside the first input; temporary build files
    are then removed. The Python cache is separate and persists in md2pdf_cache
    beside compile.bat.

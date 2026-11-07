@@ -467,7 +467,7 @@ _main()
 
 register{
   id = "python", label = "Python", names = { "python", "py", "python3", "py3" },
-  exe_env = "PYTHON", exe_default = "python", ext = "py",
+  exe_env = "PYTHON", exe_default = IS_WIN and "py" or "python", ext = "py",
   auto_deps = true,
   template = PY_TEMPLATE,
 }

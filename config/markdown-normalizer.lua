@@ -1217,8 +1217,16 @@ local function mask_literals(text)
         if line:find("\\end{" .. env .. "}", 1, true) then flush_block()
         else verbatim = env end
       elseif line:match("^    ") or line:match("^\t") then
-        flush_prose()
-        out[#out+1] = stash(line)
+        local is_list_item = line:match("^%s*[%*%-%+]%s+")
+            or line:match("^%s*%d+[%.%]%)]%s+")
+            or line:match("^%s*%([%a%d]+%)%s+")
+            or line:match("^%s*[%a][%.)]%s+")
+        if is_list_item then
+          prose[#prose+1] = line
+        else
+          flush_prose()
+          out[#out+1] = stash(line)
+        end
       else
         prose[#prose+1] = line
       end

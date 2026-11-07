@@ -16,6 +16,7 @@ Keep this folder structure together:
             custom.tex
             markdown-normalizer.lua
             code-fence-runner.lua
+            error-annotator.lua
         documentation\
             installation-and-usage.txt
             workflow-architecture.txt
@@ -35,7 +36,7 @@ file from documentation\ puts its PDF there. The config folder contains only the
 template and filters.
 
 Required tool files: compile.bat in the root, plus custom.tex,
-markdown-normalizer.lua, and code-fence-runner.lua inside config.
+markdown-normalizer.lua, code-fence-runner.lua, and error-annotator.lua inside config.
 
 Best use
 --------
@@ -329,7 +330,10 @@ Common problems
 - The PDF is open and cannot be replaced: close it in the PDF viewer and run
   compile.bat again.
 - The build reports errors: read the Pandoc/XeLaTeX messages printed by
-  compile.bat. A PDF may be incomplete if XeLaTeX reported errors.
+  compile.bat. When XeLaTeX encounters localized document-body errors, the
+  workflow triggers an error recovery pass that annotates the offending site
+  directly in the final PDF with a red bold [!!!] badge and detokenized code,
+  switching console colors to yellow (color 0E) to report the mapped errors.
 
 What you do not need
 --------------------

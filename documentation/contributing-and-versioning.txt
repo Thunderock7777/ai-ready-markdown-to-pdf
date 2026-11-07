@@ -216,6 +216,13 @@ Change ledger
 Version 1.2.1 cycle
   Starting count: 0 / 500
 
+Change ledger
+  2026-11-07 | Localized XeLaTeX error recovery, list math normalization, and Windows default Python launcher | source +269 / -7 | 276 / 500
+  2026-11-07 | Versioned localized XeLaTeX error recovery as 1.2.2 (PATCH)
+
+Version 1.2.2 cycle
+  Starting count: 0 / 500
+
 For each later accepted change, append one entry in this format:
 
   YYYY-MM-DD | commit-or-change-id | short description | source +added / -deleted | cumulative / 500

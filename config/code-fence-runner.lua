@@ -670,6 +670,12 @@ local SIMPLE_PREAMBLE = {
   newunicodechar = true,
 }
 local THREE_ARG_PREAMBLE = { NewDocumentCommand = true, DeclareDocumentCommand = true }
+local FONT_FAMILY_COMMANDS = {
+  newfontfamily = true, renewfontfamily = true,
+  setfontfamily = true, providefontfamily = true,
+  newfontface = true, renewfontface = true,
+  setfontface = true, providefontface = true,
+}
 
 local function skip_space(s, i) return (s:find("%S", i)) or (#s + 1) end
 
@@ -734,6 +740,40 @@ local function extract_commands(pre)
             cursor = nil
           else
             cursor = nil
+          end
+        end
+      elseif not in_comment(pre, a) and FONT_FAMILY_COMMANDS[name] then
+        if pre:sub(cursor, cursor) == "*" then cursor = cursor + 1 end
+        cursor = skip_space(pre, cursor)
+        if pre:sub(cursor, cursor) == "{" then
+          cursor = match_group(pre, cursor, "{", "}")
+          cursor = cursor and cursor + 1
+        elseif pre:sub(cursor, cursor) == "\\" then
+          local token = pre:sub(cursor):match("^\\[%a@]+")
+          cursor = token and cursor + #token or cursor + 1
+        else
+          cursor = nil
+        end
+        if cursor then
+          cursor = skip_space(pre, cursor)
+          while pre:sub(cursor, cursor) == "[" do
+            local opt_e = match_group(pre, cursor, "[", "]")
+            if not opt_e then cursor = nil; break end
+            cursor = skip_space(pre, opt_e + 1)
+          end
+        end
+        if cursor and pre:sub(cursor, cursor) == "{" then
+          local e = match_group(pre, cursor, "{", "}")
+          if e then
+            finish = e
+            cursor = skip_space(pre, e + 1)
+            while pre:sub(cursor, cursor) == "[" do
+              local opt_e = match_group(pre, cursor, "[", "]")
+              if not opt_e then break end
+              finish = opt_e
+              cursor = skip_space(pre, opt_e + 1)
+            end
+            command = pre:sub(a, finish)
           end
         end
       elseif not in_comment(pre, a)

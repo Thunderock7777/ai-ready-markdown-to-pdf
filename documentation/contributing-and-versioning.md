@@ -235,6 +235,14 @@ Change ledger
   2026-11-07 | 579a93d | Universal block boundary spacing and disabled simple_tables | source +55 / -3 | 58 / 500
   2026-11-07 | Scaffolding macro redefinition demotion, universal code fence isolation, and disabled raw_tex | source +58 / -11 | 127 / 500
   2026-11-07 | XeLaTeX log unwrap threshold alignment, JAVAC_COMPILER empty guard, and documentation consistency | source +7 / -6 | 140 / 500
+  2026-11-08 | 10c8b08 | Premature citeproc warning elimination (moved citation resolution entirely to normalizer) | source +0 / -1 | 141 / 500
+  2026-11-08 | LaTeX code fence preamble-only command routing, local macro scoping, and regression fix | source +4 / -2 | 147 / 500
+  2026-11-08 | Versioned citeproc fix, preamble-only command routing, and documentation consistency as 1.3.1 (PATCH)
+
+Version 1.3.1 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 For each later accepted change, append one entry in this format:
 

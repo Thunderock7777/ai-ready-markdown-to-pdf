@@ -213,17 +213,6 @@ For every real number \(x\), \(x^2 \geq 0\).
 The square of a real number is nonnegative.
 \end{proof}
 
-The custom theorem and environment recovered from the LaTeX fence are used
-below:
-
-\begin{regressionclaim}
-The regression fixture exercises the configured theorem definition.
-\end{regressionclaim}
-
-\begin{regressionbox}
-The recovered custom environment also wraps its body.
-\end{regressionbox}
-
 TikZ settings are hoisted before the picture that uses them. Settings declared
 inside a tikzpicture are intentionally not globalized:
 \tikzset{regression node/.style={draw,rounded corners,inner sep=3pt}}
@@ -253,10 +242,18 @@ preamble definitions. The duplicate siunitx package request is filtered out.
 \begin{document}
 Recovered command: \(\RegressionField\).
 Recovered optional argument: \(\RegressionPower{x}\) and \(\RegressionPower[3]{x}\).
-Recovered document command: \RegressionBold{x}.
-Recovered declared command: \RegressionItalic{x}.
+Recovered document command: \(\RegressionBold{x}\).
+Recovered declared command: \(\RegressionItalic{x}\).
 Recovered math declarations: \(\RegressionRank(A)\), \(\RegressionAbs{x}\), and \(\RegressionOptional\).
 Recovered Unicode declaration: Ж.
+
+\begin{regressionclaim}
+The regression fixture exercises the locally scoped theorem definition.
+\end{regressionclaim}
+
+\begin{regressionbox}
+The recovered custom environment also wraps its body.
+\end{regressionbox}
 \end{document}
 ```
 

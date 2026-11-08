@@ -1,6 +1,0 @@
-```yaml
-title: Title Rule Regression
-title-rule: false
-```
-
-This focused fixture should compile with no horizontal rule below the title.

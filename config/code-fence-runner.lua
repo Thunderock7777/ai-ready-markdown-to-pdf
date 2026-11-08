@@ -847,12 +847,14 @@ local function render_latex(el, class, preamble)
     else
       warn("latex block has \\begin{document} but no \\end{document}: using everything after it")
     end
-    -- Scope-isolated: packages and libraries go to the preamble; macros stay local
+    -- Scope-isolated: packages, libraries, and preamble-only commands go to the preamble; macros stay local
     local commands = extract_commands(el.text:sub(1, bs - 1))
     local local_cmds = {}
     for _, cmd in ipairs(commands) do
       if cmd:match("^%s*\\usepackage") or cmd:match("^%s*\\usetikzlibrary")
-          or cmd:match("^%s*\\usepgfplotslibrary") or cmd:match("^%s*\\usepgflibrary") then
+          or cmd:match("^%s*\\usepgfplotslibrary") or cmd:match("^%s*\\usepgflibrary")
+          or cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\newunicodechar")
+          or cmd:match("^%s*\\DeclarePairedDelimiter") then
         preamble[#preamble + 1] = cmd
       else
         local_cmds[#local_cmds + 1] = cmd

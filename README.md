@@ -5,7 +5,7 @@ Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
 and Java can run during the build with universal caching and approval controls,
 while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.3.0**.
+**Current project version: 1.3.1**.
 
 > **Paste an AI chat response and compile it directly.** A copied response from
 > ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses

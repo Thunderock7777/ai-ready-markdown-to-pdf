@@ -426,8 +426,9 @@ Function reference: registration and LaTeX recovery
   render_latex(CodeBlock, class, preamble) -> Pandoc blocks
     Optionally shows source when show=true. For full documents (with begin/end document),
     extracts preamble commands: package and library imports (\usepackage, \usetikzlibrary, etc.)
-    are automatically hoisted to preamble (header-includes), while macro definitions and settings
-    stay local to the block body rather than leaking globally. For snippets with no full-document
+    and preamble-only declarations (\DeclareMathOperator, \newunicodechar, \DeclarePairedDelimiter)
+    are automatically hoisted to preamble (header-includes), while macro definitions and custom
+    environments stay strictly local to the block body rather than leaking globally. For snippets with no full-document
     delimiter, it emits source directly. In all cases, enforces Universal Code Fence Isolation by wrapping the emitted body in
     {\begingroup\n ... \n\par\endgroup}, ensuring that definitions, colors, font sizes,
     lengths, and counter modifications remain strictly isolated to the block and cannot

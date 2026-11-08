@@ -198,6 +198,16 @@ documentation\filter-feature-regression.md
   tool root and avoid machine-specific paths. Continue to update expected
   results whenever filter behavior changes.
 
+documentation\rendering-rules.md
+  Status: current after this audit.
+  Serves as the comprehensive reference specification for all language rendering
+  rules, universal code fence attributes, execution lifecycles, and error badges.
+
+documentation\compiled-fence-test.md
+  Status: current after this audit.
+  Master test suite validating multi-language execution (Python, C, C++, Java),
+  fenced YAML metadata, and error handling resilience across all attributes.
+
 Assessment method and confidence
 -------------------------------
 The ratings are an engineering judgment based on reading the current wrapper,

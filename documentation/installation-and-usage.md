@@ -18,6 +18,7 @@ Keep this folder structure together:
             code-fence-runner.lua
             error-annotator.lua
         documentation\
+            rendering-rules.md
             installation-and-usage.md
             workflow-architecture.md
             markdown-normalizer-architecture.md
@@ -26,10 +27,7 @@ Keep this folder structure together:
             contributing-and-versioning.md
             filter-feature-regression.md
             filter-feature-regression-part-2.md
-            title-rule-regression.md
-            yaml-fence-test.md
             compiled-fence-test.md
-            normalizer-fix-manual-test.md
 
 The documentation\ folder contains the workflow guides and regression fixture; it is
 not a required location for your own notes. Keep personal input files wherever
@@ -115,8 +113,7 @@ add this YAML boolean to the input's metadata block:
 Omit the option or set it to true to keep the rule. Quoted values are not
 booleans; invalid values produce a warning and keep the rule.
 
-Compile `documentation\title-rule-regression.md` to check the disabled case.
-Compile `documentation\yaml-fence-test.md` to check fenced YAML metadata.
+Compile `documentation\compiled-fence-test.md` to check fenced YAML metadata and title-rule options.
 
 Document metadata blocks
 ------------------------
@@ -266,7 +263,9 @@ Rule of thumb:
     Pasted LaTeX source that should be rendered: use a latex fence.
     All non-Markdown code must be fenced; unfenced LaTeX in Markdown prose is treated
     as literal text and will not execute (-raw_tex). Each LaTeX fence is strictly isolated
-    ({\begingroup ... \par\endgroup}) so local commands and styles never leak.
+    ({\begingroup ... \par\endgroup}): packages, TikZ libraries, and preamble-only declarations
+    (\DeclareMathOperator, \newunicodechar, \DeclarePairedDelimiter) are hoisted to the preamble,
+    while custom macros and environments remain strictly local to the fence.
     Python source that should execute: use a python fence.
 
 Markdown / ordinary text — no fence:

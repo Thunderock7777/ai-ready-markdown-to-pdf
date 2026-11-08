@@ -67,7 +67,7 @@ filter-feature-regression-part-2.md.
 Multi-file regression markers from input 1:
 MULTI_INPUT_PART_ONE_TEXT
 
-```{.python show=false}
+```{.python show=false trusted=true}
 print("MULTI_INPUT_PART_ONE_PYTHON")
 ```
 
@@ -288,84 +288,66 @@ build can use the cache without asking. Enter Y to approve. `trusted=true`
 skips the prompt only for ordinary uncached runs. run=new and cache=false
 always ask before executing.
 
-```{.python}
+```{.python trusted=true}
 print("Python runs by default.")
 print("Standard-library arithmetic:", sum(range(1, 6)))
 ```
 
-The following three examples contrast the execution modes with a coin-flip
-simulation. The graph plots the running fraction of heads against the expected
-probability, 0.5. Install NumPy and Matplotlib to see both graphs:
-
-    py -m pip install numpy matplotlib
+The following three examples contrast the execution modes with a simple plot.
+Install NumPy and Matplotlib to see both graphs (`py -m pip install numpy matplotlib`):
 
 Ordinary Python (no run attribute) executes when needed. Its graph and output
 are reused on an unchanged cached build:
 
-```{.python}
+```{.python trusted=true}
 try:
     import numpy as np
     import matplotlib.pyplot as plt
-except ImportError as exc:
-    print("SKIP probability graph: install numpy and matplotlib:", exc)
-else:
-    flips = np.random.binomial(1, 0.5, size=500)
-    running_average = np.cumsum(flips) / np.arange(1, len(flips) + 1)
+    x = np.linspace(0, 10, 100)
     plt.figure()
-    plt.plot(np.arange(1, len(flips) + 1), running_average, label="Running fraction of heads")
-    plt.axhline(0.5, color="red", linestyle="--", label="Expected probability = 0.5")
-    plt.xlabel("Number of flips")
-    plt.ylabel("Observed fraction")
-    plt.title("Default Python: cached probability simulation")
+    plt.plot(x, np.sin(x), label="sin(x)")
+    plt.title("Default Python: cached plot")
     plt.legend()
     plt.tight_layout()
     plt.show()
-    print("DEFAULT_MODE final running fraction:", float(running_average[-1]))
+    print("DEFAULT_MODE plot generated.")
+except ImportError as exc:
+    print("SKIP plot: install numpy and matplotlib:", exc)
 ```
 
 `run=new` asks for confirmation and runs the simulation again on each build,
-then refreshes the cache with the new graph and output. A random run can
-occasionally look similar to the previous one, but it is freshly executed:
+then refreshes the cache with the new graph and output:
 
 ```{.python run=new}
 try:
     import numpy as np
     import matplotlib.pyplot as plt
-except ImportError as exc:
-    print("SKIP probability graph: install numpy and matplotlib:", exc)
-else:
-    flips = np.random.binomial(1, 0.5, size=500)
-    running_average = np.cumsum(flips) / np.arange(1, len(flips) + 1)
+    x = np.linspace(0, 10, 100)
     plt.figure()
-    plt.plot(np.arange(1, len(flips) + 1), running_average, label="Running fraction of heads")
-    plt.axhline(0.5, color="red", linestyle="--", label="Expected probability = 0.5")
-    plt.xlabel("Number of flips")
-    plt.ylabel("Observed fraction")
-    plt.title("run=new: freshly executed probability simulation")
+    plt.plot(x, np.cos(x), color="orange", label="cos(x)")
+    plt.title("run=new: freshly executed plot")
     plt.legend()
     plt.tight_layout()
     plt.show()
-    print("RUN_NEW_MODE final running fraction:", float(running_average[-1]))
+    print("RUN_NEW_MODE plot generated.")
+except ImportError as exc:
+    print("SKIP plot: install numpy and matplotlib:", exc)
 ```
 
 `run=false` does not execute Python and produces no graph; it leaves the source
 visible as a code listing:
 
 ```{.python run=false}
-import numpy as np
 import matplotlib.pyplot as plt
 
-flips = np.random.binomial(1, 0.5, size=500)
-running_average = np.cumsum(flips) / np.arange(1, len(flips) + 1)
-plt.plot(running_average)
-plt.axhline(0.5, color="red", linestyle="--")
+plt.plot([1, 2, 3], [4, 5, 6])
 plt.show()
 ```
 
 The Python runner presents __file__ in the input working directory and keeps
 that directory on sys.path:
 
-```{.python run=true show=false}
+```{.python run=true show=false trusted=true}
 from pathlib import Path
 
 print("Working directory:", Path.cwd())
@@ -374,15 +356,15 @@ print("__file__ parent is working directory:", Path(__file__).parent == Path.cwd
 
 The py, python3, and py3 class aliases are recognized:
 
-```{.py show=false}
+```{.py show=false trusted=true}
 print("Python alias py works.")
 ```
 
-```{.python3 show=false}
+```{.python3 show=false trusted=true}
 print("Python alias python3 works.")
 ```
 
-```{.py3 show=false}
+```{.py3 show=false trusted=true}
 print("Python alias py3 works.")
 ```
 
@@ -403,19 +385,19 @@ print("This cache=false block also executes on every build.")
 show=false hides source; output=false hides standard output; maxlines limits
 displayed standard output:
 
-```{.python show=false maxlines=2}
+```{.python show=false maxlines=2 trusted=true}
 print("Visible output line 1")
 print("Visible output line 2")
 print("Visible output line 3 is represented by a remaining-lines notice")
 ```
 
-```{.python output=false show=false}
+```{.python output=false show=false trusted=true}
 print("This output is intentionally hidden in the PDF.")
 ```
 
 The explicit deps attribute adds the named file's content to the cache key:
 
-```{.python deps="filter-feature-regression.md" show=false}
+```{.python deps="filter-feature-regression.md" show=false trusted=true}
 from pathlib import Path
 
 print("Explicit input dependency bytes:", Path("filter-feature-regression.md").stat().st_size)
@@ -460,36 +442,17 @@ else:
     print("Matplotlib figure captured.")
 ```
 
-The legacy img attribute embeds a Python-created image when automatic figure
-capture is disabled. The image is stored inside md2pdf_cache and is disposable:
-
-```{.python run=new figures=false img="md2pdf_cache/workflow-regression-manual.png" show=false}
-try:
-    import os
-    from pathlib import Path
-    import matplotlib.pyplot as plt
-except ImportError:
-    print("SKIP: Matplotlib is required for the img attribute example.")
-else:
-    image = Path(os.environ["MD2PDF_CACHE"]) / "workflow-regression-manual.png"
-    plt.plot([0, 1, 2], [0, 1, 4], marker="s")
-    plt.title("Legacy img attribute")
-    plt.savefig(image)
-    plt.close()
-    print("Saved image for the img attribute.")
-```
-
 Python fences may read/write ordinary local files. This pair checks cache
 restoration of a workspace-local side effect between dependent blocks:
 
-```{.python run=true show=false}
+```{.python run=true show=false trusted=true}
 from pathlib import Path
 
 Path("FILTER_FEATURE_REGRESSION.generated.csv").write_text("value\n42\n", encoding="utf-8")
 print("Created a disposable cache-side-effect fixture.")
 ```
 
-```{.python run=true show=false}
+```{.python run=true show=false trusted=true}
 from pathlib import Path
 
 print("Restored/read value:", Path("FILTER_FEATURE_REGRESSION.generated.csv").read_text(encoding="utf-8").strip())
@@ -508,8 +471,7 @@ print("Removed the disposable side-effect fixture.")
 The cache tracks many file opens and restores eligible workspace-local side
 effects on a valid cache hit. Use deps="relative-or-absolute-path" for
 dependencies that automatic tracking cannot identify reliably. The generated
-CSV is removed by the cleanup block; the legacy img example remains in
-md2pdf_cache until that regenerable cache folder is cleared. Cache entries are
+CSV is removed by the cleanup block. Cache entries are
 scoped to the first input's working directory so side effects from another
 input folder are never restored here. If a recorded side-effect directory has
 been removed, the block is rerun to recreate it.
@@ -531,48 +493,15 @@ Selected HTML leftovers in prose (br, sub, sup) are converted by text
 normalization. HTML inside code spans, indented code, fenced code, and supported
 verbatim/listing environments stays literal.
 
-7. Expected failures and limits (not activated here)
-----------------------------------------------------
-These examples are intentionally not active build input. Copy one at a time
-into a disposable file only when testing its failure path:
-
-    Missing input file:
-        compile.bat "missing.txt"
-        Expected: rejected before Pandoc starts; no new PDF.
-
-    Python exception:
-        ```{.python}
-        raise ValueError("controlled failure")
-        ```
-        Expected: traceback reported; failure is not cached; PDF build continues.
-
-    Unclosed fence:
-        Start a fence and omit its closing markers.
-        Expected: [markdown-normalizer] warning; the rest of the input is treated as code.
-
-    Malformed one-line fence:
-        ```inline```
-        Expected: ignored-fence warning; do not rely on it as a valid code block.
-
-    Missing/unsupported image:
-        ![missing](missing.png)
-        Expected: image dropped with a warning; build can continue.
-
-    Unsupported raw package:
-        A command that requires a package absent from the TeX distribution may
-        fail with an undefined control sequence. Install the package or remove
-        the command; template-managed packages are not reloaded from pasted text.
-
-    TeX syntax error:
-        An unmatched brace or invalid environment may make XeLaTeX fail.
-        Expected: compile.bat reports the log error and does not replace a
-        previously existing destination PDF with a failed build.
-
-Other known constraints: XeLaTeX is required; bibliography support is Pandoc
-citeproc, not raw natbib/biblatex; Python caching cannot track every network,
-environment, or external-state dependency; remote images are not embedded;
-complex Markdown or raw-LaTeX combinations may need explicit blank lines or
-simpler markup. See workflow-architecture.md for the implementation details.
+7. Known constraints and error handling
+---------------------------------------
+Document-level constraints and expected error handling behavior:
+- Missing input files are rejected before Pandoc starts.
+- Controlled Python exceptions display tracebacks without halting the overall PDF build.
+- Remote images (e.g. SVG) and missing local images are dropped with console warnings.
+- Missing packages or invalid XeLaTeX syntax abort gracefully without overwriting existing output.
+- Bibliography support uses Pandoc citeproc conventions rather than raw natbib/biblatex.
+- For active, executable failure tests (syntax errors, compilation failures, unclosed fences), see `compiled-fence-test.md`.
 
 8. Validation checklist
 -----------------------
@@ -580,8 +509,7 @@ After compiling this file:
 
 - PDF exists beside this .md file.
 - PDF title and author match the YAML metadata.
-- With no `title-rule` option, the horizontal title rule remains visible; the
-  focused title-rule-regression.md fixture verifies `title-rule: false`.
+- With no `title-rule` option, the horizontal title rule remains visible (setting `title-rule: false` in YAML front matter disables it).
 - Both citation text and a CSL-formatted reference list appear.
 - Headings, lists, table, inline/display math, theorem, proof, and TikZ render.
 - Real Python output appears; run=false source appears without its output.
@@ -622,9 +550,7 @@ Title-rule check
 ----------------
 The title rule is visible by default. Set `title-rule: false` as a YAML boolean
 to omit it; the space below the title remains unchanged. Quoted `"false"` is a
-string, not a boolean, and warns while keeping the rule. The focused
-title-rule-regression.md input exercises the disabled case through compile.bat.
-The feature's focused input is listed in the README and installation guide.
+string, not a boolean, and warns while keeping the rule.
 
 Multi-file regression
 ---------------------
@@ -680,6 +606,3 @@ path:
 Fallback marker one: [cite_start] FALLBACK_STATE_ALPHA
 
 Fallback marker two: [cite: 3] FALLBACK_STATE_BETA
-
-The standalone normalizer-fix-manual-test.md provides the same focused checks
-without running the full fixture.

@@ -7,36 +7,29 @@ while LaTeX fences render source snippets without executing them.
 
 **Current project version: 1.3.0**.
 
-> **Paste an AI chat response and compile it directly.** An intact, uncorrupted
-> copied response from ChatGPT, Gemini chat, or NotebookLM can be compiled as-is
-> with no editing when it uses supported content. This does not cover Gemini
-> search-engine suggestions: these usually lack fenced code blocks, so code in
-> them will not be recognized or executed as a code block. Unsupported commands,
-> missing packages, or missing fonts may still need attention.
+> **Paste an AI chat response and compile it directly.** A copied response from
+> ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses
+> supported Markdown and code fences. Code execution requires standard language
+> fences (e.g. ```` ```python ````, ```` ```c ````, ```` ```cpp ````, ```` ```java ````).
 
 ## Features
 
-- Compile AI-generated responses from ChatGPT, Gemini, or NotebookLM directly,
-  without manual editing of supported content.
-- Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order.
-- Universal executable code fences: Python, C, C++, and Java fenced blocks execute with persistent SHA-1 caching, confirmation prompts, output capture, and compiler/runtime error reporting.
-- Uniform fence syntax: Except Markdown itself, every language (Python, LaTeX, YAML metadata, C, C++, Java, etc.) uses standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````); raw delimiters like `---` are not used for metadata.
-- Universal block boundary spacing: Standalone horizontal rules (`---`) and code fences are automatically padded with empty line boundaries prior to Pandoc parsing. Non-standard `simple_tables` are disabled to prevent narrow column collapses, ensuring `---` reliably renders as a divider line and Markdown tables use standard pipe syntax (`| col | col |`).
-- Universal code fence isolation & stray TeX protection: LaTeX fences are scoped in local groups (`{\begingroup...\par\endgroup}`), preventing definitions, styles, and colors from leaking across blocks. Unfenced LaTeX commands in prose are treated as literal text (`-raw_tex`). Core template scaffolding macro redefinitions automatically demote to syntax-highlighted code listings (`run=false`).
-- Localized XeLaTeX error recovery: Automatically marks localized document-body LaTeX errors directly in the final PDF using red bold `[!!!]` badges with neutralized (detokenized) code, accompanied by yellow console diagnostics.
-- Keep default A4 output or select a 16:9 landscape presentation page size in YAML.
-- Render Markdown, math, tables, citations, selected pasted LaTeX, and code.
-- Execute code fences with optional output, source, error, and cache controls.
-- Reuse valid cached results scoped to the input folder, or force a fresh run when needed.
-- The text-processing stages leave source files unchanged. Fences can still write files they explicitly open; PDFs are saved beside the first input.
+- **Direct AI Chat Compilation**: Compile copied responses from ChatGPT, Gemini, or NotebookLM with zero manual editing for supported content.
+- **Multi-File Concatenation**: Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order into a single unified PDF.
+- **Universal Executable Code Fences**: Python, C, C++, and Java blocks execute with persistent SHA-1 caching, interactive confirmation prompts (`trusted=true` bypass), output capture, and compiler/runtime error reporting.
+- **Uniform Fence Syntax**: Standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````) across all languages; raw delimiters like `---` are reserved for horizontal rules and never treated as metadata.
+- **Block Boundary Spacing & Clean Tables**: Standalone horizontal rules (`---`) and fences are automatically padded with empty lines. Non-standard `simple_tables` are disabled to prevent narrow column collapses, ensuring pipe tables (`| col | col |`) render reliably.
+- **Code Fence Isolation & Stray TeX Protection**: LaTeX fences are locally scoped (`{\begingroup...\par\endgroup}`), preventing definitions or colors from leaking. Unfenced LaTeX commands in prose are treated as literal text (`-raw_tex`).
+- **Localized XeLaTeX Error Recovery**: Neutralizes localized LaTeX document errors with red `[!!!]` badges in the PDF and yellow console diagnostics instead of crashing the build.
+- **Page Layout & Title Controls**: Toggle between standard A4 and 16:9 presentation layout, or hide the horizontal title divider rule using YAML front matter.
+- **Non-Destructive Processing**: Source files are never modified; generated PDFs are saved beside the primary input file.
 
 ## Best use
 
-Use the workflow to turn AI-assisted scientific literature-study notes into a
-readable PDF and to create visualizations from supplied data with Python. Check
-the papers, citations, claims, and data yourself: this tool formats and
-compiles content, but does not verify research or validate an AI's conclusions.
-Python code runs with your permissions, so run only code you trust.
+Use the workflow to turn AI-assisted literature notes, research summaries, and
+technical drafts into publication-quality PDFs, and to generate figures dynamically
+from Python. Always verify citations, claims, and data yourself: this tool formats
+and compiles content, but does not validate research accuracy.
 
 ## Folder layout
 
@@ -47,6 +40,7 @@ your-tool-folder/
 ├── compile.bat
 ├── README.md
 ├── documentation/
+│   ├── rendering-rules.md
 │   ├── installation-and-usage.md
 │   ├── workflow-architecture.md
 │   ├── markdown-normalizer-architecture.md
@@ -55,10 +49,7 @@ your-tool-folder/
 │   ├── workflow-assessment.md
 │   ├── filter-feature-regression.md
 │   ├── filter-feature-regression-part-2.md
-│   ├── title-rule-regression.md
-│   ├── yaml-fence-test.md
-│   ├── compiled-fence-test.md
-│   └── normalizer-fix-manual-test.md
+│   └── compiled-fence-test.md
 └── config/
     ├── custom.tex
     ├── markdown-normalizer.lua
@@ -121,19 +112,11 @@ first input's directory, including paths mentioned by later inputs.
 
 ### Compile an AI response without editing it
 
-1. Copy a complete, uncorrupted response from ChatGPT, Gemini chat, NotebookLM,
-   or another assistant.
-2. Paste it as-is into a `.txt` file and save it. Do not wrap the entire
-   response in a code fence.
-3. Compile that `.txt` file with `compile.bat`.
+1. Copy a complete response from ChatGPT, Gemini chat, NotebookLM, or another assistant.
+2. Paste it as-is into a `.txt` or `.md` file and save it (do not wrap the whole document in a single code fence).
+3. Compile that file with `compile.bat`.
 
-For supported content, the copied response can be compiled with zero editing.
-The response must not be corrupted or truncated, and arbitrary commands,
-attachments, or unsupported formats are not guaranteed to work. Gemini
-search-engine suggestions are a specific limitation: they usually do not
-include fenced code blocks, so code in those suggestions cannot be recognized
-or executed as a code block without adding the required fence. Prose-only
-suggestions can still be compiled as text.
+Supported Markdown formatting, math, citations, and fenced code blocks will render and run automatically. Code blocks must use standard Markdown fences (```` ```python ````, ```c```, etc.) to be recognized and executed.
 
 ## Writing rules
 
@@ -229,17 +212,16 @@ Options are written as Pandoc fence attributes (e.g. ```` ```{.python run=new sh
 | `figures=false` | Python only: do not embed captured figures in the PDF. |
 
 The regression guide compares default cached Python, `run=new` fresh execution,
-and `run=false` source-only rendering with a NumPy/Matplotlib running-average
-coin-flip graph. Compile `documentation\compiled-fence-test.md` to verify C, C++,
-and Java compilation, snippet wrapping, execution, and error reporting. To enable optional Python graphs, install both packages with
-`py -m pip install numpy matplotlib`.
+and `run=false` source-only rendering. Compile `documentation\compiled-fence-test.md`
+to verify all language code fences, compilation, execution, and error handling.
+Optional Python graphs require `py -m pip install numpy matplotlib`.
 
 Use `run=new` or `cache=false` for blocks whose results depend on changing
 external state, such as network responses or environment variables. Cache
 tracking cannot account for every external dependency.
 
-**Only compile documents you trust:** Python fences execute with your user
-permissions and can access files and resources available to your account.
+**Only compile documents you trust:** Executable code fences run with your user
+permissions and can access local files and system resources.
 
 ## Validation and documentation
 
@@ -263,12 +245,13 @@ The companion fixture also tests combining two inputs in order:
 The expected markers and verification steps are documented in the regression
 fixture.
 
-To test hiding the title rule, compile the focused fixture:
+To test all supported code fences (Python, C, C++, Java, LaTeX, YAML, etc.), compile the test suite:
 
 ```powershell
-.\compile.bat ".\documentation\title-rule-regression.md"
+.\compile.bat ".\documentation\compiled-fence-test.md"
 ```
 
+- [rendering-rules.md](documentation/rendering-rules.md) — complete language-by-language rendering rules, execution pipeline, and attribute reference.
 - [installation-and-usage.md](documentation/installation-and-usage.md) — installation and usage guide.
 - [workflow-architecture.md](documentation/workflow-architecture.md) — detailed pipeline,
   filter-order, cache, and maintenance documentation.
@@ -285,14 +268,8 @@ To test hiding the title rule, compile the focused fixture:
   feature and failure-path validation input.
 - [filter-feature-regression-part-2.md](documentation/filter-feature-regression-part-2.md) —
   companion input for the multi-file regression check.
-- [title-rule-regression.md](documentation/title-rule-regression.md) —
-  focused input that disables the title rule with YAML metadata.
-- [yaml-fence-test.md](documentation/yaml-fence-test.md) —
-  focused input that validates fenced YAML metadata blocks and verbatim YAML code listings.
 - [compiled-fence-test.md](documentation/compiled-fence-test.md) —
-  focused input that validates C, C++, and Java code fences.
-- [normalizer-fix-manual-test.md](documentation/normalizer-fix-manual-test.md) —
-  focused manual checks for nested table math formatting and mixed-input fallback.
+  master test fixture validating code fences across all supported languages, execution attributes, and error modes.
 
 ## Known limitations
 

@@ -223,8 +223,8 @@ inside a tikzpicture are intentionally not globalized:
 A complete LaTeX fence keeps its document body and rescues recognized
 preamble definitions. Packages and preamble-only declarations (\DeclareMathOperator,
 \DeclarePairedDelimiter, \newunicodechar) are hoisted to the document preamble,
-with \DeclareMathOperator protected by \let\cmd\relax against kernel collisions.
-Macros, custom environments, and font family commands (\newfontfamily, \newfontface)
+with \DeclareMathOperator and \DeclarePairedDelimiter protected by \let\cmd\relax against kernel collisions.
+Macros, low-level TeX primitives (\def, \let), custom environments, and font family commands (\newfontfamily, \newfontface)
 remain strictly local to the {\begingroup ... \par\endgroup} scope. Duplicate or
 template-managed packages are skipped. Redefining global commands across fences
 automatically demotes the block to a syntax-highlighted code listing (run=false).
@@ -233,6 +233,8 @@ automatically demotes the block to a syntax-highlighted code listing (run=false)
 \documentclass{article}
 \usepackage[detect-all]{siunitx}
 \newfontfamily\RegressionSans{Noto Sans}[Scale=0.9]
+\def\RegressionDefReal{\mathbb{R}}
+\let\RegressionOldTheta\theta
 \newcommand{\RegressionField}{\mathbb{R}}
 \renewcommand{\RegressionField}{\mathbb{R}}
 \providecommand{\RegressionOptional}{\mathbb{N}}
@@ -248,6 +250,7 @@ automatically demotes the block to a syntax-highlighted code listing (run=false)
 \newunicodechar{Ж}{\textbf{Unicode recovered from a LaTeX fence}}
 \begin{document}
 Recovered command: \(\RegressionField\).
+Recovered def primitive: \(\RegressionDefReal\) and \(\RegressionOldTheta\).
 Recovered optional argument: \(\RegressionPower{x}\) and \(\RegressionPower[3]{x}\).
 Recovered document command: \(\RegressionBold{x}\).
 Recovered declared command: \(\RegressionItalic{x}\).

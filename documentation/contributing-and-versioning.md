@@ -261,6 +261,13 @@ Version 1.3.2 cycle
 
 Change ledger
   2026-11-09 | Synchronized rendering rules, test suites, regression fixtures, and explicit documentation audit checklist | source +0 / -0 | 0 / 500
+  2026-11-09 | LaTeX fence paired delimiter hoisting safety and TeX primitive (\def, \let) extraction | source +62 / -7 | 69 / 500
+  2026-11-09 | Versioned paired delimiter hoisting safety and TeX primitive extraction as 1.3.3 (PATCH)
+
+Version 1.3.3 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 For each later accepted change, append one entry in this format:
 

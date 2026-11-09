@@ -115,8 +115,8 @@ The block below attempts to redefine `\maketitle`. The pipeline automatically de
 }
 ```
 
-### 3.6. Preamble Hoisting & Local Font Family Scoping
-Preamble-only declarations like `\DeclareMathOperator` and `\DeclarePairedDelimiter` are hoisted to the document preamble, with `\DeclareMathOperator` guarded by `\let\cmd\relax`. Font family declarations (`\newfontfamily`, `\newfontface`, etc.) and macros remain strictly local to this fence:
+### 3.6. Preamble Hoisting, Delimiter Safety & Low-Level TeX Primitives
+Preamble-only declarations like `\DeclareMathOperator` and `\DeclarePairedDelimiter` are hoisted to the document preamble, guarded by `\let\cmd\relax` against template and kernel collisions. Low-level TeX primitives (`\def`, `\let`), font family declarations (`\newfontfamily`, `\newfontface`), and macros remain strictly local to this fence:
 
 ```latex
 \documentclass{article}
@@ -125,10 +125,12 @@ Preamble-only declarations like `\DeclareMathOperator` and `\DeclarePairedDelimi
 \DeclareMathOperator{\CompiledTrace}{Tr}
 \DeclarePairedDelimiter{\CompiledNorm}{\lVert}{\rVert}
 \newfontfamily\CompiledSansFont{Noto Sans}[Scale=0.9]
+\def\CompiledReal{\mathbb{R}}
+\let\CompiledOldTheta\theta
 \newcommand{\CompiledScopedTag}{\textbf{[Isolated Macro]}}
 \begin{document}
 Hoisted operator and delimiter: \(\CompiledTrace(M) = \CompiledNorm{v}\).
-Scoped font and local tag: {\CompiledSansFont \CompiledScopedTag\ Local font family rendered.}
+Scoped font, def primitive, and local tag: {\CompiledSansFont \CompiledScopedTag\ \(\CompiledReal\) and \(\CompiledOldTheta\).}
 \end{document}
 ```
 

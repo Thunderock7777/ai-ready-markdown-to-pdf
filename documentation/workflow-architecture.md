@@ -93,9 +93,9 @@ Pipeline and ordering
    Preambles in full LaTeX code blocks are scope-isolated: package imports (\usepackage),
    TikZ/PGF libraries, and preamble-only declarations (\DeclareMathOperator, \newunicodechar,
    \DeclarePairedDelimiter) are hoisted to the document preamble (header-includes), with
-   \DeclareMathOperator guarded with \let\cmd\relax against template/kernel collisions. User-defined
-   macros, font-family commands (\newfontfamily, \newfontface, etc.), and custom environments stay strictly
-   local to the block's {\begingroup ... \par\endgroup} sandbox. Cross-fence collisions—defining or redefining
+   \DeclareMathOperator and \DeclarePairedDelimiter guarded with \let\cmd\relax against template/kernel collisions. User-defined
+   macros, low-level TeX primitives (\def, \gdef, \edef, \let), font-family commands (\newfontfamily, \newfontface, etc.),
+   and custom environments stay strictly local to the block's {\begingroup ... \par\endgroup} sandbox. Cross-fence collisions—defining or redefining
    global commands (\DeclareMathOperator, \DeclarePairedDelimiter, \newunicodechar, \newtheorem) or importing
    packages with conflicting options across blocks—automatically demotes the offending block to a
    syntax-highlighted code listing (run=false) with a console warning. Stray unfenced LaTeX commands in body text

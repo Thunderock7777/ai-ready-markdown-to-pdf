@@ -19,13 +19,15 @@
 --                  \DeclareDocumentCommand, \DeclareMathOperator, \DeclarePairedDelimiter,
 --                  \newtheorem (except environments already defined by the template),
 --                  \newenvironment, \newunicodechar, font-family commands (\newfontfamily,
---                  \newfontface, \renewfontfamily, etc.), \usetikzlibrary, \usepgfplotslibrary,
---                  \usepgflibrary, \tikzset, \pgfplotsset, \sisetup, and \theoremstyle.
+--                  \newfontface, \renewfontfamily, etc.), low-level primitives (\def, \gdef,
+--                  \edef, \let), \usetikzlibrary, \usepgfplotslibrary, \usepgflibrary, \tikzset,
+--                  \pgfplotsset, \sisetup, and \theoremstyle.
 --                  Preamble-only commands (\DeclareMathOperator, \DeclarePairedDelimiter,
 --                  \newunicodechar, \usepackage, libraries) are hoisted to the document preamble.
---                  \DeclareMathOperator is hoisted with \let\cmd\relax to prevent clashes
---                  with pre-existing template/kernel operators. All macros, font families, and
---                  environments remain strictly local to {\begingroup...\par\endgroup}.
+--                  \DeclareMathOperator and \DeclarePairedDelimiter are hoisted with \let\cmd\relax
+--                  to prevent clashes with pre-existing template/kernel operators and delimiters.
+--                  All macros, definitions (\def), \let, font families, and environments remain
+--                  strictly local to {\begingroup...\par\endgroup}.
 --                  Cross-fence protection: defining or redefining any global command, theorem
 --                  (\newtheorem), or conflicting package options across fences automatically
 --                  demotes that block to a code listing (run=false) with a console warning.
@@ -685,6 +687,8 @@ local FONT_FAMILY_COMMANDS = {
   newfontface = true, renewfontface = true,
   setfontface = true, providefontface = true,
 }
+-- Low-level TeX definition primitives that survive preamble deletion (kept in local_cmds).
+local PRIMITIVE_DEFS = { def = true, gdef = true, edef = true }
 
 local function skip_space(s, i) return (s:find("%S", i)) or (#s + 1) end
 
@@ -783,6 +787,57 @@ local function extract_commands(pre)
               cursor = skip_space(pre, opt_e + 1)
             end
             command = pre:sub(a, finish)
+          end
+        end
+      elseif not in_comment(pre, a) and (PRIMITIVE_DEFS[name] or name == "let") then
+        if PRIMITIVE_DEFS[name] then
+          cursor = skip_space(pre, cursor)
+          if pre:sub(cursor, cursor) == "\\" then
+            local token = pre:sub(cursor):match("^\\[%a@]+") or pre:sub(cursor, cursor + 1)
+            cursor = cursor + #token
+          elseif pre:sub(cursor, cursor) == "{" then
+            local e = match_group(pre, cursor, "{", "}")
+            cursor = e and e + 1
+          else
+            cursor = nil
+          end
+          if cursor then
+            while cursor <= #pre and pre:sub(cursor, cursor) ~= "{" do
+              cursor = cursor + 1
+            end
+            if cursor <= #pre and pre:sub(cursor, cursor) == "{" then
+              finish = match_group(pre, cursor, "{", "}")
+              if finish then
+                command = pre:sub(a, finish)
+              end
+            end
+          end
+        elseif name == "let" then
+          cursor = skip_space(pre, cursor)
+          local first_token
+          if pre:sub(cursor, cursor) == "\\" then
+            first_token = pre:sub(cursor):match("^\\[%a@]+") or pre:sub(cursor, cursor + 1)
+            cursor = cursor + #first_token
+          elseif pre:sub(cursor, cursor) == "{" then
+            local e = match_group(pre, cursor, "{", "}")
+            if e then first_token = pre:sub(cursor, e); cursor = e + 1 end
+          end
+          if first_token then
+            cursor = skip_space(pre, cursor)
+            if pre:sub(cursor, cursor) == "=" then
+              cursor = skip_space(pre, cursor + 1)
+            end
+            if pre:sub(cursor, cursor) == "\\" then
+              local second_token = pre:sub(cursor):match("^\\[%a@]+") or pre:sub(cursor, cursor + 1)
+              finish = cursor + #second_token - 1
+              command = pre:sub(a, finish)
+            elseif pre:sub(cursor, cursor) == "{" then
+              finish = match_group(pre, cursor, "{", "}")
+              if finish then command = pre:sub(a, finish) end
+            elseif cursor <= #pre and pre:sub(cursor, cursor):match("%S") then
+              finish = cursor
+              command = pre:sub(a, finish)
+            end
           end
         end
       elseif not in_comment(pre, a)
@@ -985,8 +1040,8 @@ local function render_latex(el, class, preamble, global_defs)
     end
 
     for _, cmd in ipairs(hoisted_cmds) do
-      -- Make operator declarations safe against pre-existing package or template definitions
-      if cmd:match("^%s*\\DeclareMathOperator") then
+      -- Make operator and delimiter declarations safe against pre-existing package or template definitions
+      if cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\DeclarePairedDelimiter") then
         local target = get_global_command_target(cmd)
         if target and target:match("^\\[%a@]+") then
           cmd = "\\let" .. target .. "\\relax " .. cmd

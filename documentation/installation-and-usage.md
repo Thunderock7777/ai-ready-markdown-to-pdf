@@ -265,8 +265,9 @@ Rule of thumb:
     as literal text and will not execute (-raw_tex). Each LaTeX fence is strictly isolated
     ({\begingroup ... \par\endgroup}): packages, TikZ libraries, and preamble-only declarations
     (\DeclareMathOperator, \newunicodechar, \DeclarePairedDelimiter) are hoisted to the preamble
-    (\DeclareMathOperator guarded with \let\cmd\relax), while custom macros, font families
-    (\newfontfamily, \newfontface, etc.), and environments remain strictly local to the fence.
+    (\DeclareMathOperator and \DeclarePairedDelimiter guarded with \let\cmd\relax), while custom macros,
+    low-level TeX primitives (\def, \gdef, \edef, \let), font families (\newfontfamily, \newfontface, etc.),
+    and environments remain strictly local to the fence.
     Cross-fence redefinition of global commands or conflicting package imports automatically
     demote to code listings (run=false) with a console warning.
     Python source that should execute: use a python fence.

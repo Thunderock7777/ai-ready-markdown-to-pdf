@@ -121,6 +121,9 @@ LaTeX extraction policy tables
     newfontfamily renewfontfamily setfontfamily providefontfamily
     newfontface renewfontface setfontface providefontface (fontspec family/face
     definitions rescued from preamble deletion and retained in local_cmds)
+  PRIMITIVE_DEFS:
+    def gdef edef (plus \let; low-level TeX definition and assignment primitives
+    rescued from preamble deletion and retained in local_cmds)
   TEMPLATE_THEOREMS:
     theorem lemma proposition corollary definition example remark
   SIMPLE_PREAMBLE:
@@ -414,6 +417,8 @@ Function reference: registration and LaTeX recovery
     FONT_FAMILY_COMMANDS accepts newfontfamily, renewfontfamily, setfontfamily,
     providefontfamily, newfontface, renewfontface, setfontface, and providefontface,
     preserving fontspec family and face declarations for local execution.
+    PRIMITIVE_DEFS accepts def, gdef, and edef (alongside \let), parsing control sequences,
+    optional parameter text, and balanced replacement bodies into local_cmds.
     SIMPLE_PREAMBLE accepts usetikzlibrary, usepgfplotslibrary,
     usepgflibrary, pgfplotsset, tikzset, sisetup, theoremstyle, and
     newunicodechar.
@@ -438,11 +443,12 @@ Function reference: registration and LaTeX recovery
     Optionally shows source when show=true. For full documents (with begin/end document),
     extracts preamble commands: package and library imports (\usepackage, \usetikzlibrary, etc.)
     and preamble-only declarations (\DeclareMathOperator, \newunicodechar, \DeclarePairedDelimiter)
-    are automatically hoisted to preamble (header-includes), while macro definitions, font family
-    commands (\newfontfamily, \newfontface, etc.), and custom environments stay strictly local to
-    the block body rather than leaking globally. Hoisted \DeclareMathOperator declarations are
-    safely prefixed with \let\cmd\relax to prevent clashes with pre-existing template or kernel
-    operators (\Tr, \Pr, \Re, etc.).
+    are automatically hoisted to preamble (header-includes), while macro definitions, low-level TeX
+    primitives (\def, \gdef, \edef, \let), font family commands (\newfontfamily, \newfontface, etc.),
+    and custom environments stay strictly local to the block body rather than leaking globally.
+    Hoisted \DeclareMathOperator and \DeclarePairedDelimiter declarations are safely prefixed with
+    \let\cmd\relax to prevent clashes with pre-existing template or kernel operators/delimiters
+    (\Tr, \Pr, \Re, \abs, \norm, etc.).
     Cross-fence collision protection: if any block attempts to define or redefine a global command
     target (via \DeclareMathOperator, \DeclarePairedDelimiter, \newunicodechar, \newtheorem) or imports
     a package with conflicting options compared to an earlier block, render_latex emits a console

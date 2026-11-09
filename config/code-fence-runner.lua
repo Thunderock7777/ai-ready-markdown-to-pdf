@@ -892,6 +892,11 @@ local function get_global_command_target(cmd)
     if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$") end
     if sym then return "\\newunicodechar{" .. sym .. "}" end
   end
+  if cmd:match("^%s*\\newtheorem") then
+    local sym = cmd:match("^%s*\\newtheorem%*?%s*(%b{})")
+    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$") end
+    if sym then return "\\newtheorem{" .. sym .. "}" end
+  end
   return nil
 end
 
@@ -925,23 +930,55 @@ local function render_latex(el, class, preamble, global_defs)
       end
     end
 
-    -- Disallow redefinition of global commands across fences (or duplicate definitions within one block)
+    -- Disallow defining or redefining in subsequent fences commands that cause global/document-level conflicts
+    -- (DeclareMathOperator, DeclarePairedDelimiter, newunicodechar, newtheorem, and conflicting usepackage options)
     local block_targets = {}
-    for _, cmd in ipairs(hoisted_cmds) do
-      local target = get_global_command_target(cmd)
-      if target then
-        if (global_defs and global_defs[target]) or block_targets[target] then
-          warn(string.format("latex block redefines global command '%s'; rendering as code listing (run=false)", target))
-          return nil
+    local all_cmds_to_check = {}
+    for _, cmd in ipairs(hoisted_cmds) do all_cmds_to_check[#all_cmds_to_check + 1] = cmd end
+    for _, cmd in ipairs(local_cmds) do
+      if cmd:match("^%s*\\newtheorem") then all_cmds_to_check[#all_cmds_to_check + 1] = cmd end
+    end
+
+    for _, cmd in ipairs(all_cmds_to_check) do
+      if cmd:match("^%s*\\usepackage") then
+        local opt = cmd:match("^%s*\\usepackage%s*(%b[])") or ""
+        local pkgs = cmd:match("^%s*\\usepackage%s*%b[]%s*(%b{})") or cmd:match("^%s*\\usepackage%s*(%b{})")
+        if pkgs then
+          for pkg in pkgs:sub(2, -2):gmatch("[^,%s]+") do
+            local target = "\\usepackage{" .. pkg .. "}"
+            if global_defs and global_defs[target] and global_defs[target] ~= opt then
+              warn(string.format("latex block imports package '%s' with conflicting options; rendering as code listing (run=false)", pkg))
+              return nil
+            end
+            if global_defs then global_defs[target] = opt end
+          end
         end
-        block_targets[target] = true
+      else
+        local target = get_global_command_target(cmd)
+        if target then
+          if (global_defs and global_defs[target]) or block_targets[target] then
+            warn(string.format("latex block redefines global command '%s'; rendering as code listing (run=false)", target))
+            return nil
+          end
+          block_targets[target] = true
+        end
+      end
+    end
+
+    for _, cmd in ipairs(all_cmds_to_check) do
+      local target = get_global_command_target(cmd)
+      if target and global_defs then
+        global_defs[target] = cmd
       end
     end
 
     for _, cmd in ipairs(hoisted_cmds) do
-      local target = get_global_command_target(cmd)
-      if target and global_defs then
-        global_defs[target] = cmd
+      -- Make operator declarations safe against pre-existing package or template definitions
+      if cmd:match("^%s*\\DeclareMathOperator") then
+        local target = get_global_command_target(cmd)
+        if target and target:match("^\\[%a@]+") then
+          cmd = "\\let" .. target .. "\\relax " .. cmd
+        end
       end
       preamble[#preamble + 1] = cmd
     end

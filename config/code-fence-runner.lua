@@ -18,13 +18,21 @@
 --                  robust.  Also rescued: \DeclareRobustCommand, \NewDocumentCommand,
 --                  \DeclareDocumentCommand, \DeclareMathOperator, \DeclarePairedDelimiter,
 --                  \newtheorem (except environments already defined by the template),
---                  \newenvironment, \newunicodechar, \usetikzlibrary, \usepgfplotslibrary,
+--                  \newenvironment, \newunicodechar, font-family commands (\newfontfamily,
+--                  \newfontface, \renewfontfamily, etc.), \usetikzlibrary, \usepgfplotslibrary,
 --                  \usepgflibrary, \tikzset, \pgfplotsset, \sisetup, and \theoremstyle.
+--                  Preamble-only commands (\DeclareMathOperator, \DeclarePairedDelimiter,
+--                  \newunicodechar, \usepackage, libraries) are hoisted to the document preamble.
+--                  \DeclareMathOperator is hoisted with \let\cmd\relax to prevent clashes
+--                  with pre-existing template/kernel operators. All macros, font families, and
+--                  environments remain strictly local to {\begingroup...\par\endgroup}.
+--                  Cross-fence protection: defining or redefining any global command, theorem
+--                  (\newtheorem), or conflicting package options across fences automatically
+--                  demotes that block to a code listing (run=false) with a console warning.
 --                  Pasted \usepackage requests are retained only for packages not managed by
 --                  the template; options for skipped packages are discarded to prevent clashes.
 --                  Commented-out commands are ignored.  Other preamble content
---                  (\documentclass, for example) is discarded.  Definitions behave as in LaTeX:
---                  defining an existing name twice can error (use \renewcommand as appropriate).
+--                  (\documentclass, for example) is discarded.
 --                  A bare snippet is pasted as is, so it must not contain \usepackage etc.
 --
 --  Attributes (same for every executable language)
@@ -670,6 +678,7 @@ local SIMPLE_PREAMBLE = {
   newunicodechar = true,
 }
 local THREE_ARG_PREAMBLE = { NewDocumentCommand = true, DeclareDocumentCommand = true }
+-- Fontspec font family/face definition commands that survive preamble deletion (kept in local_cmds).
 local FONT_FAMILY_COMMANDS = {
   newfontfamily = true, renewfontfamily = true,
   setfontfamily = true, providefontfamily = true,
@@ -872,6 +881,9 @@ local function has_scaffolding_redefinition(text)
   return nil
 end
 
+-- Identifies the unique target name for commands that have global or document-wide scope
+-- (\DeclareMathOperator, \DeclarePairedDelimiter, \newunicodechar, \newtheorem)
+-- to detect and prevent cross-fence naming collisions.
 local function get_global_command_target(cmd)
   if cmd:match("^%s*\\DeclareMathOperator") then
     local sym = cmd:match("^%s*\\DeclareMathOperator%*?%s*(%b{})")

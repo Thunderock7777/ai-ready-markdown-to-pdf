@@ -221,11 +221,18 @@ inside a tikzpicture are intentionally not globalized:
 \end{tikzpicture}
 
 A complete LaTeX fence keeps its document body and rescues recognized
-preamble definitions. The duplicate siunitx package request is filtered out.
+preamble definitions. Packages and preamble-only declarations (\DeclareMathOperator,
+\DeclarePairedDelimiter, \newunicodechar) are hoisted to the document preamble,
+with \DeclareMathOperator protected by \let\cmd\relax against kernel collisions.
+Macros, custom environments, and font family commands (\newfontfamily, \newfontface)
+remain strictly local to the {\begingroup ... \par\endgroup} scope. Duplicate or
+template-managed packages are skipped. Redefining global commands across fences
+automatically demotes the block to a syntax-highlighted code listing (run=false).
 
 ```{.latex}
 \documentclass{article}
 \usepackage[detect-all]{siunitx}
+\newfontfamily\RegressionSans{Noto Sans}[Scale=0.9]
 \newcommand{\RegressionField}{\mathbb{R}}
 \renewcommand{\RegressionField}{\mathbb{R}}
 \providecommand{\RegressionOptional}{\mathbb{N}}
@@ -246,6 +253,7 @@ Recovered document command: \(\RegressionBold{x}\).
 Recovered declared command: \(\RegressionItalic{x}\).
 Recovered math declarations: \(\RegressionRank(A)\), \(\RegressionAbs{x}\), and \(\RegressionOptional\).
 Recovered Unicode declaration: Ж.
+Recovered font family: {\RegressionSans Sans Font text}.
 
 \begin{regressionclaim}
 The regression fixture exercises the locally scoped theorem definition.

@@ -32,6 +32,8 @@ Input File (.md / .txt)
 [Stage C: Code Fence Execution & Caching] ─── code-fence-runner.lua
    │  • Language dispatch (Python, C, C++, Java, LaTeX, YAML, Text)
    │  • Universal TeX group isolation: {\begingroup ... \par\endgroup}
+   │  • Preamble hoisting with \let\cmd\relax safety & local font-family scoping
+   │  • Cross-fence global command conflict protection (demotion to run=false)
    │  • Snippet auto-wrapping (#line 1 in C/C++; class Main in Java)
    │  • SHA-1 cache lookup & dependency tracking (rf4 cache schema)
    │
@@ -156,8 +158,9 @@ database:
   <user-code>
   \par\endgroup}
   ```
-  This ensures that any macro definitions, color overrides (`\color{...}`), font size changes (`\Huge`), or dimension adjustments (`\setlength`) made inside a block **cannot leak** into subsequent sections or corrupt the outer document geometry.
-* **Pasted Document Extraction:** If a full pasted LaTeX document containing `\begin{document} ... \end{document}` is passed, the runner automatically hoists `\usepackage` declarations and TikZ libraries into the global document preamble (`$header-includes$`), while rendering the body inside the isolated local group.
+  This ensures that any macro definitions, font family declarations (`\newfontfamily`, `\newfontface`), color overrides (`\color{...}`), font size changes (`\Huge`), or dimension adjustments (`\setlength`) made inside a block **cannot leak** into subsequent sections or corrupt the outer document geometry.
+* **Pasted Document Extraction & Preamble Hoisting:** If a full pasted LaTeX document containing `\begin{document} ... \end{document}` is passed, the runner automatically hoists `\usepackage` declarations, TikZ/PGF libraries, and preamble-only commands (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\newunicodechar`) into the global document preamble (`$header-includes$`). Hoisted `\DeclareMathOperator` declarations are safely guarded with `\let\cmd\relax` to prevent crashes against pre-existing kernel or template operators (`\Tr`, `\Pr`, `\Re`, etc.). User-defined macros, custom environments, and fontspec font family/face commands (`\newfontfamily`, `\renewfontfamily`, `\setfontfamily`, `\providefontfamily`, `\newfontface`, `\renewfontface`, `\setfontface`, `\providefontface`) remain strictly local to the fence's `{\begingroup ... \par\endgroup}` body.
+* **Cross-Fence Global Command Conflict Protection:** Defining or redefining any global command (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\newunicodechar`, `\newtheorem`) or importing a package with conflicting options across multiple fences automatically demotes the offending block to `run=false` (syntax-highlighted code listing) with a console warning.
 * **Scaffolding Macro Protection:** If user LaTeX code attempts to redefine critical document scaffolding macros (`\maketitle`, `\tableofcontents`, `\title`, `\author`, `\date`), the runner automatically demotes the block to `run=false` (syntax-highlighted code listing) to prevent fatal document compilation crashes.
 
 #### Examples
@@ -171,6 +174,34 @@ database:
   \draw[domain=-1.5:1.5, smooth, variable=\x, blue, thick] plot ({\x}, {\x*\x});
   \node[blue, right] at (1.2, 1.44) {$y = x^2$};
 \end{tikzpicture}
+```
+````
+
+**Preamble Hoisting with Local Scoping & Font Family Extraction:**
+````markdown
+```latex
+\documentclass{article}
+\usepackage{amsmath}
+\DeclareMathOperator{\sinc}{sinc}
+\newfontfamily\NotoSansLight{Noto Sans}[Scale=0.95]
+\newcommand{\localbox}[1]{\fbox{\textbf{#1}}}
+\begin{document}
+Here is a hoisted operator: $\sinc(x) = \frac{\sin x}{x}$,
+and a scoped font/macro: {\NotoSansLight \localbox{Local Content}}.
+\end{document}
+```
+````
+
+**Cross-Fence Collision Protection (Automatic Demotion):**
+````markdown
+```latex
+% If an earlier fence already defined \sinc or \Tr, defining it again
+% here triggers cross-fence protection and demotes this block to a code listing:
+\documentclass{article}
+\DeclareMathOperator{\sinc}{sinc}
+\begin{document}
+Conflict detected: demoted to code listing (run=false).
+\end{document}
 ```
 ````
 

@@ -115,6 +115,34 @@ The block below attempts to redefine `\maketitle`. The pipeline automatically de
 }
 ```
 
+### 3.6. Preamble Hoisting & Local Font Family Scoping
+Preamble-only declarations like `\DeclareMathOperator` and `\DeclarePairedDelimiter` are hoisted to the document preamble, with `\DeclareMathOperator` guarded by `\let\cmd\relax`. Font family declarations (`\newfontfamily`, `\newfontface`, etc.) and macros remain strictly local to this fence:
+
+```latex
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{mathtools}
+\DeclareMathOperator{\CompiledTrace}{Tr}
+\DeclarePairedDelimiter{\CompiledNorm}{\lVert}{\rVert}
+\newfontfamily\CompiledSansFont{Noto Sans}[Scale=0.9]
+\newcommand{\CompiledScopedTag}{\textbf{[Isolated Macro]}}
+\begin{document}
+Hoisted operator and delimiter: \(\CompiledTrace(M) = \CompiledNorm{v}\).
+Scoped font and local tag: {\CompiledSansFont \CompiledScopedTag\ Local font family rendered.}
+\end{document}
+```
+
+### 3.7. Cross-Fence Global Command Conflict Protection (Automatic Demotion)
+The block below attempts to redeclare `\CompiledTrace` which was already declared globally in Section 3.6. The pipeline catches the duplicate global declaration across fences, demotes this block to a code listing (`run=false`), and issues a console warning without failing the document build:
+
+```latex
+\documentclass{article}
+\DeclareMathOperator{\CompiledTrace}{Tr}
+\begin{document}
+This body will not render because duplicate global command triggers demotion to run=false.
+\end{document}
+```
+
 ---
 
 ## 4. Python Fences

@@ -5,7 +5,7 @@ Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
 and Java can run during the build with universal caching and approval controls,
 while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.3.1**.
+**Current project version: 1.3.2**.
 
 > **Paste an AI chat response and compile it directly.** A copied response from
 > ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses
@@ -19,7 +19,7 @@ while LaTeX fences render source snippets without executing them.
 - **Universal Executable Code Fences**: Python, C, C++, and Java blocks execute with persistent SHA-1 caching, interactive confirmation prompts (`trusted=true` bypass), output capture, and compiler/runtime error reporting.
 - **Uniform Fence Syntax**: Standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````) across all languages; raw delimiters like `---` are reserved for horizontal rules and never treated as metadata.
 - **Block Boundary Spacing & Clean Tables**: Standalone horizontal rules (`---`) and fences are automatically padded with empty lines. Non-standard `simple_tables` are disabled to prevent narrow column collapses, ensuring pipe tables (`| col | col |`) render reliably.
-- **Code Fence Isolation & Stray TeX Protection**: LaTeX fences are locally scoped (`{\begingroup...\par\endgroup}`), preventing definitions or colors from leaking. Unfenced LaTeX commands in prose are treated as literal text (`-raw_tex`).
+- **Code Fence Isolation & Stray TeX Protection**: LaTeX fences are locally scoped (`{\begingroup...\par\endgroup}`), isolating definitions, font families, and environments. Cross-fence global command collisions automatically demote to syntax-highlighted code listings (`run=false`). Unfenced LaTeX commands in prose are treated as literal text (`-raw_tex`).
 - **Localized XeLaTeX Error Recovery**: Neutralizes localized LaTeX document errors with red `[!!!]` badges in the PDF and yellow console diagnostics instead of crashing the build.
 - **Page Layout & Title Controls**: Toggle between standard A4 and 16:9 presentation layout, or hide the horizontal title divider rule using YAML front matter.
 - **Non-Destructive Processing**: Source files are never modified; generated PDFs are saved beside the primary input file.
@@ -169,6 +169,8 @@ Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 \]
 ```
 ````
+
+Preamble-only commands (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\newunicodechar`, `\usepackage`, libraries) in full LaTeX documents are hoisted to the document preamble, with `\DeclareMathOperator` guarded against pre-existing kernel/template definitions. Macros, font families (`\newfontfamily`), and custom environments remain strictly local to the fence (`{\begingroup...\par\endgroup}`). Defining or redefining global commands, theorems (`\newtheorem`), or conflicting package options across fences automatically demotes that block to a syntax-highlighted code listing (`run=false`) with a console warning.
 
 Executable code fences (`python`, `c`, `cpp` / `c++`, `java`) execute by default.
 On the first run of a block without a valid cached result, the build asks whether you

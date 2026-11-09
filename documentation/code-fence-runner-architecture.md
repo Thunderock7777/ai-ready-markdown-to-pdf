@@ -117,6 +117,10 @@ LaTeX extraction policy tables
     triggers automatic run=false demotion to a syntax-highlighted code block)
   DEF_NAMES:
     newcommand renewcommand providecommand DeclareRobustCommand
+  FONT_FAMILY_COMMANDS:
+    newfontfamily renewfontfamily setfontfamily providefontfamily
+    newfontface renewfontface setfontface providefontface (fontspec family/face
+    definitions rescued from preamble deletion and retained in local_cmds)
   TEMPLATE_THEOREMS:
     theorem lemma proposition corollary definition example remark
   SIMPLE_PREAMBLE:
@@ -400,13 +404,16 @@ Function reference: registration and LaTeX recovery
     extracts the explicitly supported command definitions/settings, skips
     template-managed packages and template theorem names, and upgrades
     extracted \newcommand to \DeclareRobustCommand. It uses DEF_NAMES,
-    SKIP_PACKAGES, SIMPLE_PREAMBLE, THREE_ARG_PREAMBLE, and
+    FONT_FAMILY_COMMANDS, SKIP_PACKAGES, SIMPLE_PREAMBLE, THREE_ARG_PREAMBLE, and
     TEMPLATE_THEOREMS as policy tables.
     DEF_NAMES accepts newcommand, renewcommand, providecommand, and
     DeclareRobustCommand, including starred spellings for the command forms
     where the parser allows a star. It handles a command name in a brace group
     or a control-sequence token, then optional bracket groups and a required
     brace-balanced body.
+    FONT_FAMILY_COMMANDS accepts newfontfamily, renewfontfamily, setfontfamily,
+    providefontfamily, newfontface, renewfontface, setfontface, and providefontface,
+    preserving fontspec family and face declarations for local execution.
     SIMPLE_PREAMBLE accepts usetikzlibrary, usepgfplotslibrary,
     usepgflibrary, pgfplotsset, tikzset, sisetup, theoremstyle, and
     newunicodechar.
@@ -423,13 +430,26 @@ Function reference: registration and LaTeX recovery
     its three brace groups. NewDocumentCommand and DeclareDocumentCommand
     require all three groups. Newtheorem allows an optional parent-counter
     group before its required counter-name group.
-  render_latex(CodeBlock, class, preamble) -> Pandoc blocks
+  get_global_command_target(cmd) -> target string or nil
+    Identifies the unique target name for commands that have global or document-wide scope
+    (\DeclareMathOperator, \DeclarePairedDelimiter, \newunicodechar, \newtheorem) to detect
+    and prevent cross-fence naming collisions.
+  render_latex(CodeBlock, class, preamble, global_defs) -> Pandoc blocks
     Optionally shows source when show=true. For full documents (with begin/end document),
     extracts preamble commands: package and library imports (\usepackage, \usetikzlibrary, etc.)
     and preamble-only declarations (\DeclareMathOperator, \newunicodechar, \DeclarePairedDelimiter)
-    are automatically hoisted to preamble (header-includes), while macro definitions and custom
-    environments stay strictly local to the block body rather than leaking globally. For snippets with no full-document
-    delimiter, it emits source directly. In all cases, enforces Universal Code Fence Isolation by wrapping the emitted body in
+    are automatically hoisted to preamble (header-includes), while macro definitions, font family
+    commands (\newfontfamily, \newfontface, etc.), and custom environments stay strictly local to
+    the block body rather than leaking globally. Hoisted \DeclareMathOperator declarations are
+    safely prefixed with \let\cmd\relax to prevent clashes with pre-existing template or kernel
+    operators (\Tr, \Pr, \Re, etc.).
+    Cross-fence collision protection: if any block attempts to define or redefine a global command
+    target (via \DeclareMathOperator, \DeclarePairedDelimiter, \newunicodechar, \newtheorem) or imports
+    a package with conflicting options compared to an earlier block, render_latex emits a console
+    warning and returns nil, automatically demoting the conflicting block to a syntax-highlighted
+    code listing (run=false).
+    For snippets with no full-document delimiter, it emits source directly. In all cases, enforces
+    Universal Code Fence Isolation by wrapping the emitted body in
     {\begingroup\n ... \n\par\endgroup}, ensuring that definitions, colors, font sizes,
     lengths, and counter modifications remain strictly isolated to the block and cannot
     leak to outer Markdown prose or subsequent fences. If usepackage or documentclass appears

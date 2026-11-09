@@ -63,18 +63,28 @@ time rebuilding the full regression document for every small edit.
 3. Documentation review after every project change
 --------------------------------------------------
 After a behavior, feature, bug-fix, or architecture change:
-1. Re-read README.md and review every .md file in documentation\ for statements
-   affected by the change.
-2. Update README.md and each affected guide in the same change. At minimum,
-   update the architecture guide for pipeline, ordering, cache, or contract
-   changes; the installation guide for setup or user instructions; and the
-   regression fixture when supported behavior or expected output changes.
+1. Explicit Documentation Audit Checklist:
+   Every project change MUST review README.md and explicitly audit each markdown file
+   in the documentation\ folder by name against the modified behavior:
+   - README.md: Root entry point, quick start, feature summary, current version number, and code fence options.
+   - documentation\rendering-rules.md: Master language rendering reference, TeX group isolation guarantees, and execution models across all supported languages.
+   - documentation\installation-and-usage.md: Setup prerequisites, CLI commands, workflow rules of thumb, and beginner-to-advanced usage guidelines.
+   - documentation\workflow-architecture.md: Pipeline stages, filter execution order, multi-pass compilation, error annotator recovery, and persistence architecture.
+   - documentation\markdown-normalizer-architecture.md: Text cleaning passes, Unicode symbol normalization, citation resolution, and AST mutation contracts for markdown-normalizer.lua.
+   - documentation\code-fence-runner-architecture.md: Code execution, language dispatch, policy tables, wrapper synthesis, and cache hash specifications for code-fence-runner.lua.
+   - documentation\contributing-and-versioning.md: Working rules, documentation audit requirements, testing guidelines, and the cumulative line-count version ledger.
+   - documentation\workflow-assessment.md: Technical assessment scorecard, operational security analysis, and architectural limitations.
+   - documentation\filter-feature-regression.md: Primary end-to-end regression fixture exercising normalized formatting, preamble extraction, and standard behaviors.
+   - documentation\filter-feature-regression-part-2.md: Companion regression fixture verifying multi-input concatenation order and single-output execution guarantees.
+   - documentation\compiled-fence-test.md: Comprehensive executable fence test suite exercising all supported language runtimes, attributes, and failure modes.
+2. Update README.md and each affected guide in the same change. Keep definitions,
+   syntax, policy tables, error diagnostics, and feature descriptions synchronized.
 3. Confirm that unaffected guides remain accurate. Do not edit unrelated files
    merely to make every document appear changed; record no change when the
    content is still correct.
 4. Keep command examples, paths, folder layout, feature descriptions, known
-   limitations, and expected results consistent. The README is the GitHub
-   entry point and must not contradict a guide.
+   limitations, and expected results consistent across all documentation files.
+   The README is the GitHub entry point and must never contradict any guide.
 
 Documentation-only edits still require checking links and nearby references,
 but do not require a PDF build unless a documentation test specifically needs
@@ -243,6 +253,14 @@ Version 1.3.1 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-09 | 8b9bca6 | LaTeX fence font family extraction, global conflict protection, and operator hoisting safety | source +144 / -8 | 152 / 500
+  2026-11-09 | Versioned font family extraction, global conflict protection, and operator hoisting safety as 1.3.2 (PATCH)
+
+Version 1.3.2 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-09 | Synchronized rendering rules, test suites, regression fixtures, and explicit documentation audit checklist | source +0 / -0 | 0 / 500
 
 For each later accepted change, append one entry in this format:
 

@@ -92,11 +92,15 @@ Pipeline and ordering
    preventing definitions, styles, and colors from leaking to outer text or across blocks.
    Preambles in full LaTeX code blocks are scope-isolated: package imports (\usepackage),
    TikZ/PGF libraries, and preamble-only declarations (\DeclareMathOperator, \newunicodechar,
-   \DeclarePairedDelimiter) are hoisted to the document preamble (header-includes), while user-defined
-   macros and custom environments stay strictly local to the block's {\begingroup ... \par\endgroup}
-   sandbox. Stray unfenced LaTeX commands in body text are treated as literal Markdown prose (-raw_tex).
-   Redefinitions of template scaffolding macros in LaTeX fences automatically demote to syntax-highlighted
-   code listings.
+   \DeclarePairedDelimiter) are hoisted to the document preamble (header-includes), with
+   \DeclareMathOperator guarded with \let\cmd\relax against template/kernel collisions. User-defined
+   macros, font-family commands (\newfontfamily, \newfontface, etc.), and custom environments stay strictly
+   local to the block's {\begingroup ... \par\endgroup} sandbox. Cross-fence collisions—defining or redefining
+   global commands (\DeclareMathOperator, \DeclarePairedDelimiter, \newunicodechar, \newtheorem) or importing
+   packages with conflicting options across blocks—automatically demotes the offending block to a
+   syntax-highlighted code listing (run=false) with a console warning. Stray unfenced LaTeX commands in body text
+   are treated as literal Markdown prose (-raw_tex). Redefinitions of template scaffolding macros in LaTeX fences
+   also trigger automatic demotion to syntax-highlighted code listings.
 5. Pandoc writes temporary LaTeX. XeLaTeX runs in the temporary build folder
    with -cnf-line=max_print_line=1000 and -file-line-error, repeating up to
    three times when its log requests another reference pass. If XeLaTeX encounters

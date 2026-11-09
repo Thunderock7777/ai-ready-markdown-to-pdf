@@ -872,7 +872,35 @@ local function has_scaffolding_redefinition(text)
   return nil
 end
 
-local function render_latex(el, class, preamble)
+local function get_global_command_target(cmd)
+  if cmd:match("^%s*\\DeclareMathOperator") then
+    local sym = cmd:match("^%s*\\DeclareMathOperator%*?%s*(%b{})")
+    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
+    else sym = cmd:match("^%s*\\DeclareMathOperator%*?%s*(\\[%a@]+)") end
+    if sym and not sym:match("^\\") then sym = "\\" .. sym end
+    return sym
+  end
+  if cmd:match("^%s*\\DeclarePairedDelimiter") then
+    local sym = cmd:match("^%s*\\DeclarePairedDelimiter%s*(%b{})")
+    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
+    else sym = cmd:match("^%s*\\DeclarePairedDelimiter%s*(\\[%a@]+)") end
+    if sym and not sym:match("^\\") then sym = "\\" .. sym end
+    return sym
+  end
+  if cmd:match("^%s*\\newunicodechar") then
+    local sym = cmd:match("^%s*\\newunicodechar%s*(%b{})")
+    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$") end
+    if sym then return "\\newunicodechar{" .. sym .. "}" end
+  end
+  if cmd:match("^%s*\\newtheorem") then
+    local sym = cmd:match("^%s*\\newtheorem%*?%s*(%b{})")
+    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$") end
+    if sym then return "\\newtheorem{" .. sym .. "}" end
+  end
+  return nil
+end
+
+local function render_latex(el, class, preamble, global_defs)
   local out = {}
   if el.attributes["show"] == "true" then
     out[#out + 1] = pandoc.CodeBlock(el.text, pandoc.Attr("", { class }))
@@ -889,17 +917,72 @@ local function render_latex(el, class, preamble)
     end
     -- Scope-isolated: packages, libraries, and preamble-only commands go to the preamble; macros stay local
     local commands = extract_commands(el.text:sub(1, bs - 1))
+    local hoisted_cmds = {}
     local local_cmds = {}
     for _, cmd in ipairs(commands) do
       if cmd:match("^%s*\\usepackage") or cmd:match("^%s*\\usetikzlibrary")
           or cmd:match("^%s*\\usepgfplotslibrary") or cmd:match("^%s*\\usepgflibrary")
           or cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\newunicodechar")
           or cmd:match("^%s*\\DeclarePairedDelimiter") then
-        preamble[#preamble + 1] = cmd
+        hoisted_cmds[#hoisted_cmds + 1] = cmd
       else
         local_cmds[#local_cmds + 1] = cmd
       end
     end
+
+    -- Disallow defining or redefining in subsequent fences commands that cause global/document-level conflicts
+    -- (DeclareMathOperator, DeclarePairedDelimiter, newunicodechar, newtheorem, and conflicting usepackage options)
+    local block_targets = {}
+    local all_cmds_to_check = {}
+    for _, cmd in ipairs(hoisted_cmds) do all_cmds_to_check[#all_cmds_to_check + 1] = cmd end
+    for _, cmd in ipairs(local_cmds) do
+      if cmd:match("^%s*\\newtheorem") then all_cmds_to_check[#all_cmds_to_check + 1] = cmd end
+    end
+
+    for _, cmd in ipairs(all_cmds_to_check) do
+      if cmd:match("^%s*\\usepackage") then
+        local opt = cmd:match("^%s*\\usepackage%s*(%b[])") or ""
+        local pkgs = cmd:match("^%s*\\usepackage%s*%b[]%s*(%b{})") or cmd:match("^%s*\\usepackage%s*(%b{})")
+        if pkgs then
+          for pkg in pkgs:sub(2, -2):gmatch("[^,%s]+") do
+            local target = "\\usepackage{" .. pkg .. "}"
+            if global_defs and global_defs[target] and global_defs[target] ~= opt then
+              warn(string.format("latex block imports package '%s' with conflicting options; rendering as code listing (run=false)", pkg))
+              return nil
+            end
+            if global_defs then global_defs[target] = opt end
+          end
+        end
+      else
+        local target = get_global_command_target(cmd)
+        if target then
+          if (global_defs and global_defs[target]) or block_targets[target] then
+            warn(string.format("latex block redefines global command '%s'; rendering as code listing (run=false)", target))
+            return nil
+          end
+          block_targets[target] = true
+        end
+      end
+    end
+
+    for _, cmd in ipairs(all_cmds_to_check) do
+      local target = get_global_command_target(cmd)
+      if target and global_defs then
+        global_defs[target] = cmd
+      end
+    end
+
+    for _, cmd in ipairs(hoisted_cmds) do
+      -- Make operator declarations safe against pre-existing package or template definitions
+      if cmd:match("^%s*\\DeclareMathOperator") then
+        local target = get_global_command_target(cmd)
+        if target and target:match("^\\[%a@]+") then
+          cmd = "\\let" .. target .. "\\relax " .. cmd
+        end
+      end
+      preamble[#preamble + 1] = cmd
+    end
+
     if #local_cmds > 0 then
       body = table.concat(local_cmds, "\n") .. "\n" .. body
     end
@@ -1131,7 +1214,7 @@ local function render(el, spec, res)
 end
 
 -- ------------------------------ 5. dispatch ---------------------------------
-local function process_code_block(el, preamble)
+local function process_code_block(el, preamble, global_defs)
   if el.attributes["run"] == "false" then return nil end
   local class = (el.classes[1] or ""):lower()
   local spec = LANGS[class]
@@ -1143,7 +1226,7 @@ local function process_code_block(el, preamble)
       return nil
     end
   end
-  if spec.render then return spec.render(el, class, preamble) end
+  if spec.render then return spec.render(el, class, preamble, global_defs) end
   local result = run_exec(el, spec)
   if not result then return pandoc.CodeBlock(el.text, pandoc.Attr("", { spec.id })) end
   return render(el, spec, result)
@@ -1167,7 +1250,8 @@ end
 
 function Pandoc(doc)
   local preamble = {}
-  doc = doc:walk({ CodeBlock = function(el) return process_code_block(el, preamble) end })
+  local global_defs = {}
+  doc = doc:walk({ CodeBlock = function(el) return process_code_block(el, preamble, global_defs) end })
   add_latex_preamble(doc, preamble)
   return doc
 end

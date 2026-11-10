@@ -388,9 +388,21 @@ local function group_end(s, b)
   local depth, i = 1, b + 1
   while i <= #s do
     local c = s:sub(i, i)
-    if c == "\\" then i = i + 1
-    elseif c == "{" then depth = depth + 1
-    elseif c == "}" then depth = depth - 1; if depth == 0 then return i + 1 end end
+    if c == "\\" then
+      i = i + 1
+    elseif c == "%" then
+      local slashes, j = 0, i - 1
+      while j >= 1 and s:byte(j) == 92 do slashes = slashes + 1; j = j - 1 end
+      if slashes % 2 == 0 then
+        local nl = s:find("\n", i + 1, true)
+        i = nl or #s
+      end
+    elseif c == "{" then
+      depth = depth + 1
+    elseif c == "}" then
+      depth = depth - 1
+      if depth == 0 then return i + 1 end
+    end
     i = i + 1
   end
   return nil
@@ -500,6 +512,13 @@ local function rule_latex_ties(text)
   return text
 end
 
+-- Protect starred LaTeX macros (\ref*{..}, \cite*{..}) from being parsed as Markdown emphasis pairs
+local function rule_starred_commands(text)
+  text = text:gsub("(\\%a+)%*(%b{})", "%1\\*%2")
+  text = text:gsub("(\\%a+)%*(%b[])", "%1\\*%2")
+  return text
+end
+
 -- Ordered list of scrub rules.  `when` names a CONFIG flag; no `when` = always on.
 local SCRUB_RULES = {
   { name = "invisible-chars",     apply = rule_invisible_chars },
@@ -510,6 +529,7 @@ local SCRUB_RULES = {
   { name = "json-escaped-math",   apply = rule_json_escaped_math },
   { name = "html-leftovers",      apply = rule_html_leftovers },
   { name = "latex-ties",          apply = rule_latex_ties },
+  { name = "starred-commands",    apply = rule_starred_commands },
 }
 
 local function scrub_chunk(text)
@@ -1121,10 +1141,11 @@ local function envs_to_divs(text)
         out[#out+1] = string.format('::: {.latexenv lenv="%s" lopt="%d"}', env, #State.env_opts)
         if tail:match("%S") then out[#out+1] = (tail:gsub("^%s+", "")) end
       else
-        local before, e = line:match("^(.-)\\end%s*{([%a*]+)}%s*$")
-        if #env_stack > 0 and e == env_stack[#env_stack] then
+        local before, e, after = line:match("^(.-)\\end%s*{([%a*]+)}(.*)$")
+        if #env_stack > 0 and e == env_stack[#env_stack] and (not after or after:match("^%s*$") or after:match("^%s*%%")) then
           if before:match("%S") then out[#out+1] = before end
           out[#out+1] = ":::"
+          if after and after:match("%S") then out[#out+1] = after end
           out[#out+1] = ""
           env_stack[#env_stack] = nil
         else
@@ -1781,19 +1802,21 @@ end
 -- Drop images LaTeX cannot include, and say so (a missing file would be a LaTeX error).
 local function image_fix(el)
   local src = el.src or ""
-  local ext = src:match("%.(%w+)$")
+  local clean_src = src:gsub("^file:///*", ""):match("^([^?#]+)") or src
+  local ext = clean_src:match("%.(%w+)$")
   local why
-  if src:match("^%a[%w+.%-]+:") and not src:match("^%a:[/\\]") then   -- http: https: data: file: sandbox: blob: ... (not C:/ or C:\)
+  if clean_src:match("^%a[%w+.%-]+:") and not clean_src:match("^%a:[/\\]") then   -- http: https: data: file: sandbox: blob: ... (not C:/ or C:\)
     why = "remote or sandbox image"
   elseif not (ext and REGISTRY.IMAGE_EXTENSIONS[ext:lower()]) then
     why = "unsupported type (png/jpg/pdf only)"
-  elseif not (file_exists(src) or file_exists((src:gsub("%%20", " ")))) then
+  elseif not (file_exists(clean_src) or file_exists((clean_src:gsub("%%20", " ")))) then
     why = "file not found next to the input"
   end
   if why then
     warn("dropped image (" .. why .. "): " .. src)
     return {}
   end
+  if clean_src ~= src then el.src = clean_src end
   return nil
 end
 

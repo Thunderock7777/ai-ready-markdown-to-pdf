@@ -583,10 +583,10 @@ $endfor$
 \newtoggle{afterfigure}
 \togglefalse{afterfigure}
 \AtEndEnvironment{figure}{\global\toggletrue{afterfigure}}
-\renewcommand{\cite}[2][]{%
-  \ifstrempty{#2}{%
+\RenewDocumentCommand{\cite}{s O{} m}{%
+  \ifstrempty{#3}{%
     \iftoggle{afterfigure}{\textbf{Figure \thefigure:} \global\togglefalse{afterfigure}}{\mbox{}}%
-  }{[#2\ifstrempty{#1}{}{, #1}]}%
+  }{[#3\ifstrempty{#2}{}{, #2}]}%
 }
 
 \begin{document}

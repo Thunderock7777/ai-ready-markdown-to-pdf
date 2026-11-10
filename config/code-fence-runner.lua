@@ -699,8 +699,17 @@ local function match_group(s, i, open, close)       -- s[i] == open -> index of 
   local depth = 0
   while i <= #s do
     local c = s:sub(i, i)
-    if c == "\\" then i = i + 1                      -- skip an escaped character such as \{ or \%
-    elseif c == open then depth = depth + 1
+    if c == "\\" then
+      i = i + 1                                       -- skip an escaped character such as \{ or \%
+    elseif c == "%" then
+      local slashes, j = 0, i - 1
+      while j >= 1 and s:byte(j) == 92 do slashes = slashes + 1; j = j - 1 end
+      if slashes % 2 == 0 then
+        local nl = s:find("\n", i + 1, true)
+        i = nl or #s
+      end
+    elseif c == open then
+      depth = depth + 1
     elseif c == close then
       depth = depth - 1
       if depth == 0 then return i end
@@ -963,9 +972,11 @@ local SCAFFOLDING_MACROS = {
 local function has_scaffolding_redefinition(text)
   for name in pairs(SCAFFOLDING_MACROS) do
     local pat_name = name:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
-    if text:match("\\re?newcommand%*?%s*{?%s*\\" .. pat_name .. "[%A]") or
-       text:match("\\def%s*\\" .. pat_name .. "[%A]") or
-       text:match("\\let%s*\\" .. pat_name .. "[%A]") then
+    if text:match("\\re?newcommand%*?%s*{?%s*\\" .. pat_name .. "%f[%A]") or
+       text:match("\\[ged]?def%s*\\" .. pat_name .. "%f[%A]") or
+       text:match("\\let%s*\\" .. pat_name .. "%f[%A]") or
+       text:match("\\providecommand%*?%s*{?%s*\\" .. pat_name .. "%f[%A]") or
+       text:match("\\DeclareRobustCommand%*?%s*{?%s*\\" .. pat_name .. "%f[%A]") then
       return name
     end
   end

@@ -47,6 +47,12 @@ if errorlevel 1 (
     if exist "%LOCALAPPDATA%\Pandoc\pandoc.exe" (
         set "PATH=%PATH%;%LOCALAPPDATA%\Pandoc"
     )
+    if exist "%LOCALAPPDATA%\Programs\Pandoc\pandoc.exe" (
+        set "PATH=%PATH%;%LOCALAPPDATA%\Programs\Pandoc"
+    )
+    if exist "%ProgramFiles%\Pandoc\pandoc.exe" (
+        set "PATH=%PATH%;%ProgramFiles%\Pandoc"
+    )
 )
 
 set "MD2PDF_CACHE=%SCRIPT_DIR%md2pdf_cache"

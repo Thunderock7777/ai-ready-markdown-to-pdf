@@ -677,7 +677,10 @@ local TEMPLATE_THEOREMS = { theorem = true, lemma = true, proposition = true, co
 local SIMPLE_PREAMBLE = {
   usetikzlibrary = true, usepgfplotslibrary = true, usepgflibrary = true,
   pgfplotsset = true, tikzset = true, sisetup = true, theoremstyle = true,
-  newunicodechar = true,
+  newunicodechar = true, hypersetup = true, mathtoolsset = true,
+}
+local PAIR_DELIM = {
+  DeclarePairedDelimiter = 2, DeclarePairedDelimiterX = 3, DeclarePairedDelimiterXPP = 5,
 }
 local THREE_ARG_PREAMBLE = { NewDocumentCommand = true, DeclareDocumentCommand = true }
 -- Fontspec font family/face definition commands that survive preamble deletion (kept in local_cmds).
@@ -842,7 +845,7 @@ local function extract_commands(pre)
         end
       elseif not in_comment(pre, a)
           and (name == "usepackage" or SIMPLE_PREAMBLE[name] or name == "DeclareMathOperator"
-            or name == "newtheorem" or name == "DeclarePairedDelimiter" or name == "newenvironment"
+            or name == "newtheorem" or PAIR_DELIM[name] or name == "newenvironment"
             or THREE_ARG_PREAMBLE[name]) then
         local optional = ""
         if (name == "DeclareMathOperator" or name == "newtheorem")
@@ -856,13 +859,28 @@ local function extract_commands(pre)
         local first_end
         if pre:sub(cursor, cursor) == "{" then
           first_end = match_group(pre, cursor, "{", "}")
-        elseif pre:sub(cursor, cursor) == "\\" and (name == "DeclareMathOperator" or name == "DeclarePairedDelimiter" or THREE_ARG_PREAMBLE[name]) then
+        elseif pre:sub(cursor, cursor) == "\\" and (name == "DeclareMathOperator" or PAIR_DELIM[name] or THREE_ARG_PREAMBLE[name]) then
           local token = pre:sub(cursor):match("^\\[%a@]+")
           first_end = token and (cursor + #token - 1) or nil
         end
         if first_end then
-          if name == "DeclareMathOperator" or name == "newtheorem"
-              or name == "DeclarePairedDelimiter" or name == "newenvironment" or name == "newunicodechar"
+          if PAIR_DELIM[name] then
+            local next_arg = skip_space(pre, first_end + 1)
+            if pre:sub(next_arg, next_arg) == "[" then
+              local optional_end = match_group(pre, next_arg, "[", "]")
+              next_arg = optional_end and optional_end + 1 or next_arg
+            end
+            for k = 1, PAIR_DELIM[name] do
+              next_arg = skip_space(pre, next_arg)
+              if pre:sub(next_arg, next_arg) == "{" then
+                finish = match_group(pre, next_arg, "{", "}")
+                next_arg = finish and finish + 1 or next_arg
+              else
+                finish = nil; break
+              end
+            end
+          elseif name == "DeclareMathOperator" or name == "newtheorem"
+              or name == "newenvironment" or name == "newunicodechar"
               or THREE_ARG_PREAMBLE[name] then
             local next_arg = skip_space(pre, first_end + 1)
             if (name == "newtheorem" or name == "newenvironment")
@@ -881,8 +899,7 @@ local function extract_commands(pre)
             local second_end = pre:sub(next_arg, next_arg) == "{"
                 and match_group(pre, next_arg, "{", "}") or nil
             finish = second_end
-            if second_end and (name == "newenvironment" or name == "DeclarePairedDelimiter"
-                or THREE_ARG_PREAMBLE[name]) then
+            if second_end and (name == "newenvironment" or THREE_ARG_PREAMBLE[name]) then
               next_arg = skip_space(pre, second_end + 1)
               finish = pre:sub(next_arg, next_arg) == "{"
                   and match_group(pre, next_arg, "{", "}") or nil
@@ -959,9 +976,9 @@ local function get_global_command_target(cmd)
     return sym
   end
   if cmd:match("^%s*\\DeclarePairedDelimiter") then
-    local sym = cmd:match("^%s*\\DeclarePairedDelimiter%s*(%b{})")
+    local sym = cmd:match("^%s*\\DeclarePairedDelimiter[XP]*%s*(%b{})")
     if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
-    else sym = cmd:match("^%s*\\DeclarePairedDelimiter%s*(\\[%a@]+)") end
+    else sym = cmd:match("^%s*\\DeclarePairedDelimiter[XP]*%s*(\\[%a@]+)") end
     if sym and not sym:match("^\\") then sym = "\\" .. sym end
     return sym
   end
@@ -1001,7 +1018,9 @@ local function render_latex(el, class, preamble, global_defs)
       if cmd:match("^%s*\\usepackage") or cmd:match("^%s*\\usetikzlibrary")
           or cmd:match("^%s*\\usepgfplotslibrary") or cmd:match("^%s*\\usepgflibrary")
           or cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\newunicodechar")
-          or cmd:match("^%s*\\DeclarePairedDelimiter") then
+          or cmd:match("^%s*\\DeclarePairedDelimiter") or cmd:match("^%s*\\newtheorem")
+          or cmd:match("^%s*\\theoremstyle") or cmd:match("^%s*\\hypersetup")
+          or cmd:match("^%s*\\mathtoolsset") then
         hoisted_cmds[#hoisted_cmds + 1] = cmd
       else
         local_cmds[#local_cmds + 1] = cmd

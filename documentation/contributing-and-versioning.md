@@ -282,6 +282,13 @@ Version 1.3.5 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-10 | Universal preamble hoisting (DeclarePairedDelimiterX/XPP, newtheorem counters/styles, hypersetup, mathtoolsset), bare display math auto-wrapping, physics collision guards, and dynamic theorem environment registration | source +93 / -13 | 106 / 500
+  2026-11-10 | Versioned universal preamble hoisting, math wrapping, and theorem environment registration as 1.3.6 (PATCH)
+
+Version 1.3.6 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 For each later accepted change, append one entry in this format:
 

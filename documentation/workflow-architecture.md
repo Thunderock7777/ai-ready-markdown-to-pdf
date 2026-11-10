@@ -91,15 +91,17 @@ Pipeline and ordering
    fences are rendered with universal code fence isolation ({\begingroup ... \par\endgroup}),
    preventing definitions, styles, and colors from leaking to outer text or across blocks.
    Preambles in full LaTeX code blocks are scope-isolated: package imports (\usepackage),
-   TikZ/PGF libraries, and preamble-only declarations (\DeclareMathOperator, \newunicodechar,
-   \DeclarePairedDelimiter) are hoisted to the document preamble (header-includes), with
-   \DeclareMathOperator and \DeclarePairedDelimiter guarded with \let\cmd\relax against template/kernel collisions. User-defined
+   TikZ/PGF libraries, and preamble declarations (\DeclareMathOperator, \newunicodechar,
+   \DeclarePairedDelimiter, \DeclarePairedDelimiterX, \DeclarePairedDelimiterXPP, \newtheorem,
+   \theoremstyle, \hypersetup, \mathtoolsset) are hoisted to the document preamble (header-includes), with
+   \DeclareMathOperator and all \DeclarePairedDelimiter variants guarded with \let\cmd\relax against template/kernel collisions. User-defined
    macros, low-level TeX primitives (\def, \gdef, \edef, \let), font-family commands (\newfontfamily, \newfontface, etc.),
    and custom environments stay strictly local to the block's {\begingroup ... \par\endgroup} sandbox. Cross-fence collisions—defining or redefining
    global commands (\DeclareMathOperator, \DeclarePairedDelimiter, \newunicodechar, \newtheorem) or importing
    packages with conflicting options across blocks—automatically demotes the offending block to a
-   syntax-highlighted code listing (run=false) with a console warning. Stray unfenced LaTeX commands in body text
-   are treated as literal Markdown prose (-raw_tex). Redefinitions of template scaffolding macros or preamble
+   syntax-highlighted code listing (run=false) with a console warning. Bare AMS math environments (\begin{align}, etc.) in prose are
+   automatically wrapped in $$...$$ to prevent -raw_tex backslash escaping, and custom \newtheorem definitions are dynamically
+   registered for native Markdown Div parsing. Redefinitions of template scaffolding macros or preamble
    commands (\usepackage, \documentclass) in fences lacking \begin{document} also trigger automatic demotion
    to syntax-highlighted code listings (run=false).
 5. Pandoc writes temporary LaTeX. XeLaTeX runs in the temporary build folder

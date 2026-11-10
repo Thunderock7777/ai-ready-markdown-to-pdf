@@ -207,16 +207,21 @@ later passes do not operate on stale placeholders.
    Repair selected inline math that spans prose lines and join a list-looking
    continuation only when the open formula is clearly math and closes within
    the same paragraph.
-6. hoist-commands
+6. wrap-math-envs
+   Wrap bare AMS math environments (\begin{align}, equation, gather, multline, etc.)
+   appearing in Markdown prose inside $$ ... $$ blocks so Pandoc parses them as native
+   DisplayMath rather than escaping them to \textbackslash begin under -raw_tex.
+7. hoist-commands
    Runs process_lines on body text to repair one-line math via fix_math_line.
    Under strict fence isolation, REGISTRY.BODY_HOIST is empty, so body commands
    remain in the body (treated as literal text under -raw_tex) rather than being hoisted.
-7. markdown-in-lists
+8. markdown-in-lists
    Convert Markdown bold/italic markers inside itemize, enumerate, and
    description environments to LaTeX emphasis commands.
-8. environments-to-divs
+9. environments-to-divs
    Convert supported multi-line theorem/proof-like environments into fenced
-   Divs so Pandoc parses their Markdown content. Stage B restores their
+   Divs so Pandoc parses their Markdown content. Dynamic \newtheorem declarations
+   are automatically added to REGISTRY.DIV_ENVS. Stage B restores their
    original LaTeX environment wrappers.
 
 Detailed Stage A call path
@@ -410,7 +415,10 @@ Preamble collection and structural text
   hoist(block, in_preamble) -> consumed boolean
     Decides whether a LaTeX command should be dropped, mapped to metadata,
     skipped as template-defined, retained in the body, or appended to
-    State.hoisted. Converts body \newcommand to \DeclareRobustCommand.
+    State.hoisted. Converts body \newcommand to \DeclareRobustCommand,
+    dynamically registers \newtheorem into REGISTRY.DIV_ENVS, and prepends
+    \let\cmd\relax before hoisted \DeclareMathOperator and \DeclarePairedDelimiter
+    to prevent clashes with packages like physics.sty.
   process_lines(text, in_preamble) -> text
     Line-scans body or full-document preamble outside fences. Collects
     multi-line commands using brace_balance; avoids moving commands from inside
@@ -421,6 +429,11 @@ Preamble collection and structural text
   space_tables(text) -> text
     Adds a separating blank line before pipe tables outside code fences and
     display math.
+  pass_wrap_bare_math_envs(text) -> text
+    Scans prose outside code fences and existing display math for bare AMS math
+    environments (\begin{align}, equation, gather, multline, etc.) and wraps them
+    in $$ ... $$ so Pandoc parses them natively as DisplayMath rather than escaping
+    them to \textbackslash begin under -raw_tex.
   md_emph(segment) -> segment
     In a LaTeX list body, converts valid **bold** and *italic* markers to
     \textbf and \emph. A local stash function protects math and escaped

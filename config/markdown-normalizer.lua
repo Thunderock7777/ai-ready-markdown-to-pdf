@@ -908,6 +908,14 @@ local function hoist(block, in_preamble)
   elseif cmd == "newtheorem" then
     local nm = block:match("\\newtheorem%*?{([^}]*)}")
     if nm and REGISTRY.THEOREMS[nm] then return true end
+    if nm then REGISTRY.DIV_ENVS[nm] = true end
+  end
+  if cmd == "DeclareMathOperator" or cmd:match("^DeclarePairedDelimiter") then
+    local target = block:match("^%s*\\%a+%*?%s*(%b{})")
+    if target then target = target:sub(2, -2):match("^%s*(.-)%s*$")
+    else target = block:match("^%s*\\%a+%*?%s*(\\[%a@]+)") end
+    if target and not target:match("^\\") then target = "\\" .. target end
+    if target then block = "\\let" .. target .. "\\relax " .. block end
   end
   -- A pasted \newcommand must win over packages the template loads (physics defines
   -- \ket, \dd, ...): DeclareRobustCommand takes the same syntax and never raises
@@ -1074,6 +1082,9 @@ end
 -- Only used when begin and end are on separate lines; everything else stays raw LaTeX.
 -- Supports arbitrary nesting (e.g. quote or proof inside theorem) via an environment stack.
 local function envs_to_divs(text)
+  for nm in text:gmatch("\\newtheorem%*?{([^}]*)}") do
+    REGISTRY.DIV_ENVS[nm] = true
+  end
   local out, fence = {}, nil
   local env_stack = {}
   for line in each_line(text) do
@@ -1143,15 +1154,62 @@ local function pass_hoist_body_commands(text)
   return process_lines(text, false)
 end
 
+-- Bare AMS math environments (align, equation, gather, multline...) in Markdown prose
+-- would otherwise be treated as plain text and escaped to \textbackslash begin under -raw_tex.
+-- Wrap them in $$ ... $$ so Pandoc parses them as native DisplayMath, which math_fix unwraps cleanly.
+local function pass_wrap_bare_math_envs(text)
+  local out, fence, in_display = {}, nil, false
+  local cur_env, env_lines = nil, nil
+  for line in each_line(text) do
+    local mark = fence_mark(line, fence)
+    if mark then
+      fence = fence_next(fence, mark)
+      out[#out+1] = line
+    elseif fence then
+      out[#out+1] = line
+    else
+      if not cur_env then
+        local d1 = 0
+        for _ in line:gmatch("%$%$") do d1 = d1 + 1 end
+        if d1 % 2 == 1 then in_display = not in_display end
+
+        local env = not in_display and line:match("\\begin%s*{([%a*]+)}")
+        local base_env = env and env:gsub("%*$", "")
+        if base_env and REGISTRY.MATH_ENVS[base_env] and not line:match("%$%$") and not line:match("\\%[") then
+          cur_env = env
+          env_lines = { line }
+          if line:match("\\end%s*{" .. env:gsub("%*", "%%*") .. "}") then
+            out[#out+1] = "$$\n" .. table.concat(env_lines, "\n") .. "\n$$"
+            cur_env = nil; env_lines = nil
+          end
+        else
+          out[#out+1] = line
+        end
+      else
+        env_lines[#env_lines+1] = line
+        if line:match("\\end%s*{" .. cur_env:gsub("%*", "%%*") .. "}") then
+          out[#out+1] = "$$\n" .. table.concat(env_lines, "\n") .. "\n$$"
+          cur_env = nil; env_lines = nil
+        end
+      end
+    end
+  end
+  if cur_env and env_lines then
+    for _, l in ipairs(env_lines) do out[#out+1] = l end
+  end
+  return table.concat(out, "\n")
+end
+
 local TEXT_PASSES = {
   { name = "scrub",               apply = scrub },                -- 1. normalise characters, strip AI debris
   { name = "unwrap-document",     apply = pass_unwrap_document }, -- 2. needs clean text to find \begin{document}
   { name = "drop-maketitle",      apply = pass_drop_maketitle },  -- 3. the template prints the title itself
   { name = "space-tables",        apply = space_tables },         -- 4. blank line before pipe tables
   { name = "multiline-math",      apply = fix_multiline_math },   -- 5. must see paragraphs BEFORE hoisting
-  { name = "hoist-commands",      apply = pass_hoist_body_commands }, -- 6. also runs fix_math_line per line
-  { name = "markdown-in-lists",   apply = md_in_lists },          -- 7. after hoisting: lists are final
-  { name = "environments-to-divs",apply = envs_to_divs },         -- 8. last: output goes straight to pandoc
+  { name = "wrap-math-envs",      apply = pass_wrap_bare_math_envs }, -- 6. bare \begin{align} -> $$ for -raw_tex
+  { name = "hoist-commands",      apply = pass_hoist_body_commands }, -- 7. also runs fix_math_line per line
+  { name = "markdown-in-lists",   apply = md_in_lists },          -- 8. after hoisting: lists are final
+  { name = "environments-to-divs",apply = envs_to_divs },         -- 9. last: output goes straight to pandoc
 }
 
 local function mask_inline_code(text, store)
@@ -1332,6 +1390,9 @@ local function clean(text)
   text, file_meta = extract_yaml_fences(text)
   text = space_fences(text)
   text = normalize_fence_attributes(text)
+  for nm in text:gmatch("\\newtheorem%*?{([^}]*)}") do
+    REGISTRY.DIV_ENVS[nm] = true
+  end
   local fence, malformed = nil, 0
   for line in each_line(text) do
     if fence then

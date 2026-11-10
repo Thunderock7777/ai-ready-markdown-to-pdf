@@ -258,7 +258,7 @@ inlines
   invalid images are dropped with a warning.
   link_fix preserves links or unwraps them according to CONFIG.keep_links.
   RawInline maps HTML <br> tags to native LineBreak elements, strips unsupported HTML tags, and checks raw TeX math environments.
-  str_fix converts supported superscript letters in ordinary text and emits unescaped RawInline("latex", ...) nodes for \textsubscript{...}, \textsuperscript{...}, \nobreakspace{}, \ref{...}, \ref*{...}, \eqref{...}, \autoref{...}, \pageref{...}, \nameref{...}, \cite{...}, \cite[...]{...}, \url{...}, \href{...}{...}, \footnote{...}, \label{...}, page/spacing commands (\newpage, \clearpage, \pagebreak, \bigskip, \medskip, \smallskip, \vspace, \hspace), and typographic primitives (\hfill, \noindent) so they render without \textbackslash escaping under -raw_tex.
+  str_fix converts supported superscript letters in ordinary text and emits unescaped RawInline("latex", ...) nodes for \textsubscript{...}, \textsuperscript{...}, \nobreakspace{}, \ref{...}, \ref*{...}, \eqref{...}, \autoref{...}, \pageref{...}, \nameref{...}, \cite{...}, \cite[...]{...}, \url{...}, \href{...}{...}, \footnote{...}, \label{...}, page/spacing commands (\newpage, \clearpage, \pagebreak, \bigskip, \medskip, \smallskip, \vspace, \hspace), typographic primitives (\hfill, \noindent), and routes non-Latin Unicode scripts (Bengali, Hindi, CJK) through \foreignlanguage with Babel font mapping so they render without \textbackslash escaping under -raw_tex.
   note_code_super records characters in Code and CodeBlock nodes for later
   preamble definitions without changing the displayed code.
 

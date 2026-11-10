@@ -1567,22 +1567,7 @@ end
 -- Unicode superscript LETTERS (pˢ  mⁿ  xʸ ...) are missing from Latin Modern, so XeLaTeX prints a
 -- blank and "Missing character".  Each one becomes \textsuperscript{base letter}, which follows
 -- the current font (bold in **..**, headings, ...).  Only ordinary text is touched: math, code
--- spans and code blocks are separate AST elements and are left alone.
-local function str_fix(el)
-  local text = el.text
-  local has_super = false
-  for ch in text:gmatch(utf8.charpattern) do
-    if SUPER_LETTERS[ch] then has_super = true; break end
-  end
-  local has_tex = text:find("\\", 1, true) ~= nil
-  if not has_super and not has_tex then return nil end
-
-  local out, buf = {}, {}
-  local function flush()
-    if #buf > 0 then out[#out+1] = pandoc.Str(table.concat(buf)); buf = {} end
-  end
-
-  local pos = 1
+ 
   local hit = false
   while pos <= #text do
     if text:sub(pos, pos) == "\\" then

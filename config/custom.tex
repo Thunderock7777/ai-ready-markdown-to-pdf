@@ -63,8 +63,8 @@
 %
 %  LIMITATIONS
 %   Engine    XeLaTeX only (fontspec); pdfLaTeX / LuaLaTeX will not work.
-%   Fonts     no fallback for Bengali, Devanagari or CJK text: it prints blank / missing glyphs.
-%             (A safe automatic switch needs per-script fonts and extra packages; not added.)
+%   Fonts     Babel multilingual font mapping handles Bengali (Kalpurush/Nirmala UI), Devanagari
+%             (Nirmala UI/FreeSerif), and CJK (Microsoft YaHei/SimSun/FandolSong) via \babelfont.
 %   Packages  the "loaded if installed" packages are skipped silently; their commands then fail
 %             with "undefined control sequence".  newunicodechar.sty is needed for ALL Unicode
 %             mappings above.  pgfplots 1.18 or newer is needed (compat setting).
@@ -157,6 +157,16 @@
 \usepackage{microtype}
 \usepackage{parskip}
 \usepackage[english]{babel}
+\babelprovide[import]{bengali}
+\babelprovide[import]{hindi}
+\IfFontExistsTF{Kalpurush}{\babelfont[bengali]{rm}{Kalpurush}}{%
+  \IfFontExistsTF{Nirmala UI}{\babelfont[bengali]{rm}{Nirmala UI}}{%
+    \IfFontExistsTF{FreeSerif}{\babelfont[bengali]{rm}{FreeSerif}}{}}}
+\IfFontExistsTF{Nirmala UI}{\babelfont[hindi]{rm}{Nirmala UI}}{%
+  \IfFontExistsTF{FreeSerif}{\babelfont[hindi]{rm}{FreeSerif}}{}}
+\IfFontExistsTF{Microsoft YaHei}{\babelprovide[import]{chinese-simplified}\babelfont[chinese-simplified]{rm}{Microsoft YaHei}}{%
+  \IfFontExistsTF{SimSun}{\babelprovide[import]{chinese-simplified}\babelfont[chinese-simplified]{rm}{SimSun}}{%
+    \IfFontExistsTF{FandolSong}{\babelprovide[import]{chinese-simplified}\babelfont[chinese-simplified]{rm}{FandolSong}}{}}}
 \setlength{\emergencystretch}{3em}      % fewer overfull lines
 % Allow a line break after every escaped underscore, so long `snake_case_names`
 % in inline code wrap inside table cells instead of sticking out of the page.

@@ -1313,6 +1313,7 @@ end
 local function mask_literals(text)
   local store, out, prose, block = {}, {}, {}, {}
   local fence, verbatim = nil, nil
+  local in_list = false
   local function stash(value)
     store[#store+1] = value
     return "\1FIXGROUPS_LITERAL_" .. #store .. "\2"
@@ -1342,10 +1343,12 @@ local function mask_literals(text)
           or line:match("^%s*\\begin%s*{(lstlisting%*?)}")
           or line:match("^%s*\\begin%s*{(minted%*?)}")
       if mark then
+        in_list = false
         flush_prose()
         fence = mark
         block = { line }
       elseif env then
+        in_list = false
         flush_prose()
         block = { line }
         if line:match("\\end%s*{" .. env:gsub("%*", "%%*") .. "}") then flush_block()
@@ -1355,13 +1358,33 @@ local function mask_literals(text)
             or line:match("^%s*%d+[%.%]%)]%s+")
             or line:match("^%s*%([%a%d]+%)%s+")
             or line:match("^%s*[%a][%.)]%s+")
+        local is_math_or_env = line:match("^%s*\\%[")
+            or line:match("^%s*\\\\%[")
+            or line:match("^%s*\\%(")
+            or line:match("^%s*\\\\%(")
+            or line:match("^%s*%$%$")
+            or line:match("^%s*\\begin%s*{")
+            or line:match("^%s*\\end%s*{")
+            or line:match("^%s*\\%a+")
         if is_list_item then
+          in_list = true
+          prose[#prose+1] = line
+        elseif in_list or is_math_or_env then
           prose[#prose+1] = line
         else
           flush_prose()
           out[#out+1] = stash(line)
         end
       else
+        local is_list_item = line:match("^%s*[%*%-%+]%s+")
+            or line:match("^%s*%d+[%.%]%)]%s+")
+            or line:match("^%s*%([%a%d]+%)%s+")
+            or line:match("^%s*[%a][%.)]%s+")
+        if is_list_item then
+          in_list = true
+        elseif not line:match("^%s*$") then
+          in_list = false
+        end
         prose[#prose+1] = line
       end
     end

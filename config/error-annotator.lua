@@ -115,7 +115,7 @@ end
 
 local body_errors = {}
 for lnum, msg in pairs(err_map) do
-  if lnum >= doc_start and lnum <= doc_end then
+  if lnum > doc_start and lnum < doc_end then
     body_errors[#body_errors + 1] = { line = lnum, msg = msg }
   end
 end
@@ -167,10 +167,10 @@ for _, item in ipairs(body_errors) do
     -- Invariant: Do not detokenize structural environment delimiters (\begin{env} or \end{env}).
     -- Detokenizing \end{itemize} or \end{enumerate} leaves the environment open, causing
     -- list indentation and margins to leak into all subsequent paragraphs and code blocks.
-    local is_env_boundary = rest:match("^\\end%s*{[^}]+}%s*$") or rest:match("^\\begin%s*{[^}]+}%s*$")
+    local is_env_boundary = rest:match("^\\end%s*{[^}]+}") or rest:match("^\\begin%s*{[^}]+}")
 
     if not is_env_boundary then
-      local row_end = rest:match("(\\\\%s*%b[])$") or rest:match("(\\\\)$") or rest:match("(\\tabularnewline)$") or ""
+      local row_end = rest:match("(\\\\%*?%s*%b[])$") or rest:match("(\\\\%*?)$") or rest:match("(\\tabularnewline)$") or ""
       if row_end ~= "" then
         rest = rest:sub(1, -#row_end - 1)
         rest = rest:match("^(.-)%s*$") or rest

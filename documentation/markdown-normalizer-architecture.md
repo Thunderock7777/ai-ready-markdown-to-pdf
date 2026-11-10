@@ -425,15 +425,16 @@ Preamble collection and structural text
     tikzpicture; calls hoist and fix_math_line. Preamble prose/comment policy
     differs from body handling.
   is_table_row(line) -> boolean
-    Recognizes a pipe-table-shaped line for space_tables.
+    Recognizes a pipe-table-shaped line for space_tables, including blockquoted rows.
   space_tables(text) -> text
-    Adds a separating blank line before pipe tables outside code fences and
-    display math.
+    Adds a separating blank line (preserving blockquote markers) before pipe tables
+    outside code fences and display math.
   pass_wrap_bare_math_envs(text) -> text
     Scans prose outside code fences and existing display math for bare AMS math
     environments (\begin{align}, equation, gather, multline, etc.) and wraps them
     in $$ ... $$ so Pandoc parses them natively as DisplayMath rather than escaping
-    them to \textbackslash begin under -raw_tex.
+    them to \textbackslash begin under -raw_tex. Preserves blockquote nesting prefixes
+    and prevents greater-than signs from leaking into LaTeX math mode.
   md_emph(segment) -> segment
     In a LaTeX list body, converts valid **bold** and *italic* markers to
     \textbf and \emph. A local stash function protects math and escaped
@@ -533,7 +534,8 @@ Math and Unicode
 Images, tables, links, environments
   image_fix(Image) -> empty sequence or nil
     Rejects remote/sandbox schemes, unsupported extensions, and missing local
-    files; warns with the reason. Valid local PNG/JPG/JPEG/PDF images remain.
+    files; resolves URL-encoded spaces (%20) against on-disk filenames; warns
+    with the reason. Valid local PNG/JPG/JPEG/PDF images remain.
   figure_fix(Figure) -> empty sequence or nil
     Walks the Figure for a surviving Image and removes an empty Figure.
   raw_html_fix(RawBlock/RawInline) -> empty sequence or nil

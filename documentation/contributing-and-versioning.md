@@ -294,6 +294,7 @@ Change ledger
   2026-11-10 | Odd-backslash parity check for escaped dollars in single-line math | source +7 / -2 | 119 / 500
   2026-11-10 | CLI metadata overlay, space-tolerant newtheorem, comment parity after breaks, error annotator path/boundary matching, and prose pagebreak/spacing preservation | source +98 / -32 | 249 / 500
   2026-11-10 | Starred macro markdown protection, group-comment handling, trailing env comment closure, file URI/query image cleaning, and pandoc fallback paths | source +56 / -16 | 321 / 500
+  2026-11-10 | Blockquote-aware math and tables, environment boundary and row spacing protection, and %20 image path decoding | source +36 / -19 | 376 / 500
 
 For each later accepted change, append one entry in this format:
 

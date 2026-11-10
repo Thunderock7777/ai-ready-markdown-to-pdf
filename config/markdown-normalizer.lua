@@ -790,9 +790,9 @@ end
 
 -- A line that is never part of running paragraph text: blank, table row, heading, \begin / \end, horizontal rule / YAML boundary.
 local function is_structural_line(line)
-  return not line:match("%S") or line:match("^%s*|") or line:match("^%s*#+%s")
-      or line:match("^%s*\\begin%s*{") or line:match("^%s*\\end%s*{")
-      or line:match("^%s*%-%-%-+%s*$")
+  return not line:match("%S") or line:match("^[%s>]*|") or line:match("^[%s>]*#+%s")
+      or line:match("^[%s>]*\\begin%s*{") or line:match("^[%s>]*\\end%s*{")
+      or line:match("^[%s>]*%-%-%-+%s*$")
       or line:find("FIXGROUPS_LITERAL", 1, true) ~= nil
 end
 
@@ -998,7 +998,7 @@ end
 -- ----------------------------------------------------------------------
 -- §5.5  Structural rewrites
 -- ----------------------------------------------------------------------
-local function is_table_row(line) return line:match("^%s*|.*|%s*$") ~= nil end
+local function is_table_row(line) return line:match("^[%s>]*|.*|%s*$") ~= nil end
 
 -- pandoc needs a blank line before a pipe table; AI output often omits it
 local function space_tables(text)
@@ -1008,7 +1008,7 @@ local function space_tables(text)
     if mark then
       fence = fence_next(fence, mark)
     elseif not fence and is_table_row(line) and prev:match("%S") and not is_table_row(prev) then
-      if not display then out[#out+1] = "" end
+      if not display then out[#out+1] = line:match("^([%s>]*>)") or "" end
     end
     out[#out+1] = line
     if not fence then
@@ -1196,7 +1196,7 @@ end
 -- Wrap them in $$ ... $$ so Pandoc parses them as native DisplayMath, which math_fix unwraps cleanly.
 local function pass_wrap_bare_math_envs(text)
   local out, fence, in_display = {}, nil, false
-  local cur_env, env_lines = nil, nil
+  local cur_env, env_lines, cur_bq = nil, nil, nil
   for line in each_line(text) do
     local mark = fence_mark(line, fence)
     if mark then
@@ -1214,14 +1214,22 @@ local function pass_wrap_bare_math_envs(text)
         local env = not in_display and (b_env or line):match("\\begin%s*{([%a*]+)}")
         local base_env = env and env:gsub("%*$", "")
         if base_env and REGISTRY.MATH_ENVS[base_env] and not line:match("%$%$") and not line:match("\\%[") then
-          if prefix and prefix:match("%S") then out[#out+1] = prefix end
+          local bq = prefix and prefix:match("^([%s>]*>)%s*")
+          local prose = prefix
+          if bq then
+            if not bq:match("%s$") then bq = bq .. " " end
+            prose = prefix:sub(#bq + 1)
+          end
+          if prose and prose:match("%S") then out[#out+1] = (bq or "") .. prose end
+          cur_bq = bq
           cur_env = env
           local body_line = b_env or line
           local e_env, suffix = body_line:match("^(.*\\end%s*{" .. env:gsub("%*", "%%*") .. "})(.*)$")
+          local bq_pfx = bq or ""
           if e_env then
-            out[#out+1] = "$$\n" .. e_env .. "\n$$"
-            if suffix and suffix:match("%S") then out[#out+1] = suffix:gsub("^%s*", "") end
-            cur_env = nil; env_lines = nil
+            out[#out+1] = bq_pfx .. "$$\n" .. bq_pfx .. e_env .. "\n" .. bq_pfx .. "$$"
+            if suffix and suffix:match("%S") then out[#out+1] = bq_pfx .. suffix:gsub("^%s*", "") end
+            cur_env = nil; env_lines = nil; cur_bq = nil
           else
             env_lines = { body_line }
           end
@@ -1229,14 +1237,20 @@ local function pass_wrap_bare_math_envs(text)
           out[#out+1] = line
         end
       else
-        local e_env, suffix = line:match("^(.*\\end%s*{" .. cur_env:gsub("%*", "%%*") .. "})(.*)$")
+        local stripped_line = line
+        if cur_bq then
+          local rest = line:match("^[%s>]*>(.*)$")
+          if rest then stripped_line = rest:gsub("^%s", "") end
+        end
+        local e_env, suffix = stripped_line:match("^(.*\\end%s*{" .. cur_env:gsub("%*", "%%*") .. "})(.*)$")
+        local bq_pfx = cur_bq or ""
         if e_env then
           env_lines[#env_lines+1] = e_env
-          out[#out+1] = "$$\n" .. table.concat(env_lines, "\n") .. "\n$$"
-          if suffix and suffix:match("%S") then out[#out+1] = suffix:gsub("^%s*", "") end
-          cur_env = nil; env_lines = nil
+          out[#out+1] = bq_pfx .. "$$\n" .. bq_pfx .. table.concat(env_lines, "\n" .. bq_pfx) .. "\n" .. bq_pfx .. "$$"
+          if suffix and suffix:match("%S") then out[#out+1] = bq_pfx .. suffix:gsub("^%s*", "") end
+          cur_env = nil; env_lines = nil; cur_bq = nil
         else
-          env_lines[#env_lines+1] = line
+          env_lines[#env_lines+1] = stripped_line
         end
       end
     end
@@ -1803,13 +1817,16 @@ end
 local function image_fix(el)
   local src = el.src or ""
   local clean_src = src:gsub("^file:///*", ""):match("^([^?#]+)") or src
+  if not file_exists(clean_src) and file_exists((clean_src:gsub("%%20", " "))) then
+    clean_src = clean_src:gsub("%%20", " ")
+  end
   local ext = clean_src:match("%.(%w+)$")
   local why
   if clean_src:match("^%a[%w+.%-]+:") and not clean_src:match("^%a:[/\\]") then   -- http: https: data: file: sandbox: blob: ... (not C:/ or C:\)
     why = "remote or sandbox image"
   elseif not (ext and REGISTRY.IMAGE_EXTENSIONS[ext:lower()]) then
     why = "unsupported type (png/jpg/pdf only)"
-  elseif not (file_exists(clean_src) or file_exists((clean_src:gsub("%%20", " ")))) then
+  elseif not file_exists(clean_src) then
     why = "file not found next to the input"
   end
   if why then

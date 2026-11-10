@@ -289,6 +289,7 @@ Version 1.3.6 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-10 | Starred cross-references/citations, URL/href/footnote AST preservation, space-tolerant begin/end regexes, and universal SIMPLE_PREAMBLE hoisting | source +54 / -24 | 78 / 500
 
 For each later accepted change, append one entry in this format:
 

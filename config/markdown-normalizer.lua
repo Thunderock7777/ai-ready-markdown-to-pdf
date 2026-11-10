@@ -1082,7 +1082,7 @@ end
 -- Only used when begin and end are on separate lines; everything else stays raw LaTeX.
 -- Supports arbitrary nesting (e.g. quote or proof inside theorem) via an environment stack.
 local function envs_to_divs(text)
-  for nm in text:gmatch("\\newtheorem%*?{([^}]*)}") do
+  for nm in text:gmatch("\\newtheorem%*?%s*{([^}]*)}") do
     REGISTRY.DIV_ENVS[nm] = true
   end
   local out, fence = {}, nil
@@ -1095,8 +1095,8 @@ local function envs_to_divs(text)
     elseif fence then
       out[#out+1] = line
     else
-      local env, rest = line:match("^%s*\\begin{(%a+)}(.*)$")
-      if env and REGISTRY.DIV_ENVS[env] and not rest:find("\\end{" .. env .. "}", 1, true) then
+      local env, rest = line:match("^%s*\\begin%s*{([%a*]+)}(.*)$")
+      if env and REGISTRY.DIV_ENVS[env] and not rest:match("\\end%s*{" .. env:gsub("%*", "%%*") .. "}") then
         local opt, tail = rest:match("^%s*(%b[])(.*)$")
         if not opt then tail = rest end
         State.env_opts[#State.env_opts + 1] = opt or ""
@@ -1105,7 +1105,7 @@ local function envs_to_divs(text)
         out[#out+1] = string.format('::: {.latexenv lenv="%s" lopt="%d"}', env, #State.env_opts)
         if tail:match("%S") then out[#out+1] = (tail:gsub("^%s+", "")) end
       else
-        local before, e = line:match("^(.-)\\end{(%a+)}%s*$")
+        local before, e = line:match("^(.-)\\end%s*{([%a*]+)}%s*$")
         if #env_stack > 0 and e == env_stack[#env_stack] then
           if before:match("%S") then out[#out+1] = before end
           out[#out+1] = ":::"
@@ -1173,23 +1173,33 @@ local function pass_wrap_bare_math_envs(text)
         for _ in line:gmatch("%$%$") do d1 = d1 + 1 end
         if d1 % 2 == 1 then in_display = not in_display end
 
-        local env = not in_display and line:match("\\begin%s*{([%a*]+)}")
+        local prefix, b_env = line:match("^(.-)(\\begin%s*{[%a*]+}.*)$")
+        local env = not in_display and (b_env or line):match("\\begin%s*{([%a*]+)}")
         local base_env = env and env:gsub("%*$", "")
         if base_env and REGISTRY.MATH_ENVS[base_env] and not line:match("%$%$") and not line:match("\\%[") then
+          if prefix and prefix:match("%S") then out[#out+1] = prefix end
           cur_env = env
-          env_lines = { line }
-          if line:match("\\end%s*{" .. env:gsub("%*", "%%*") .. "}") then
-            out[#out+1] = "$$\n" .. table.concat(env_lines, "\n") .. "\n$$"
+          local body_line = b_env or line
+          local e_env, suffix = body_line:match("^(.*\\end%s*{" .. env:gsub("%*", "%%*") .. "})(.*)$")
+          if e_env then
+            out[#out+1] = "$$\n" .. e_env .. "\n$$"
+            if suffix and suffix:match("%S") then out[#out+1] = suffix:gsub("^%s*", "") end
             cur_env = nil; env_lines = nil
+          else
+            env_lines = { body_line }
           end
         else
           out[#out+1] = line
         end
       else
-        env_lines[#env_lines+1] = line
-        if line:match("\\end%s*{" .. cur_env:gsub("%*", "%%*") .. "}") then
+        local e_env, suffix = line:match("^(.*\\end%s*{" .. cur_env:gsub("%*", "%%*") .. "})(.*)$")
+        if e_env then
+          env_lines[#env_lines+1] = e_env
           out[#out+1] = "$$\n" .. table.concat(env_lines, "\n") .. "\n$$"
+          if suffix and suffix:match("%S") then out[#out+1] = suffix:gsub("^%s*", "") end
           cur_env = nil; env_lines = nil
+        else
+          env_lines[#env_lines+1] = line
         end
       end
     end
@@ -1390,7 +1400,7 @@ local function clean(text)
   text, file_meta = extract_yaml_fences(text)
   text = space_fences(text)
   text = normalize_fence_attributes(text)
-  for nm in text:gmatch("\\newtheorem%*?{([^}]*)}") do
+  for nm in text:gmatch("\\newtheorem%*?%s*{([^}]*)}") do
     REGISTRY.DIV_ENVS[nm] = true
   end
   local fence, malformed = nil, 0
@@ -1489,8 +1499,8 @@ local function math_fix(el)
   local fixed = bold_greek(el.text)
   if fixed ~= el.text then el = pandoc.Math(el.mathtype, fixed); changed = true end
   if el.mathtype ~= "DisplayMath" then return changed and el or nil end
-  local env = el.text:match("\\begin{(%a+)%*?}")
-  if env and REGISTRY.MATH_ENVS[env] and el.text:match("\\end{" .. env .. "%*?}") then
+  local env = el.text:match("\\begin%s*{(%a+)%*?}")
+  if env and REGISTRY.MATH_ENVS[env] and el.text:match("\\end%s*{" .. env .. "%*?}") then
     return pandoc.RawInline("latex", "\n" .. el.text:gsub("^%s+", ""):gsub("%s+$", "") .. "\n")
   end
   return changed and el or nil
@@ -1524,8 +1534,15 @@ local function str_fix(el)
     if text:sub(pos, pos) == "\\" then
       local sub_arg = text:match("^\\textsubscript(%b{})", pos)
       local sup_arg = text:match("^\\textsuperscript(%b{})", pos)
-      local ref_cmd, ref_arg = text:match("^\\([%a@]*ref)(%b{})", pos)
-      local cite_cmd, cite_arg = text:match("^\\([%a@]*cite)(%b{})", pos)
+      local ref_cmd, ref_arg = text:match("^\\([%a@]*ref%*?)(%b{})", pos)
+      local cite_cmd, cite_opt, cite_arg = text:match("^\\([%a@]*cite%*?)(%b[])(%b{})", pos)
+      if not cite_cmd then
+        cite_cmd, cite_arg = text:match("^\\([%a@]*cite%*?)(%b{})", pos)
+        cite_opt = ""
+      end
+      local url_arg = text:match("^\\url(%b{})", pos)
+      local href_url, href_text = text:match("^\\href(%b{})(%b{})", pos)
+      local fn_arg = text:match("^\\footnote(%b{})", pos)
       local label_arg = text:match("^\\label(%b{})", pos)
       local is_nbsp = text:match("^\\nobreakspace{}", pos) or text:match("^\\nobreakspace%f[%A]", pos)
 
@@ -1552,8 +1569,23 @@ local function str_fix(el)
         hit = true
       elseif cite_cmd and cite_arg then
         flush()
-        out[#out+1] = pandoc.RawInline("latex", "\\" .. cite_cmd .. cite_arg)
-        pos = pos + 1 + #cite_cmd + #cite_arg
+        out[#out+1] = pandoc.RawInline("latex", "\\" .. cite_cmd .. cite_opt .. cite_arg)
+        pos = pos + 1 + #cite_cmd + #cite_opt + #cite_arg
+        hit = true
+      elseif url_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\url" .. url_arg)
+        pos = pos + #("\\url" .. url_arg)
+        hit = true
+      elseif href_url and href_text then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\href" .. href_url .. href_text)
+        pos = pos + #("\\href" .. href_url .. href_text)
+        hit = true
+      elseif fn_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\footnote" .. fn_arg)
+        pos = pos + #("\\footnote" .. fn_arg)
         hit = true
       elseif label_arg then
         flush()
@@ -1670,7 +1702,7 @@ end
 -- (pandoc usually reads it as a RawInline inside a paragraph; sometimes as a RawBlock.)
 local function rawblock_super(el)
   if not el.format:match("^%a*tex$") then return nil end
-  local env = el.text:match("^%s*\\begin{(%a+)%*?}")
+  local env = el.text:match("^%s*\\begin%s*{(%a+)%*?}")
   if not (env and REGISTRY.MATH_ENVS[env]) then return nil end
   local new, hit = scripts_in_math(el.text)
   if not hit then return nil end

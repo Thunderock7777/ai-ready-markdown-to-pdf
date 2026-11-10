@@ -1015,12 +1015,10 @@ local function render_latex(el, class, preamble, global_defs)
     local hoisted_cmds = {}
     local local_cmds = {}
     for _, cmd in ipairs(commands) do
-      if cmd:match("^%s*\\usepackage") or cmd:match("^%s*\\usetikzlibrary")
-          or cmd:match("^%s*\\usepgfplotslibrary") or cmd:match("^%s*\\usepgflibrary")
-          or cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\newunicodechar")
-          or cmd:match("^%s*\\DeclarePairedDelimiter") or cmd:match("^%s*\\newtheorem")
-          or cmd:match("^%s*\\theoremstyle") or cmd:match("^%s*\\hypersetup")
-          or cmd:match("^%s*\\mathtoolsset") then
+      local cmd_name = cmd:match("^%s*\\(%a+)")
+      if cmd_name and (cmd_name == "usepackage" or SIMPLE_PREAMBLE[cmd_name]
+          or cmd_name == "DeclareMathOperator" or PAIR_DELIM[cmd_name]
+          or cmd_name == "newtheorem") then
         hoisted_cmds[#hoisted_cmds + 1] = cmd
       else
         local_cmds[#local_cmds + 1] = cmd

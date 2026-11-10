@@ -11,6 +11,7 @@ Keep this folder structure together:
 
     your-tool-folder\
         compile.bat
+        setup.bat
         README.md
         config\
             custom.tex
@@ -35,7 +36,7 @@ convenient. The generated PDF is saved beside the first input file; compiling a
 file from documentation\ puts its PDF there. The config folder contains only the
 template and filters.
 
-Required tool files: compile.bat in the root, plus custom.tex,
+Required tool files: compile.bat and setup.bat in the root, plus custom.tex,
 markdown-normalizer.lua, code-fence-runner.lua, and error-annotator.lua inside config.
 
 Best use
@@ -52,6 +53,17 @@ Optional Python plotting needs the extra Matplotlib package.
 
 What to install
 ---------------
+0. Automated Setup (Recommended)
+   Run `setup.bat` from Command Prompt or double-click it in Windows Explorer:
+
+       setup.bat
+
+   This script automatically:
+   - Verifies or installs Pandoc via winget.
+   - Verifies or installs MiKTeX / XeLaTeX via winget.
+   - Pre-installs and configures required LaTeX packages with automatic on-the-fly downloads enabled (`initexmf --set-config-value [MPM]AutoInstall=1`).
+   - Checks (and NEVER installs) optional language runtimes (Python + numpy/matplotlib, GCC, G++, Java) and reports their readiness.
+
 1. Pandoc
    Required to read Markdown, run the Lua filters, and produce LaTeX.
 

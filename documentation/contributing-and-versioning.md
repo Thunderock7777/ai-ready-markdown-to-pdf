@@ -297,6 +297,14 @@ Change ledger
   2026-11-10 | Blockquote-aware math and tables, environment boundary and row spacing protection, and %20 image path decoding | source +36 / -19 | 376 / 500
   2026-11-10 | Accurate javac availability check, structural pagebreak boundary separation, and spacing/layout command preservation | source +11 / -1 | 388 / 500
   2026-11-10 | Babel multilingual font mapping (Bengali, Hindi, CJK) and automatic script routing | source +26 / -3 | 417 / 500
+  2026-11-10 | Versioned multilingual font support and pipeline stabilization as 1.3.7 (PATCH)
+
+Version 1.3.7 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-10 | Automated environment installer setup.bat for Pandoc, LaTeX, and package configuration with optional runtime checks | source +264 / -0 | 264 / 500
+  2026-11-10 | Multilingual script router for Bengali, Hindi, and CJK with str_fix repair | source +55 / -2 | 321 / 500
 
 For each later accepted change, append one entry in this format:
 

@@ -5,7 +5,7 @@ Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
 and Java can run during the build with universal caching and approval controls,
 while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.3.6**.
+**Current project version: 1.3.7**.
 
 > **Paste an AI chat response and compile it directly.** A copied response from
 > ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses
@@ -15,6 +15,8 @@ while LaTeX fences render source snippets without executing them.
 ## Features
 
 - **Direct AI Chat Compilation**: Compile copied responses from ChatGPT, Gemini, or NotebookLM with zero manual editing for supported content.
+- **Automated Environment Setup**: One-click `setup.bat` script automatically verifies or installs Pandoc, MiKTeX/XeLaTeX, enables automatic package installation, pre-installs required LaTeX packages, and checks (never installs) optional language compilers.
+- **Multilingual Typesetting**: Full native support for Bengali (Bangla ligatures and conjuncts via Kalpurush/Nirmala UI), Hindi (Devanagari script via Nirmala UI), CJK (Chinese, Japanese, Korean), and Latin scripts via XeLaTeX and Babel.
 - **Multi-File Concatenation**: Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order into a single unified PDF.
 - **Universal Executable Code Fences**: Python, C, C++, and Java blocks execute with persistent SHA-1 caching, interactive confirmation prompts (`trusted=true` bypass), output capture, and compiler/runtime error reporting.
 - **Uniform Fence Syntax**: Standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````) across all languages; raw delimiters like `---` are reserved for horizontal rules and never treated as metadata.
@@ -44,6 +46,7 @@ Keep the compiler and its configuration files together:
 ```text
 your-tool-folder/
 ├── compile.bat
+├── setup.bat
 ├── README.md
 ├── documentation/
 │   ├── rendering-rules.md
@@ -82,6 +85,20 @@ that folder when no build is running; cached results will be regenerated.
 For LaTeX packages, use MiKTeX with automatic package installation enabled or a
 full TeX Live installation. See [installation-and-usage.md](documentation/installation-and-usage.md) for
 installation steps, command-line options, troubleshooting, and examples.
+
+## Automated Setup (Recommended)
+
+Run `setup.bat` once to configure your environment automatically:
+
+```bat
+setup.bat
+```
+
+The script will:
+1. Verify or install **Pandoc** (via `winget` if missing).
+2. Verify or install **XeLaTeX** (MiKTeX via `winget` if missing).
+3. Pre-install and configure all required **LaTeX packages** with automatic on-the-fly downloads enabled.
+4. Check (and **never install**) optional runtimes: Python (with NumPy/Matplotlib), GCC (C), G++ (C++), and Java.
 
 ## Quick start
 

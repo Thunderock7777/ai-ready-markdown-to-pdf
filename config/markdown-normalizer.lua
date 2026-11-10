@@ -1567,7 +1567,39 @@ end
 -- Unicode superscript LETTERS (pˢ  mⁿ  xʸ ...) are missing from Latin Modern, so XeLaTeX prints a
 -- blank and "Missing character".  Each one becomes \textsuperscript{base letter}, which follows
 -- the current font (bold in **..**, headings, ...).  Only ordinary text is touched: math, code
- 
+-- spans and code blocks are separate AST elements and are left alone.
+local function script_of_char(cp)
+  if not cp then return nil end
+  if cp >= 0x0980 and cp <= 0x09FF then
+    return "bengali"
+  elseif cp >= 0x0900 and cp <= 0x097F then
+    return "hindi"
+  elseif (cp >= 0x4E00 and cp <= 0x9FFF) or (cp >= 0x3400 and cp <= 0x4DBF)
+      or (cp >= 0x3000 and cp <= 0x303F) or (cp >= 0xFF00 and cp <= 0xFFEF) then
+    return "chinese-simplified"
+  end
+  return nil
+end
+
+local function str_fix(el)
+  local text = el.text
+  local has_super = false
+  local has_script = false
+  for ch in text:gmatch(utf8.charpattern) do
+    if SUPER_LETTERS[ch] then has_super = true end
+    local cp = utf8.codepoint(ch)
+    if script_of_char(cp) then has_script = true end
+    if has_super and has_script then break end
+  end
+  local has_tex = text:find("\\", 1, true) ~= nil
+  if not has_super and not has_tex and not has_script then return nil end
+
+  local out, buf = {}, {}
+  local function flush()
+    if #buf > 0 then out[#out+1] = pandoc.Str(table.concat(buf)); buf = {} end
+  end
+
+  local pos = 1
   local hit = false
   while pos <= #text do
     if text:sub(pos, pos) == "\\" then
@@ -1680,15 +1712,36 @@ end
     else
       local ch = text:match(utf8.charpattern, pos) or text:sub(pos, pos)
       local base = SUPER_LETTERS[ch]
+      local cp = utf8.codepoint(ch)
+      local sc = script_of_char(cp)
       if base then
         flush()
         out[#out+1] = pandoc.RawInline("latex", "\\textsuperscript{" .. base .. "}")
         State.super_fixes = State.super_fixes + 1
         hit = true
+        pos = pos + #ch
+      elseif sc then
+        flush()
+        local schars = { ch }
+        local cur = pos + #ch
+        while cur <= #text do
+          local next_ch = text:match(utf8.charpattern, cur)
+          if not next_ch then break end
+          local next_cp = utf8.codepoint(next_ch)
+          if next_cp and script_of_char(next_cp) == sc then
+            schars[#schars+1] = next_ch
+            cur = cur + #next_ch
+          else
+            break
+          end
+        end
+        out[#out+1] = pandoc.RawInline("latex", "\\foreignlanguage{" .. sc .. "}{" .. table.concat(schars) .. "}")
+        pos = cur
+        hit = true
       else
         buf[#buf+1] = ch
+        pos = pos + #ch
       end
-      pos = pos + #ch
     end
   end
   if not hit then return nil end

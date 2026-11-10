@@ -291,6 +291,7 @@ Version 1.3.6 cycle
 Change ledger
   2026-11-10 | Starred cross-references/citations, URL/href/footnote AST preservation, space-tolerant begin/end regexes, and universal SIMPLE_PREAMBLE hoisting | source +54 / -24 | 78 / 500
   2026-11-10 | Spaced document begin/end unwrapping, minted verbatim masking, and top-to-bottom header-includes ordering | source +17 / -15 | 110 / 500
+  2026-11-10 | Odd-backslash parity check for escaped dollars in single-line math | source +7 / -2 | 119 / 500
 
 For each later accepted change, append one entry in this format:
 

@@ -581,11 +581,16 @@ local function fix_math_line(line)
   line = line:gsub("\\%$(.-)\\%$",           function(i) local r = unescape(i); return r and ("$"  .. r .. "$")  or nil end)
 
   local is_table = line:match("^%s*|") ~= nil
+  local function is_escaped(str, pos)
+    local slashes, j = 0, pos - 1
+    while j >= 1 and str:sub(j, j) == "\\" do slashes = slashes + 1; j = j - 1 end
+    return slashes % 2 == 1
+  end
   local out, i, n = {}, 1, #line
   while i <= n do
     local s = line:find("%$", i)
     if not s then out[#out+1] = line:sub(i); break end
-    if s > 1 and line:sub(s-1, s-1) == "\\" then              -- escaped dollar = currency
+    if is_escaped(line, s) then                               -- escaped dollar = currency
       out[#out+1] = line:sub(i, s); i = s + 1
     elseif line:sub(s+1, s+1) == "$" then                     -- $$ .. $$ on the same line
       local e = line:find("%$%$", s + 2)
@@ -594,7 +599,7 @@ local function fix_math_line(line)
     else                                                      -- inline $ .. $
       local e = line:find("%$", s + 1)
       while e do
-        if line:sub(e-1, e-1) == "\\" or line:sub(e+1, e+1):match("%d") then
+        if is_escaped(line, e) or line:sub(e+1, e+1):match("%d") then
           e = line:find("%$", e + 1)
         else
           break

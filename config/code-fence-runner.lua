@@ -713,8 +713,16 @@ end
 local function in_comment(s, pos)                   -- is s[pos] after an unescaped % on its line?
   local ls = pos
   while ls > 1 and s:sub(ls - 1, ls - 1) ~= "\n" do ls = ls - 1 end
-  local line = s:sub(ls, pos - 1)
-  return line:find("^%%") ~= nil or line:find("[^\\]%%") ~= nil
+  local i = ls
+  while i < pos do
+    if s:byte(i) == 37 then
+      local slashes, j = 0, i - 1
+      while j >= ls and s:byte(j) == 92 do slashes = slashes + 1; j = j - 1 end
+      if slashes % 2 == 0 then return true end
+    end
+    i = i + 1
+  end
+  return false
 end
 
 local function extract_commands(pre)
@@ -915,7 +923,7 @@ local function extract_commands(pre)
             finish = first_end
           end
             if finish then
-              local first = pre:sub(cursor + 1, first_end - 1)
+              local first = pre:sub(cursor + 1, first_end - 1):match("^%s*(.-)%s*$")
               if name == "usepackage" then
                 local keep = {}
                 for package in first:gmatch("[^,%s]+") do

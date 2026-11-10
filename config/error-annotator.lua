@@ -78,13 +78,7 @@ local log_lines = unwrap_tex_log(log_content)
 local err_map = {}
 
 for _, line in ipairs(log_lines) do
-  local f, l, msg = line:match("([%a%d_%-%.\\/]*[/\\]" .. tex_name_esc .. "):(%d+):%s*(.*)")
-  if not f then
-    f, l, msg = line:match("^(" .. tex_name_esc .. "):(%d+):%s*(.*)")
-  end
-  if not f then
-    f, l, msg = line:match("([%s%(]" .. tex_name_esc .. "):(%d+):%s*(.*)")
-  end
+  local f, l, msg = line:match("^%s*%(?(.-" .. tex_name_esc .. "):(%d+):%s*(.*)")
 
   if f and l and msg then
     if not msg:find("Missing character") and not msg:find("Overfull") and not msg:find("Underfull") then
@@ -111,9 +105,9 @@ local tex_lines = split_lines(tex_content)
 
 local doc_start, doc_end = 1, #tex_lines
 for i, line in ipairs(tex_lines) do
-  if line:find("\\begin{document}", 1, true) then
+  if line:match("\\begin%s*{document}") then
     doc_start = i
-  elseif line:find("\\end{document}", 1, true) then
+  elseif line:match("\\end%s*{document}") then
     doc_end = i
     break
   end
@@ -176,7 +170,7 @@ for _, item in ipairs(body_errors) do
     local is_env_boundary = rest:match("^\\end%s*{[^}]+}%s*$") or rest:match("^\\begin%s*{[^}]+}%s*$")
 
     if not is_env_boundary then
-      local row_end = rest:match("(\\\\)$") or rest:match("(\\tabularnewline)$") or ""
+      local row_end = rest:match("(\\\\%s*%b[])$") or rest:match("(\\\\)$") or rest:match("(\\tabularnewline)$") or ""
       if row_end ~= "" then
         rest = rest:sub(1, -#row_end - 1)
         rest = rest:match("^(.-)%s*$") or rest

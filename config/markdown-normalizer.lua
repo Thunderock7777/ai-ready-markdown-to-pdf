@@ -911,7 +911,8 @@ local function hoist(block, in_preamble)
     for _, package in ipairs(commands) do State.hoisted[#State.hoisted+1] = package end
     return true
   elseif cmd == "newtheorem" then
-    local nm = block:match("\\newtheorem%*?{([^}]*)}")
+    local nm = block:match("\\newtheorem%*?%s*{([^}]*)}")
+    if nm then nm = nm:match("^%s*(.-)%s*$") end
     if nm and REGISTRY.THEOREMS[nm] then return true end
     if nm then REGISTRY.DIV_ENVS[nm] = true end
   end
@@ -1054,9 +1055,18 @@ local function md_in_lists(text)
     elseif fence or line:sub(1, 1) == "%" then
       out[#out+1] = line                                  -- fenced code / comment line
     else
-      local cpos = line:find("[^\\]%%")
+      local cpos = nil
+      local i = 1
+      while i <= #line do
+        if line:byte(i) == 37 then
+          local slashes, j = 0, i - 1
+          while j >= 1 and line:byte(j) == 92 do slashes = slashes + 1; j = j - 1 end
+          if slashes % 2 == 0 then cpos = i; break end
+        end
+        i = i + 1
+      end
       local body, tail = line, ""
-      if cpos then body = line:sub(1, cpos); tail = line:sub(cpos + 1) end
+      if cpos then body = line:sub(1, cpos - 1); tail = line:sub(cpos) end
       local res, pos = {}, 1
       for s, cmd, name, e in body:gmatch("()\\(%a+)%s*{(%a+)%*?}()") do
         if cmd == "begin" or cmd == "end" then
@@ -1088,6 +1098,7 @@ end
 -- Supports arbitrary nesting (e.g. quote or proof inside theorem) via an environment stack.
 local function envs_to_divs(text)
   for nm in text:gmatch("\\newtheorem%*?%s*{([^}]*)}") do
+    nm = nm:match("^%s*(.-)%s*$")
     REGISTRY.DIV_ENVS[nm] = true
   end
   local out, fence = {}, nil
@@ -1407,6 +1418,7 @@ local function clean(text)
   text = space_fences(text)
   text = normalize_fence_attributes(text)
   for nm in text:gmatch("\\newtheorem%*?%s*{([^}]*)}") do
+    nm = nm:match("^%s*(.-)%s*$")
     REGISTRY.DIV_ENVS[nm] = true
   end
   local fence, malformed = nil, 0
@@ -1538,19 +1550,42 @@ local function str_fix(el)
   local hit = false
   while pos <= #text do
     if text:sub(pos, pos) == "\\" then
-      local sub_arg = text:match("^\\textsubscript(%b{})", pos)
-      local sup_arg = text:match("^\\textsuperscript(%b{})", pos)
-      local ref_cmd, ref_arg = text:match("^\\([%a@]*ref%*?)(%b{})", pos)
-      local cite_cmd, cite_opt, cite_arg = text:match("^\\([%a@]*cite%*?)(%b[])(%b{})", pos)
+      local rest = text:sub(pos)
+      local sub_arg = rest:match("^\\textsubscript(%b{})")
+      local sup_arg = rest:match("^\\textsuperscript(%b{})")
+      local ref_cmd, ref_opt, ref_arg = rest:match("^\\([%a@]*ref%*?)(%b[])(%b{})")
+      if not ref_opt then
+        ref_cmd, ref_arg = rest:match("^\\([%a@]*ref%*?)(%b{})")
+        ref_opt = ""
+      end
+      local cite_cmd, cite_opt, cite_arg = rest:match("^\\([%a@]*cite%*?)(%b[])(%b{})")
       if not cite_cmd then
-        cite_cmd, cite_arg = text:match("^\\([%a@]*cite%*?)(%b{})", pos)
+        cite_cmd, cite_arg = rest:match("^\\([%a@]*cite%*?)(%b{})")
         cite_opt = ""
       end
-      local url_arg = text:match("^\\url(%b{})", pos)
-      local href_url, href_text = text:match("^\\href(%b{})(%b{})", pos)
-      local fn_arg = text:match("^\\footnote(%b{})", pos)
-      local label_arg = text:match("^\\label(%b{})", pos)
-      local is_nbsp = text:match("^\\nobreakspace{}", pos) or text:match("^\\nobreakspace%f[%A]", pos)
+      local url_arg = rest:match("^\\url(%b{})")
+      local href_opt, href_url, href_text = rest:match("^\\href(%b[])(%b{})(%b{})")
+      if not href_opt then
+        href_url, href_text = rest:match("^\\href(%b{})(%b{})")
+        href_opt = ""
+      end
+      local fn_opt, fn_arg = rest:match("^\\footnote(%b[])(%b{})")
+      if not fn_opt then
+        fn_arg = rest:match("^\\footnote(%b{})")
+        fn_opt = ""
+      end
+      local label_arg = rest:match("^\\label(%b{})")
+      local is_nbsp = rest:match("^\\nobreakspace{}") or rest:match("^\\nobreakspace%f[%A]")
+      local pb_cmd, pb_brace = rest:match("^\\(newpage)(%b{})")
+            or rest:match("^\\(clearpage)(%b{})")
+            or rest:match("^\\(pagebreak)(%b{})")
+      if not pb_cmd then
+        pb_cmd = rest:match("^\\(newpage)%f[%A]")
+              or rest:match("^\\(clearpage)%f[%A]")
+              or rest:match("^\\(pagebreak)%f[%A]")
+        pb_brace = ""
+      end
+      local sp_cmd, sp_arg = rest:match("^\\([vh]space%*?)(%b{})")
 
       if sub_arg then
         flush()
@@ -1570,8 +1605,8 @@ local function str_fix(el)
         hit = true
       elseif ref_cmd and ref_arg then
         flush()
-        out[#out+1] = pandoc.RawInline("latex", "\\" .. ref_cmd .. ref_arg)
-        pos = pos + 1 + #ref_cmd + #ref_arg
+        out[#out+1] = pandoc.RawInline("latex", "\\" .. ref_cmd .. ref_opt .. ref_arg)
+        pos = pos + 1 + #ref_cmd + #ref_opt + #ref_arg
         hit = true
       elseif cite_cmd and cite_arg then
         flush()
@@ -1585,18 +1620,28 @@ local function str_fix(el)
         hit = true
       elseif href_url and href_text then
         flush()
-        out[#out+1] = pandoc.RawInline("latex", "\\href" .. href_url .. href_text)
-        pos = pos + #("\\href" .. href_url .. href_text)
+        out[#out+1] = pandoc.RawInline("latex", "\\href" .. href_opt .. href_url .. href_text)
+        pos = pos + #("\\href" .. href_opt .. href_url .. href_text)
         hit = true
       elseif fn_arg then
         flush()
-        out[#out+1] = pandoc.RawInline("latex", "\\footnote" .. fn_arg)
-        pos = pos + #("\\footnote" .. fn_arg)
+        out[#out+1] = pandoc.RawInline("latex", "\\footnote" .. fn_opt .. fn_arg)
+        pos = pos + #("\\footnote" .. fn_opt .. fn_arg)
         hit = true
       elseif label_arg then
         flush()
         out[#out+1] = pandoc.RawInline("latex", "\\label" .. label_arg)
         pos = pos + #("\\label" .. label_arg)
+        hit = true
+      elseif pb_cmd then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\" .. pb_cmd .. pb_brace)
+        pos = pos + 1 + #pb_cmd + #pb_brace
+        hit = true
+      elseif sp_cmd and sp_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\" .. sp_cmd .. sp_arg)
+        pos = pos + 1 + #sp_cmd + #sp_arg
         hit = true
       else
         local ch = text:match(utf8.charpattern, pos) or text:sub(pos, pos)
@@ -2052,6 +2097,25 @@ local function load_cleaned_input(doc)
     for _, block in ipairs(parsed.blocks) do blocks[#blocks+1] = block end
   end
   cleaned_meta = cleaned_meta or {}
+  if doc and doc.meta then
+    for key, value in pairs(doc.meta) do
+      if key == "header-includes" and cleaned_meta[key] then
+        local combined = {}
+        local function add_items(item)
+          if item.t == "MetaList" then
+            for _, x in ipairs(item) do combined[#combined + 1] = x end
+          else
+            combined[#combined + 1] = item
+          end
+        end
+        add_items(cleaned_meta[key])
+        add_items(value)
+        cleaned_meta[key] = pandoc.MetaList(combined)
+      else
+        cleaned_meta[key] = value
+      end
+    end
+  end
   return pandoc.Pandoc(blocks, cleaned_meta)
 end
 

@@ -121,6 +121,9 @@ LaTeX extraction policy tables
     newfontfamily renewfontfamily setfontfamily providefontfamily
     newfontface renewfontface setfontface providefontface (fontspec family/face
     definitions rescued from preamble deletion and retained in local_cmds)
+  PRIMITIVE_DEFS:
+    def gdef edef (plus \let; low-level TeX definition and assignment primitives
+    rescued from preamble deletion and retained in local_cmds)
   TEMPLATE_THEOREMS:
     theorem lemma proposition corollary definition example remark
   SIMPLE_PREAMBLE:
@@ -414,35 +417,41 @@ Function reference: registration and LaTeX recovery
     FONT_FAMILY_COMMANDS accepts newfontfamily, renewfontfamily, setfontfamily,
     providefontfamily, newfontface, renewfontface, setfontface, and providefontface,
     preserving fontspec family and face declarations for local execution.
+    PRIMITIVE_DEFS accepts def, gdef, and edef (alongside \let), parsing control sequences,
+    optional parameter text, and balanced replacement bodies into local_cmds.
     SIMPLE_PREAMBLE accepts usetikzlibrary, usepgfplotslibrary,
-    usepgflibrary, pgfplotsset, tikzset, sisetup, theoremstyle, and
-    newunicodechar.
+    usepgflibrary, pgfplotsset, tikzset, sisetup, theoremstyle,
+    newunicodechar, hypersetup, and mathtoolsset.
+    PAIR_DELIM recognizes DeclarePairedDelimiter (2 delimiter groups),
+    DeclarePairedDelimiterX (3 delimiter/body groups), and DeclarePairedDelimiterXPP
+    (5 pre/delim/post/body groups), accepting both braced and unbraced targets with
+    an optional [num] argument specification.
     Additional recognized commands are usepackage, DeclareMathOperator,
-    newtheorem, DeclarePairedDelimiter, newenvironment, NewDocumentCommand,
+    newtheorem, newenvironment, NewDocumentCommand,
     and DeclareDocumentCommand. The parser advances past a successfully
     parsed command, so it can recover multiple definitions from a preamble.
     For usepackage, it retains an optional [options] group and filters each
     comma-separated package against SKIP_PACKAGES. For newtheorem it supports
-    the optional parent-counter argument and skips the template's predefined
-    environment names. For newenvironment it supports optional argument-count
-    and default-value
-    groups and requires both begin/end bodies. DeclarePairedDelimiter requires
-    its three brace groups. NewDocumentCommand and DeclareDocumentCommand
-    require all three groups. Newtheorem allows an optional parent-counter
-    group before its required counter-name group.
+    optional parent-counter and subordinate reset-counter ([section]) arguments,
+    skipping the template's predefined environment names. For newenvironment it
+    supports optional argument-count and default-value groups and requires both begin/end bodies.
+    NewDocumentCommand and DeclareDocumentCommand require all three groups.
   get_global_command_target(cmd) -> target string or nil
     Identifies the unique target name for commands that have global or document-wide scope
-    (\DeclareMathOperator, \DeclarePairedDelimiter, \newunicodechar, \newtheorem) to detect
+    (\DeclareMathOperator, \DeclarePairedDelimiter, \DeclarePairedDelimiterX,
+    \DeclarePairedDelimiterXPP, \newunicodechar, \newtheorem) to detect
     and prevent cross-fence naming collisions.
   render_latex(CodeBlock, class, preamble, global_defs) -> Pandoc blocks
     Optionally shows source when show=true. For full documents (with begin/end document),
-    extracts preamble commands: package and library imports (\usepackage, \usetikzlibrary, etc.)
-    and preamble-only declarations (\DeclareMathOperator, \newunicodechar, \DeclarePairedDelimiter)
-    are automatically hoisted to preamble (header-includes), while macro definitions, font family
-    commands (\newfontfamily, \newfontface, etc.), and custom environments stay strictly local to
-    the block body rather than leaking globally. Hoisted \DeclareMathOperator declarations are
-    safely prefixed with \let\cmd\relax to prevent clashes with pre-existing template or kernel
-    operators (\Tr, \Pr, \Re, etc.).
+    extracts preamble commands: package and library imports (\usepackage, \usetikzlibrary, etc.),
+    preamble declarations (\DeclareMathOperator, \newunicodechar, \DeclarePairedDelimiter,
+    \DeclarePairedDelimiterX, \DeclarePairedDelimiterXPP, \newtheorem, \theoremstyle,
+    \hypersetup, \mathtoolsset) are automatically hoisted to the document preamble (header-includes),
+    while macro definitions, low-level TeX primitives (\def, \gdef, \edef, \let), font family commands
+    (\newfontfamily, \newfontface, etc.), and custom environments stay strictly local to the block body
+    rather than leaking globally. Hoisted \DeclareMathOperator and all \DeclarePairedDelimiter variants
+    are safely prefixed with \let\cmd\relax to prevent clashes with pre-existing template or kernel
+    operators/delimiters (\Tr, \Pr, \Re, \abs, \norm, physics.sty macros, etc.).
     Cross-fence collision protection: if any block attempts to define or redefine a global command
     target (via \DeclareMathOperator, \DeclarePairedDelimiter, \newunicodechar, \newtheorem) or imports
     a package with conflicting options compared to an earlier block, render_latex emits a console
@@ -453,9 +462,10 @@ Function reference: registration and LaTeX recovery
     {\begingroup\n ... \n\par\endgroup}, ensuring that definitions, colors, font sizes,
     lengths, and counter modifications remain strictly isolated to the block and cannot
     leak to outer Markdown prose or subsequent fences. If usepackage or documentclass appears
-    in a snippet without begin{document}, it warns that the pasted preamble is likely to fail.
-    Source display is opt-in for LaTeX (show=true). Redefinitions of document scaffolding macros
-    trigger automatic demotion to a code listing (run=false).
+    in a snippet without begin{document}, it emits a console warning and returns nil, automatically
+    demoting the block to a syntax-highlighted code listing (run=false) to prevent fatal document
+    compilation crashes. Source display is opt-in for LaTeX (show=true). Redefinitions of document
+    scaffolding macros trigger automatic demotion to a code listing (run=false).
 
 Function reference: execution and rendering
 --------------------------------------------
@@ -555,7 +565,8 @@ share:
   register's alias loop
     Maps every lowercased alias to the same validated spec object.
   extract_commands has no nested function objects; it uses cursor/index locals
-    for escaped group scans and command-arity parsing.
+    for escaped group scans, unbraced control sequence tokens (DeclareMathOperator, DeclarePairedDelimiter),
+    and command-arity parsing including subordinate counter resets (newtheorem[section]).
   fill's gsub callback(token)
     Resolves each placeholder and asserts when its value is missing.
   Python _audit helpers are inline path/mode tests, not separate functions;

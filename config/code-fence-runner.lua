@@ -19,13 +19,15 @@
 --                  \DeclareDocumentCommand, \DeclareMathOperator, \DeclarePairedDelimiter,
 --                  \newtheorem (except environments already defined by the template),
 --                  \newenvironment, \newunicodechar, font-family commands (\newfontfamily,
---                  \newfontface, \renewfontfamily, etc.), \usetikzlibrary, \usepgfplotslibrary,
---                  \usepgflibrary, \tikzset, \pgfplotsset, \sisetup, and \theoremstyle.
+--                  \newfontface, \renewfontfamily, etc.), low-level primitives (\def, \gdef,
+--                  \edef, \let), \usetikzlibrary, \usepgfplotslibrary, \usepgflibrary, \tikzset,
+--                  \pgfplotsset, \sisetup, and \theoremstyle.
 --                  Preamble-only commands (\DeclareMathOperator, \DeclarePairedDelimiter,
 --                  \newunicodechar, \usepackage, libraries) are hoisted to the document preamble.
---                  \DeclareMathOperator is hoisted with \let\cmd\relax to prevent clashes
---                  with pre-existing template/kernel operators. All macros, font families, and
---                  environments remain strictly local to {\begingroup...\par\endgroup}.
+--                  \DeclareMathOperator and \DeclarePairedDelimiter are hoisted with \let\cmd\relax
+--                  to prevent clashes with pre-existing template/kernel operators and delimiters.
+--                  All macros, definitions (\def), \let, font families, and environments remain
+--                  strictly local to {\begingroup...\par\endgroup}.
 --                  Cross-fence protection: defining or redefining any global command, theorem
 --                  (\newtheorem), or conflicting package options across fences automatically
 --                  demotes that block to a code listing (run=false) with a console warning.
@@ -629,7 +631,8 @@ local function java_command(exe, script, out, err, prefix, text)
   local java_dir = prefix .. "_java"
   local javac_env = os.getenv("JAVAC_COMPILER")
   local javac = (javac_env and javac_env ~= "") and javac_env or "javac"
-  local has_javac = (javac_env and javac_env ~= "") or (os.execute((IS_WIN and "where " or "which ") .. javac .. " > " .. NULL_DEV .. " 2>&1") == 0)
+  local has_javac = file_exists(javac) or file_exists(javac .. ".exe")
+      or (os.execute((IS_WIN and "where " or "which ") .. quote_executable(javac) .. " > " .. NULL_DEV .. " 2>&1") == 0)
   if has_javac then
     local comp = quote_executable(javac) .. ' -d "' .. to_os_path(java_dir) .. '" ' .. quote_executable(script)
     local run = quote_executable(exe) .. ' -cp "' .. to_os_path(java_dir) .. '" ' .. class_name
@@ -675,7 +678,10 @@ local TEMPLATE_THEOREMS = { theorem = true, lemma = true, proposition = true, co
 local SIMPLE_PREAMBLE = {
   usetikzlibrary = true, usepgfplotslibrary = true, usepgflibrary = true,
   pgfplotsset = true, tikzset = true, sisetup = true, theoremstyle = true,
-  newunicodechar = true,
+  newunicodechar = true, hypersetup = true, mathtoolsset = true,
+}
+local PAIR_DELIM = {
+  DeclarePairedDelimiter = 2, DeclarePairedDelimiterX = 3, DeclarePairedDelimiterXPP = 5,
 }
 local THREE_ARG_PREAMBLE = { NewDocumentCommand = true, DeclareDocumentCommand = true }
 -- Fontspec font family/face definition commands that survive preamble deletion (kept in local_cmds).
@@ -685,6 +691,8 @@ local FONT_FAMILY_COMMANDS = {
   newfontface = true, renewfontface = true,
   setfontface = true, providefontface = true,
 }
+-- Low-level TeX definition primitives that survive preamble deletion (kept in local_cmds).
+local PRIMITIVE_DEFS = { def = true, gdef = true, edef = true }
 
 local function skip_space(s, i) return (s:find("%S", i)) or (#s + 1) end
 
@@ -692,8 +700,17 @@ local function match_group(s, i, open, close)       -- s[i] == open -> index of 
   local depth = 0
   while i <= #s do
     local c = s:sub(i, i)
-    if c == "\\" then i = i + 1                      -- skip an escaped character such as \{ or \%
-    elseif c == open then depth = depth + 1
+    if c == "\\" then
+      i = i + 1                                       -- skip an escaped character such as \{ or \%
+    elseif c == "%" then
+      local slashes, j = 0, i - 1
+      while j >= 1 and s:byte(j) == 92 do slashes = slashes + 1; j = j - 1 end
+      if slashes % 2 == 0 then
+        local nl = s:find("\n", i + 1, true)
+        i = nl or #s
+      end
+    elseif c == open then
+      depth = depth + 1
     elseif c == close then
       depth = depth - 1
       if depth == 0 then return i end
@@ -706,8 +723,16 @@ end
 local function in_comment(s, pos)                   -- is s[pos] after an unescaped % on its line?
   local ls = pos
   while ls > 1 and s:sub(ls - 1, ls - 1) ~= "\n" do ls = ls - 1 end
-  local line = s:sub(ls, pos - 1)
-  return line:find("^%%") ~= nil or line:find("[^\\]%%") ~= nil
+  local i = ls
+  while i < pos do
+    if s:byte(i) == 37 then
+      local slashes, j = 0, i - 1
+      while j >= ls and s:byte(j) == 92 do slashes = slashes + 1; j = j - 1 end
+      if slashes % 2 == 0 then return true end
+    end
+    i = i + 1
+  end
+  return false
 end
 
 local function extract_commands(pre)
@@ -785,9 +810,60 @@ local function extract_commands(pre)
             command = pre:sub(a, finish)
           end
         end
+      elseif not in_comment(pre, a) and (PRIMITIVE_DEFS[name] or name == "let") then
+        if PRIMITIVE_DEFS[name] then
+          cursor = skip_space(pre, cursor)
+          if pre:sub(cursor, cursor) == "\\" then
+            local token = pre:sub(cursor):match("^\\[%a@]+") or pre:sub(cursor, cursor + 1)
+            cursor = cursor + #token
+          elseif pre:sub(cursor, cursor) == "{" then
+            local e = match_group(pre, cursor, "{", "}")
+            cursor = e and e + 1
+          else
+            cursor = nil
+          end
+          if cursor then
+            while cursor <= #pre and pre:sub(cursor, cursor) ~= "{" do
+              cursor = cursor + 1
+            end
+            if cursor <= #pre and pre:sub(cursor, cursor) == "{" then
+              finish = match_group(pre, cursor, "{", "}")
+              if finish then
+                command = pre:sub(a, finish)
+              end
+            end
+          end
+        elseif name == "let" then
+          cursor = skip_space(pre, cursor)
+          local first_token
+          if pre:sub(cursor, cursor) == "\\" then
+            first_token = pre:sub(cursor):match("^\\[%a@]+") or pre:sub(cursor, cursor + 1)
+            cursor = cursor + #first_token
+          elseif pre:sub(cursor, cursor) == "{" then
+            local e = match_group(pre, cursor, "{", "}")
+            if e then first_token = pre:sub(cursor, e); cursor = e + 1 end
+          end
+          if first_token then
+            cursor = skip_space(pre, cursor)
+            if pre:sub(cursor, cursor) == "=" then
+              cursor = skip_space(pre, cursor + 1)
+            end
+            if pre:sub(cursor, cursor) == "\\" then
+              local second_token = pre:sub(cursor):match("^\\[%a@]+") or pre:sub(cursor, cursor + 1)
+              finish = cursor + #second_token - 1
+              command = pre:sub(a, finish)
+            elseif pre:sub(cursor, cursor) == "{" then
+              finish = match_group(pre, cursor, "{", "}")
+              if finish then command = pre:sub(a, finish) end
+            elseif cursor <= #pre and pre:sub(cursor, cursor):match("%S") then
+              finish = cursor
+              command = pre:sub(a, finish)
+            end
+          end
+        end
       elseif not in_comment(pre, a)
           and (name == "usepackage" or SIMPLE_PREAMBLE[name] or name == "DeclareMathOperator"
-            or name == "newtheorem" or name == "DeclarePairedDelimiter" or name == "newenvironment"
+            or name == "newtheorem" or PAIR_DELIM[name] or name == "newenvironment"
             or THREE_ARG_PREAMBLE[name]) then
         local optional = ""
         if (name == "DeclareMathOperator" or name == "newtheorem")
@@ -798,40 +874,66 @@ local function extract_commands(pre)
           if e then optional = pre:sub(cursor, e); cursor = e + 1 end
         end
         cursor = skip_space(pre, cursor)
+        local first_end
         if pre:sub(cursor, cursor) == "{" then
-          local first_end = match_group(pre, cursor, "{", "}")
-          if first_end then
-            if name == "DeclareMathOperator" or name == "newtheorem"
-                or name == "DeclarePairedDelimiter" or name == "newenvironment" or name == "newunicodechar"
-                or THREE_ARG_PREAMBLE[name] then
-              local next_arg = skip_space(pre, first_end + 1)
-              if (name == "newtheorem" or name == "newenvironment")
-                  and pre:sub(next_arg, next_arg) == "[" then
+          first_end = match_group(pre, cursor, "{", "}")
+        elseif pre:sub(cursor, cursor) == "\\" and (name == "DeclareMathOperator" or PAIR_DELIM[name] or THREE_ARG_PREAMBLE[name]) then
+          local token = pre:sub(cursor):match("^\\[%a@]+")
+          first_end = token and (cursor + #token - 1) or nil
+        end
+        if first_end then
+          if PAIR_DELIM[name] then
+            local next_arg = skip_space(pre, first_end + 1)
+            if pre:sub(next_arg, next_arg) == "[" then
+              local optional_end = match_group(pre, next_arg, "[", "]")
+              next_arg = optional_end and optional_end + 1 or next_arg
+            end
+            for k = 1, PAIR_DELIM[name] do
+              next_arg = skip_space(pre, next_arg)
+              if pre:sub(next_arg, next_arg) == "{" then
+                finish = match_group(pre, next_arg, "{", "}")
+                next_arg = finish and finish + 1 or next_arg
+              else
+                finish = nil; break
+              end
+            end
+          elseif name == "DeclareMathOperator" or name == "newtheorem"
+              or name == "newenvironment" or name == "newunicodechar"
+              or THREE_ARG_PREAMBLE[name] then
+            local next_arg = skip_space(pre, first_end + 1)
+            if (name == "newtheorem" or name == "newenvironment")
+                and pre:sub(next_arg, next_arg) == "[" then
+              local optional_end = match_group(pre, next_arg, "[", "]")
+              next_arg = optional_end and optional_end + 1 or next_arg
+            end
+            if name == "newenvironment" then
+              next_arg = skip_space(pre, next_arg)
+              if pre:sub(next_arg, next_arg) == "[" then
                 local optional_end = match_group(pre, next_arg, "[", "]")
                 next_arg = optional_end and optional_end + 1 or next_arg
               end
-              if name == "newenvironment" then
-                next_arg = skip_space(pre, next_arg)
-                if pre:sub(next_arg, next_arg) == "[" then
-                  local optional_end = match_group(pre, next_arg, "[", "]")
-                  next_arg = optional_end and optional_end + 1 or next_arg
-                end
-              end
-              next_arg = skip_space(pre, next_arg)
-              local second_end = pre:sub(next_arg, next_arg) == "{"
-                  and match_group(pre, next_arg, "{", "}") or nil
-              finish = second_end
-              if second_end and (name == "newenvironment" or name == "DeclarePairedDelimiter"
-                  or THREE_ARG_PREAMBLE[name]) then
-                next_arg = skip_space(pre, second_end + 1)
-                finish = pre:sub(next_arg, next_arg) == "{"
-                    and match_group(pre, next_arg, "{", "}") or nil
-              end
-            else
-              finish = first_end
             end
+            next_arg = skip_space(pre, next_arg)
+            local second_end = pre:sub(next_arg, next_arg) == "{"
+                and match_group(pre, next_arg, "{", "}") or nil
+            finish = second_end
+            if second_end and (name == "newenvironment" or THREE_ARG_PREAMBLE[name]) then
+              next_arg = skip_space(pre, second_end + 1)
+              finish = pre:sub(next_arg, next_arg) == "{"
+                  and match_group(pre, next_arg, "{", "}") or nil
+            end
+            if second_end and name == "newtheorem" then
+              local trailing = skip_space(pre, second_end + 1)
+              if pre:sub(trailing, trailing) == "[" then
+                local trailing_end = match_group(pre, trailing, "[", "]")
+                if trailing_end then finish = trailing_end end
+              end
+            end
+          else
+            finish = first_end
+          end
             if finish then
-              local first = pre:sub(cursor + 1, first_end - 1)
+              local first = pre:sub(cursor + 1, first_end - 1):match("^%s*(.-)%s*$")
               if name == "usepackage" then
                 local keep = {}
                 for package in first:gmatch("[^,%s]+") do
@@ -844,7 +946,6 @@ local function extract_commands(pre)
             end
           end
         end
-      end
       if finish then
         if command then commands[#commands+1] = command end
         pos = finish + 1
@@ -872,9 +973,11 @@ local SCAFFOLDING_MACROS = {
 local function has_scaffolding_redefinition(text)
   for name in pairs(SCAFFOLDING_MACROS) do
     local pat_name = name:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
-    if text:match("\\re?newcommand%*?%s*{?%s*\\" .. pat_name .. "[%A]") or
-       text:match("\\def%s*\\" .. pat_name .. "[%A]") or
-       text:match("\\let%s*\\" .. pat_name .. "[%A]") then
+    if text:match("\\re?newcommand%*?%s*{?%s*\\" .. pat_name .. "%f[%A]") or
+       text:match("\\[ged]?def%s*\\" .. pat_name .. "%f[%A]") or
+       text:match("\\let%s*\\" .. pat_name .. "%f[%A]") or
+       text:match("\\providecommand%*?%s*{?%s*\\" .. pat_name .. "%f[%A]") or
+       text:match("\\DeclareRobustCommand%*?%s*{?%s*\\" .. pat_name .. "%f[%A]") then
       return name
     end
   end
@@ -893,9 +996,9 @@ local function get_global_command_target(cmd)
     return sym
   end
   if cmd:match("^%s*\\DeclarePairedDelimiter") then
-    local sym = cmd:match("^%s*\\DeclarePairedDelimiter%s*(%b{})")
+    local sym = cmd:match("^%s*\\DeclarePairedDelimiter[XP]*%s*(%b{})")
     if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
-    else sym = cmd:match("^%s*\\DeclarePairedDelimiter%s*(\\[%a@]+)") end
+    else sym = cmd:match("^%s*\\DeclarePairedDelimiter[XP]*%s*(\\[%a@]+)") end
     if sym and not sym:match("^\\") then sym = "\\" .. sym end
     return sym
   end
@@ -918,10 +1021,10 @@ local function render_latex(el, class, preamble, global_defs)
     out[#out + 1] = pandoc.CodeBlock(el.text, pandoc.Attr("", { class }))
   end
   local body = el.text
-  local bs, e = el.text:find("\\begin{document}", 1, true)
+  local bs, e = el.text:find("\\begin%s*{document}")
   if e then
     body = el.text:sub(e + 1)
-    local inner = body:match("^(.*)\\end{document}")
+    local inner = body:match("^(.*)\\end%s*{document}")
     if inner then
       body = inner
     else
@@ -932,10 +1035,10 @@ local function render_latex(el, class, preamble, global_defs)
     local hoisted_cmds = {}
     local local_cmds = {}
     for _, cmd in ipairs(commands) do
-      if cmd:match("^%s*\\usepackage") or cmd:match("^%s*\\usetikzlibrary")
-          or cmd:match("^%s*\\usepgfplotslibrary") or cmd:match("^%s*\\usepgflibrary")
-          or cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\newunicodechar")
-          or cmd:match("^%s*\\DeclarePairedDelimiter") then
+      local cmd_name = cmd:match("^%s*\\(%a+)")
+      if cmd_name and (cmd_name == "usepackage" or SIMPLE_PREAMBLE[cmd_name]
+          or cmd_name == "DeclareMathOperator" or PAIR_DELIM[cmd_name]
+          or cmd_name == "newtheorem") then
         hoisted_cmds[#hoisted_cmds + 1] = cmd
       else
         local_cmds[#local_cmds + 1] = cmd
@@ -985,8 +1088,8 @@ local function render_latex(el, class, preamble, global_defs)
     end
 
     for _, cmd in ipairs(hoisted_cmds) do
-      -- Make operator declarations safe against pre-existing package or template definitions
-      if cmd:match("^%s*\\DeclareMathOperator") then
+      -- Make operator and delimiter declarations safe against pre-existing package or template definitions
+      if cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\DeclarePairedDelimiter") then
         local target = get_global_command_target(cmd)
         if target and target:match("^\\[%a@]+") then
           cmd = "\\let" .. target .. "\\relax " .. cmd
@@ -999,8 +1102,8 @@ local function render_latex(el, class, preamble, global_defs)
       body = table.concat(local_cmds, "\n") .. "\n" .. body
     end
   elseif el.text:find("\\usepackage") or el.text:find("\\documentclass") then
-    warn("latex block has a preamble but no \\begin{document}: it is pasted as is and will " ..
-         "fail; wrap the body in \\begin{document}...\\end{document}")
+    warn("latex block has preamble commands (\\usepackage or \\documentclass) but no \\begin{document}; rendering as code listing (run=false)")
+    return nil
   end
   -- Universal Code Fence Isolation: wrap every block in a local scope
   -- so colors, styles, font sizes, lengths, and local macros never leak to outer document.
@@ -1246,9 +1349,7 @@ end
 
 local function add_latex_preamble(doc, preamble)
   if #preamble == 0 then return end
-  local includes = { pandoc.MetaBlocks({
-    pandoc.RawBlock("latex", table.concat(preamble, "\n"))
-  }) }
+  local includes = {}
   local old = doc.meta["header-includes"]
   if old then
     if old.t == "MetaList" then
@@ -1257,6 +1358,9 @@ local function add_latex_preamble(doc, preamble)
       includes[#includes+1] = old
     end
   end
+  includes[#includes+1] = pandoc.MetaBlocks({
+    pandoc.RawBlock("latex", table.concat(preamble, "\n"))
+  })
   doc.meta["header-includes"] = pandoc.MetaList(includes)
 end
 

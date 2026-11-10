@@ -261,6 +261,50 @@ Version 1.3.2 cycle
 
 Change ledger
   2026-11-09 | Synchronized rendering rules, test suites, regression fixtures, and explicit documentation audit checklist | source +0 / -0 | 0 / 500
+  2026-11-09 | LaTeX fence paired delimiter hoisting safety and TeX primitive (\def, \let) extraction | source +62 / -7 | 69 / 500
+  2026-11-09 | Versioned paired delimiter hoisting safety and TeX primitive extraction as 1.3.3 (PATCH)
+
+Version 1.3.3 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-10 | LaTeX preamble demotion without begin{document}, nested env stack, robust display math unwrap, and currency math isolation | source +33 / -18 | 51 / 500
+  2026-11-10 | Versioned Group 2 LaTeX and Markdown pipeline fixes as 1.3.4 (PATCH)
+
+Version 1.3.4 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-10 | Full Unicode subscript coverage, newtheorem reset counters, unbraced operator commands, AST raw tex protection, and trailing backslash code spans | source +136 / -43 | 179 / 500
+  2026-11-10 | Versioned silent LaTeX and Markdown pipeline fixes as 1.3.5 (PATCH)
+
+Version 1.3.5 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-10 | Universal preamble hoisting (DeclarePairedDelimiterX/XPP, newtheorem counters/styles, hypersetup, mathtoolsset), bare display math auto-wrapping, physics collision guards, and dynamic theorem environment registration | source +93 / -13 | 106 / 500
+  2026-11-10 | Versioned universal preamble hoisting, math wrapping, and theorem environment registration as 1.3.6 (PATCH)
+
+Version 1.3.6 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-10 | Starred cross-references/citations, URL/href/footnote AST preservation, space-tolerant begin/end regexes, and universal SIMPLE_PREAMBLE hoisting | source +54 / -24 | 78 / 500
+  2026-11-10 | Spaced document begin/end unwrapping, minted verbatim masking, and top-to-bottom header-includes ordering | source +17 / -15 | 110 / 500
+  2026-11-10 | Odd-backslash parity check for escaped dollars in single-line math | source +7 / -2 | 119 / 500
+  2026-11-10 | CLI metadata overlay, space-tolerant newtheorem, comment parity after breaks, error annotator path/boundary matching, and prose pagebreak/spacing preservation | source +98 / -32 | 249 / 500
+  2026-11-10 | Starred macro markdown protection, group-comment handling, trailing env comment closure, file URI/query image cleaning, and pandoc fallback paths | source +56 / -16 | 321 / 500
+  2026-11-10 | Blockquote-aware math and tables, environment boundary and row spacing protection, and %20 image path decoding | source +36 / -19 | 376 / 500
+  2026-11-10 | Accurate javac availability check, structural pagebreak boundary separation, and spacing/layout command preservation | source +11 / -1 | 388 / 500
+  2026-11-10 | Babel multilingual font mapping (Bengali, Hindi, CJK) and automatic script routing | source +26 / -3 | 417 / 500
+  2026-11-10 | Versioned multilingual font support and pipeline stabilization as 1.3.7 (PATCH)
+
+Version 1.3.7 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-10 | Automated environment installer setup.bat for Pandoc, LaTeX, and package configuration with optional runtime checks | source +264 / -0 | 264 / 500
+  2026-11-10 | Multilingual script router for Bengali, Hindi, and CJK with str_fix repair | source +55 / -2 | 321 / 500
 
 For each later accepted change, append one entry in this format:
 

@@ -5,7 +5,7 @@ Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
 and Java can run during the build with universal caching and approval controls,
 while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.3.2**.
+**Current project version: 1.3.7**.
 
 > **Paste an AI chat response and compile it directly.** A copied response from
 > ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses
@@ -15,11 +15,19 @@ while LaTeX fences render source snippets without executing them.
 ## Features
 
 - **Direct AI Chat Compilation**: Compile copied responses from ChatGPT, Gemini, or NotebookLM with zero manual editing for supported content.
+- **Automated Environment Setup**: One-click `setup.bat` script automatically verifies or installs Pandoc, MiKTeX/XeLaTeX, enables automatic package installation, pre-installs required LaTeX packages, and checks (never installs) optional language compilers.
+- **Multilingual Typesetting**: Full native support for Bengali (Bangla ligatures and conjuncts via Kalpurush/Nirmala UI), Hindi (Devanagari script via Nirmala UI), CJK (Chinese, Japanese, Korean), and Latin scripts via XeLaTeX and Babel.
 - **Multi-File Concatenation**: Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order into a single unified PDF.
 - **Universal Executable Code Fences**: Python, C, C++, and Java blocks execute with persistent SHA-1 caching, interactive confirmation prompts (`trusted=true` bypass), output capture, and compiler/runtime error reporting.
 - **Uniform Fence Syntax**: Standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````) across all languages; raw delimiters like `---` are reserved for horizontal rules and never treated as metadata.
 - **Block Boundary Spacing & Clean Tables**: Standalone horizontal rules (`---`) and fences are automatically padded with empty lines. Non-standard `simple_tables` are disabled to prevent narrow column collapses, ensuring pipe tables (`| col | col |`) render reliably.
-- **Code Fence Isolation & Stray TeX Protection**: LaTeX fences are locally scoped (`{\begingroup...\par\endgroup}`), isolating definitions, font families, and environments. Cross-fence global command collisions automatically demote to syntax-highlighted code listings (`run=false`). Unfenced LaTeX commands in prose are treated as literal text (`-raw_tex`).
+- **Code Fence Isolation & Stray TeX Protection**: LaTeX fences are locally scoped (`{\begingroup...\par\endgroup}`), isolating definitions, low-level TeX primitives (`\def`, `\let`), font families, and environments. Cross-fence global command collisions and incomplete preamble fences (lacking `\begin{document}`) automatically demote to syntax-highlighted code listings (`run=false`). Unfenced LaTeX commands in prose are treated as literal text (`-raw_tex`).
+- **Universal Preamble Hoisting & Delimiters**: Rescues braced or unbraced control sequences (`\DeclareMathOperator\argmax{...}`, `\DeclarePairedDelimiter\ceil{...}`, `\DeclarePairedDelimiterX`, `\DeclarePairedDelimiterXPP`), `\hypersetup`, `\mathtoolsset`, `\theoremstyle`, and subordinate theorem counters (`\newtheorem{lem}{Lemma}[section]`) from LaTeX fences, universally hoisting them with `\let\cmd\relax` collision guards.
+- **Bare Math Environment Wrapping & Dynamic Theorems**: Automatically wraps bare AMS math environments (`\begin{align}`, `equation`, `gather`, `multline`) in Markdown prose in display math (`$$...$$`) to prevent `-raw_tex` backslash escaping, and dynamically registers custom `\newtheorem` environments for native Markdown Div parsing.
+- **Comprehensive Unicode & Script Normalization**: Full Unicode math and prose coverage for all subscripts (Latin letters `ₐ ₑ ₕ ᵢ ⱼ ₖ ₗ ₘ ₙ ₒ ₚ ᵣ ₛ ₜ ᵤ ᵥ ₓ` and Greek subscripts `ᵦ ᵧ ᵨ ᵩ ᵪ`) in both math mode (`x_{i}`) and text mode.
+- **AST Protection for HTML Leftovers & Ties**: Preserves `<sub>...</sub>`, `<sup>...</sup>`, `<br>`, LaTeX cross-references (`\ref`, `\eqref`, `\autoref`, `\pageref`, `\nameref`, `\cite`), and ties (`~` / `\nobreakspace{}`) at the AST level without literal `\textbackslash` escaping under `-raw_tex`.
+- **CommonMark Code Span Parsing**: Inline code span matching strictly follows CommonMark: backslashes do not escape closing backticks (e.g. `` `C:\Windows\` `` closes cleanly without corrupting subsequent text passes).
+- **Robust Environment & Math Normalization**: Theorem-like environments support arbitrary re-entrant nesting (`\begin{theorem}...\begin{quote}...\end{quote}...\end{theorem}`) via an environment stack. Display math (`$$...$$`) unwraps `\begin{align}` even when preceded or followed by text or comments, and inline currency amounts (e.g. `$50 (base_fee = $30)`) are strictly isolated from math delimiter heuristics.
 - **Localized XeLaTeX Error Recovery**: Neutralizes localized LaTeX document errors with red `[!!!]` badges in the PDF and yellow console diagnostics instead of crashing the build.
 - **Page Layout & Title Controls**: Toggle between standard A4 and 16:9 presentation layout, or hide the horizontal title divider rule using YAML front matter.
 - **Non-Destructive Processing**: Source files are never modified; generated PDFs are saved beside the primary input file.
@@ -38,6 +46,7 @@ Keep the compiler and its configuration files together:
 ```text
 your-tool-folder/
 ├── compile.bat
+├── setup.bat
 ├── README.md
 ├── documentation/
 │   ├── rendering-rules.md
@@ -76,6 +85,20 @@ that folder when no build is running; cached results will be regenerated.
 For LaTeX packages, use MiKTeX with automatic package installation enabled or a
 full TeX Live installation. See [installation-and-usage.md](documentation/installation-and-usage.md) for
 installation steps, command-line options, troubleshooting, and examples.
+
+## Automated Setup (Recommended)
+
+Run `setup.bat` once to configure your environment automatically:
+
+```bat
+setup.bat
+```
+
+The script will:
+1. Verify or install **Pandoc** (via `winget` if missing).
+2. Verify or install **XeLaTeX** (MiKTeX via `winget` if missing).
+3. Pre-install and configure all required **LaTeX packages** with automatic on-the-fly downloads enabled.
+4. Check (and **never install**) optional runtimes: Python (with NumPy/Matplotlib), GCC (C), G++ (C++), and Java.
 
 ## Quick start
 
@@ -170,7 +193,7 @@ Use a `latex` fence for LaTeX snippets that should be rendered, not executed:
 ```
 ````
 
-Preamble-only commands (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\newunicodechar`, `\usepackage`, libraries) in full LaTeX documents are hoisted to the document preamble, with `\DeclareMathOperator` guarded against pre-existing kernel/template definitions. Macros, font families (`\newfontfamily`), and custom environments remain strictly local to the fence (`{\begingroup...\par\endgroup}`). Defining or redefining global commands, theorems (`\newtheorem`), or conflicting package options across fences automatically demotes that block to a syntax-highlighted code listing (`run=false`) with a console warning.
+Preamble-only commands (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\newunicodechar`, `\usepackage`, libraries) in full LaTeX documents are hoisted to the document preamble, with `\DeclareMathOperator` and `\DeclarePairedDelimiter` safely guarded with `\let\cmd\relax` against pre-existing kernel/template definitions. Macros, definitions (`\def`, `\gdef`, `\edef`, `\let`), font families (`\newfontfamily`), and custom environments remain strictly local to the fence (`{\begingroup...\par\endgroup}`). Defining or redefining global commands, theorems (`\newtheorem`), or conflicting package options across fences automatically demotes that block to a syntax-highlighted code listing (`run=false`) with a console warning. Fences containing preamble commands (`\usepackage`, `\documentclass`) but lacking `\begin{document}` are likewise safely demoted to code listings (`run=false`) to prevent fatal document compilation crashes.
 
 Executable code fences (`python`, `c`, `cpp` / `c++`, `java`) execute by default.
 On the first run of a block without a valid cached result, the build asks whether you

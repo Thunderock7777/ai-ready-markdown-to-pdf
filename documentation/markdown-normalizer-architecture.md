@@ -207,16 +207,21 @@ later passes do not operate on stale placeholders.
    Repair selected inline math that spans prose lines and join a list-looking
    continuation only when the open formula is clearly math and closes within
    the same paragraph.
-6. hoist-commands
+6. wrap-math-envs
+   Wrap bare AMS math environments (\begin{align}, equation, gather, multline, etc.)
+   appearing in Markdown prose inside $$ ... $$ blocks so Pandoc parses them as native
+   DisplayMath rather than escaping them to \textbackslash begin under -raw_tex.
+7. hoist-commands
    Runs process_lines on body text to repair one-line math via fix_math_line.
    Under strict fence isolation, REGISTRY.BODY_HOIST is empty, so body commands
    remain in the body (treated as literal text under -raw_tex) rather than being hoisted.
-7. markdown-in-lists
+8. markdown-in-lists
    Convert Markdown bold/italic markers inside itemize, enumerate, and
    description environments to LaTeX emphasis commands.
-8. environments-to-divs
+9. environments-to-divs
    Convert supported multi-line theorem/proof-like environments into fenced
-   Divs so Pandoc parses their Markdown content. Stage B restores their
+   Divs so Pandoc parses their Markdown content. Dynamic \newtheorem declarations
+   are automatically added to REGISTRY.DIV_ENVS. Stage B restores their
    original LaTeX environment wrappers.
 
 Detailed Stage A call path
@@ -252,8 +257,8 @@ inlines
   image_fix validates local image scheme, extension, and file existence;
   invalid images are dropped with a warning.
   link_fix preserves links or unwraps them according to CONFIG.keep_links.
-  RawInline removes HTML raw content and also checks raw TeX math environments.
-  str_fix converts supported superscript letters in ordinary text.
+  RawInline maps HTML <br> tags to native LineBreak elements, strips unsupported HTML tags, and checks raw TeX math environments.
+  str_fix converts supported superscript letters in ordinary text and emits unescaped RawInline("latex", ...) nodes for \textsubscript{...}, \textsuperscript{...}, \nobreakspace{}, \ref{...}, \ref*{...}, \eqref{...}, \autoref{...}, \pageref{...}, \nameref{...}, \cite{...}, \cite[...]{...}, \url{...}, \href{...}{...}, \footnote{...}, \label{...}, page/spacing commands (\newpage, \clearpage, \pagebreak, \bigskip, \medskip, \smallskip, \vspace, \hspace), typographic primitives (\hfill, \noindent), and routes non-Latin Unicode scripts (Bengali, Hindi, CJK) through \foreignlanguage with Babel font mapping so they render without \textbackslash escaping under -raw_tex.
   note_code_super records characters in Code and CodeBlock nodes for later
   preamble definitions without changing the displayed code.
 
@@ -375,7 +380,8 @@ Math and LaTeX text repair
     Handles same-line dollar math, escaped NotebookLM math, trims clearly
     mathematical inner whitespace, and escapes table-cell vertical bars.
     Its local unescape(inner) closure rejects currency-like contents lacking
-    math markers.
+    math markers; skips currency amounts ($ followed by digits) when matching
+    closing delimiters to prevent mangling adjacent prose and equations.
   fix_paragraph(text) -> text
     Scans a paragraph with multiple lines and repairs clearly mathematical
     single-dollar delimiters. It skips escapes, exact-length code spans, and
@@ -409,17 +415,26 @@ Preamble collection and structural text
   hoist(block, in_preamble) -> consumed boolean
     Decides whether a LaTeX command should be dropped, mapped to metadata,
     skipped as template-defined, retained in the body, or appended to
-    State.hoisted. Converts body \newcommand to \DeclareRobustCommand.
+    State.hoisted. Converts body \newcommand to \DeclareRobustCommand,
+    dynamically registers \newtheorem into REGISTRY.DIV_ENVS, and prepends
+    \let\cmd\relax before hoisted \DeclareMathOperator and \DeclarePairedDelimiter
+    to prevent clashes with packages like physics.sty.
   process_lines(text, in_preamble) -> text
     Line-scans body or full-document preamble outside fences. Collects
     multi-line commands using brace_balance; avoids moving commands from inside
     tikzpicture; calls hoist and fix_math_line. Preamble prose/comment policy
     differs from body handling.
   is_table_row(line) -> boolean
-    Recognizes a pipe-table-shaped line for space_tables.
+    Recognizes a pipe-table-shaped line for space_tables, including blockquoted rows.
   space_tables(text) -> text
-    Adds a separating blank line before pipe tables outside code fences and
-    display math.
+    Adds a separating blank line (preserving blockquote markers) before pipe tables
+    outside code fences and display math.
+  pass_wrap_bare_math_envs(text) -> text
+    Scans prose outside code fences and existing display math for bare AMS math
+    environments (\begin{align}, equation, gather, multline, etc.) and wraps them
+    in $$ ... $$ so Pandoc parses them natively as DisplayMath rather than escaping
+    them to \textbackslash begin under -raw_tex. Preserves blockquote nesting prefixes
+    and prevents greater-than signs from leaking into LaTeX math mode.
   md_emph(segment) -> segment
     In a LaTeX list body, converts valid **bold** and *italic* markers to
     \textbf and \emph. A local stash function protects math and escaped
@@ -432,7 +447,8 @@ Preamble collection and structural text
   envs_to_divs(text) -> text
     Converts supported multi-line environments into fenced Div syntax and
     stores each optional argument in State.env_opts. The Div carries lenv and
-    lopt attributes consumed later by div_fix.
+    lopt attributes consumed later by div_fix. Supports arbitrary re-entrant
+    nesting (e.g. quote or proof inside theorem) using an environment stack.
   pass_unwrap_document(text) -> text
     Detects a pasted full document only when documentclass precedes
     begin{document} and a later end{document} exists. Calls process_lines on
@@ -488,6 +504,8 @@ Math and Unicode
   math_fix(Math element) -> replacement or nil
     Applies bold Greek repair and converts selected display-math environments
     (align/equation-family) to raw LaTeX so they are not nested in \[...\].
+    Matches environments anywhere in display math to safely permit leading/trailing
+    text, comments, or spacing.
   str_fix(Str element) -> inline sequence or nil
     Converts supported Unicode superscript letters in ordinary text to
     \textsuperscript. Its local flush closure emits uninterrupted ordinary
@@ -516,7 +534,8 @@ Math and Unicode
 Images, tables, links, environments
   image_fix(Image) -> empty sequence or nil
     Rejects remote/sandbox schemes, unsupported extensions, and missing local
-    files; warns with the reason. Valid local PNG/JPG/JPEG/PDF images remain.
+    files; resolves URL-encoded spaces (%20) against on-disk filenames; warns
+    with the reason. Valid local PNG/JPG/JPEG/PDF images remain.
   figure_fix(Figure) -> empty sequence or nil
     Walks the Figure for a surviving Image and removes an empty Figure.
   raw_html_fix(RawBlock/RawInline) -> empty sequence or nil

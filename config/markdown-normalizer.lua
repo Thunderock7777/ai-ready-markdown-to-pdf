@@ -222,6 +222,8 @@ REGISTRY.SUBSCRIPT_CHARS = {
   [0x208B]="-", [0x208C]="=", [0x208D]="(", [0x208E]=")", [0x2090]="a", [0x2091]="e",
   [0x2092]="o", [0x2093]="x", [0x2095]="h", [0x2096]="k", [0x2097]="l", [0x2098]="m",
   [0x2099]="n", [0x209A]="p", [0x209B]="s", [0x209C]="t",
+  [0x1D62]="i", [0x2C7C]="j", [0x1D63]="r", [0x1D64]="u", [0x1D65]="v",
+  [0x1D66]="\\beta", [0x1D67]="\\gamma", [0x1D68]="\\rho", [0x1D69]="\\phi", [0x1D6A]="\\chi",
 }
 
 
@@ -386,9 +388,21 @@ local function group_end(s, b)
   local depth, i = 1, b + 1
   while i <= #s do
     local c = s:sub(i, i)
-    if c == "\\" then i = i + 1
-    elseif c == "{" then depth = depth + 1
-    elseif c == "}" then depth = depth - 1; if depth == 0 then return i + 1 end end
+    if c == "\\" then
+      i = i + 1
+    elseif c == "%" then
+      local slashes, j = 0, i - 1
+      while j >= 1 and s:byte(j) == 92 do slashes = slashes + 1; j = j - 1 end
+      if slashes % 2 == 0 then
+        local nl = s:find("\n", i + 1, true)
+        i = nl or #s
+      end
+    elseif c == "{" then
+      depth = depth + 1
+    elseif c == "}" then
+      depth = depth - 1
+      if depth == 0 then return i + 1 end
+    end
     i = i + 1
   end
   return nil
@@ -488,13 +502,20 @@ end
 local function rule_html_leftovers(text)
   text = text:gsub("<sub>(.-)</sub>", "\\textsubscript{%1}")
   text = text:gsub("<sup>(.-)</sup>", "\\textsuperscript{%1}")
-  text = text:gsub("<br%s*/?>", "\\newline ")
+  text = text:gsub("<br%s*/?>%s*\n?", "  \n")
   return text
 end
 
--- LaTeX habit "Eq.~\eqref{..}" : a bare ~ in Markdown prose is literal, so use a real tie
+-- LaTeX habit "Eq.~\eqref{..}" : a bare ~ in Markdown prose is literal, so use a real tie (\u{00A0} -> ~ in LaTeX)
 local function rule_latex_ties(text)
-  text = text:gsub("~(\\%a*ref%f[%A])", "\\nobreakspace{}%1"):gsub("~(\\%a*cite%f[%A])", "\\nobreakspace{}%1")
+  text = text:gsub("~(\\%a*ref%f[%A])", "\u{00A0}%1"):gsub("~(\\%a*cite%f[%A])", "\u{00A0}%1")
+  return text
+end
+
+-- Protect starred LaTeX macros (\ref*{..}, \cite*{..}) from being parsed as Markdown emphasis pairs
+local function rule_starred_commands(text)
+  text = text:gsub("(\\%a+)%*(%b{})", "%1\\*%2")
+  text = text:gsub("(\\%a+)%*(%b[])", "%1\\*%2")
   return text
 end
 
@@ -508,6 +529,7 @@ local SCRUB_RULES = {
   { name = "json-escaped-math",   apply = rule_json_escaped_math },
   { name = "html-leftovers",      apply = rule_html_leftovers },
   { name = "latex-ties",          apply = rule_latex_ties },
+  { name = "starred-commands",    apply = rule_starred_commands },
 }
 
 local function scrub_chunk(text)
@@ -579,11 +601,16 @@ local function fix_math_line(line)
   line = line:gsub("\\%$(.-)\\%$",           function(i) local r = unescape(i); return r and ("$"  .. r .. "$")  or nil end)
 
   local is_table = line:match("^%s*|") ~= nil
+  local function is_escaped(str, pos)
+    local slashes, j = 0, pos - 1
+    while j >= 1 and str:sub(j, j) == "\\" do slashes = slashes + 1; j = j - 1 end
+    return slashes % 2 == 1
+  end
   local out, i, n = {}, 1, #line
   while i <= n do
     local s = line:find("%$", i)
     if not s then out[#out+1] = line:sub(i); break end
-    if s > 1 and line:sub(s-1, s-1) == "\\" then              -- escaped dollar = currency
+    if is_escaped(line, s) then                               -- escaped dollar = currency
       out[#out+1] = line:sub(i, s); i = s + 1
     elseif line:sub(s+1, s+1) == "$" then                     -- $$ .. $$ on the same line
       local e = line:find("%$%$", s + 2)
@@ -591,15 +618,24 @@ local function fix_math_line(line)
       out[#out+1] = line:sub(i, e + 1); i = e + 2
     else                                                      -- inline $ .. $
       local e = line:find("%$", s + 1)
-      while e and line:sub(e-1, e-1) == "\\" do e = line:find("%$", e + 1) end
-      if not e then out[#out+1] = line:sub(i); break end
-      local inner = line:sub(s + 1, e - 1)
-      if inner:match("[\\^_{}=]") then
-        inner = inner:gsub("^%s+", ""):gsub("%s+$", "")       -- "$ x $" is not math in pandoc
-        if is_table then inner = inner:gsub("([^\\])|", "%1\\vert "):gsub("^|", "\\vert ") end
+      while e do
+        if is_escaped(line, e) or line:sub(e+1, e+1):match("%d") then
+          e = line:find("%$", e + 1)
+        else
+          break
+        end
       end
-      out[#out+1] = line:sub(i, s - 1) .. "$" .. inner .. "$"
-      i = e + 1
+      if not e then
+        out[#out+1] = line:sub(i, s); i = s + 1
+      else
+        local inner = line:sub(s + 1, e - 1)
+        if inner:match("[\\^_{}=]") then
+          inner = inner:gsub("^%s+", ""):gsub("%s+$", "")       -- "$ x $" is not math in pandoc
+          if is_table then inner = inner:gsub("([^\\])|", "%1\\vert "):gsub("^|", "\\vert ") end
+        end
+        out[#out+1] = line:sub(i, s - 1) .. "$" .. inner .. "$"
+        i = e + 1
+      end
     end
   end
   return table.concat(out)
@@ -754,9 +790,10 @@ end
 
 -- A line that is never part of running paragraph text: blank, table row, heading, \begin / \end, horizontal rule / YAML boundary.
 local function is_structural_line(line)
-  return not line:match("%S") or line:match("^%s*|") or line:match("^%s*#+%s")
-      or line:match("^%s*\\begin%s*{") or line:match("^%s*\\end%s*{")
-      or line:match("^%s*%-%-%-+%s*$")
+  return not line:match("%S") or line:match("^[%s>]*|") or line:match("^[%s>]*#+%s")
+      or line:match("^[%s>]*\\begin%s*{") or line:match("^[%s>]*\\end%s*{")
+      or line:match("^[%s>]*%-%-%-+%s*$")
+      or line:match("^[%s>]*\\newpage%s*$") or line:match("^[%s>]*\\clearpage%s*$") or line:match("^[%s>]*\\pagebreak%s*$")
       or line:find("FIXGROUPS_LITERAL", 1, true) ~= nil
 end
 
@@ -895,8 +932,17 @@ local function hoist(block, in_preamble)
     for _, package in ipairs(commands) do State.hoisted[#State.hoisted+1] = package end
     return true
   elseif cmd == "newtheorem" then
-    local nm = block:match("\\newtheorem%*?{([^}]*)}")
+    local nm = block:match("\\newtheorem%*?%s*{([^}]*)}")
+    if nm then nm = nm:match("^%s*(.-)%s*$") end
     if nm and REGISTRY.THEOREMS[nm] then return true end
+    if nm then REGISTRY.DIV_ENVS[nm] = true end
+  end
+  if cmd == "DeclareMathOperator" or cmd:match("^DeclarePairedDelimiter") then
+    local target = block:match("^%s*\\%a+%*?%s*(%b{})")
+    if target then target = target:sub(2, -2):match("^%s*(.-)%s*$")
+    else target = block:match("^%s*\\%a+%*?%s*(\\[%a@]+)") end
+    if target and not target:match("^\\") then target = "\\" .. target end
+    if target then block = "\\let" .. target .. "\\relax " .. block end
   end
   -- A pasted \newcommand must win over packages the template loads (physics defines
   -- \ket, \dd, ...): DeclareRobustCommand takes the same syntax and never raises
@@ -953,7 +999,7 @@ end
 -- ----------------------------------------------------------------------
 -- §5.5  Structural rewrites
 -- ----------------------------------------------------------------------
-local function is_table_row(line) return line:match("^%s*|.*|%s*$") ~= nil end
+local function is_table_row(line) return line:match("^[%s>]*|.*|%s*$") ~= nil end
 
 -- pandoc needs a blank line before a pipe table; AI output often omits it
 local function space_tables(text)
@@ -963,7 +1009,7 @@ local function space_tables(text)
     if mark then
       fence = fence_next(fence, mark)
     elseif not fence and is_table_row(line) and prev:match("%S") and not is_table_row(prev) then
-      if not display then out[#out+1] = "" end
+      if not display then out[#out+1] = line:match("^([%s>]*>)") or "" end
     end
     out[#out+1] = line
     if not fence then
@@ -1030,9 +1076,18 @@ local function md_in_lists(text)
     elseif fence or line:sub(1, 1) == "%" then
       out[#out+1] = line                                  -- fenced code / comment line
     else
-      local cpos = line:find("[^\\]%%")
+      local cpos = nil
+      local i = 1
+      while i <= #line do
+        if line:byte(i) == 37 then
+          local slashes, j = 0, i - 1
+          while j >= 1 and line:byte(j) == 92 do slashes = slashes + 1; j = j - 1 end
+          if slashes % 2 == 0 then cpos = i; break end
+        end
+        i = i + 1
+      end
       local body, tail = line, ""
-      if cpos then body = line:sub(1, cpos); tail = line:sub(cpos + 1) end
+      if cpos then body = line:sub(1, cpos - 1); tail = line:sub(cpos) end
       local res, pos = {}, 1
       for s, cmd, name, e in body:gmatch("()\\(%a+)%s*{(%a+)%*?}()") do
         if cmd == "begin" or cmd == "end" then
@@ -1061,8 +1116,14 @@ end
 -- \begin{theorem}[Name] ... \end{theorem}  ->  fenced Div, so the body is parsed as Markdown.
 -- div_fix() turns the Div back into \begin{theorem}[Name] ... \end{theorem}.
 -- Only used when begin and end are on separate lines; everything else stays raw LaTeX.
+-- Supports arbitrary nesting (e.g. quote or proof inside theorem) via an environment stack.
 local function envs_to_divs(text)
-  local out, fence, cur = {}, nil, nil
+  for nm in text:gmatch("\\newtheorem%*?%s*{([^}]*)}") do
+    nm = nm:match("^%s*(.-)%s*$")
+    REGISTRY.DIV_ENVS[nm] = true
+  end
+  local out, fence = {}, nil
+  local env_stack = {}
   for line in each_line(text) do
     local mark = fence_mark(line, fence)
     if mark then
@@ -1071,29 +1132,33 @@ local function envs_to_divs(text)
     elseif fence then
       out[#out+1] = line
     else
-      local env, rest = line:match("^%s*\\begin{(%a+)}(.*)$")
-      if not cur and env and REGISTRY.DIV_ENVS[env] and not rest:find("\\end{" .. env .. "}", 1, true) then
+      local env, rest = line:match("^%s*\\begin%s*{([%a*]+)}(.*)$")
+      if env and REGISTRY.DIV_ENVS[env] and not rest:match("\\end%s*{" .. env:gsub("%*", "%%*") .. "}") then
         local opt, tail = rest:match("^%s*(%b[])(.*)$")
         if not opt then tail = rest end
         State.env_opts[#State.env_opts + 1] = opt or ""
-        cur = env
+        env_stack[#env_stack + 1] = env
         out[#out+1] = ""
         out[#out+1] = string.format('::: {.latexenv lenv="%s" lopt="%d"}', env, #State.env_opts)
         if tail:match("%S") then out[#out+1] = (tail:gsub("^%s+", "")) end
       else
-        local before, e = line:match("^(.-)\\end{(%a+)}%s*$")
-        if cur and e == cur then
+        local before, e, after = line:match("^(.-)\\end%s*{([%a*]+)}(.*)$")
+        if #env_stack > 0 and e == env_stack[#env_stack] and (not after or after:match("^%s*$") or after:match("^%s*%%")) then
           if before:match("%S") then out[#out+1] = before end
           out[#out+1] = ":::"
+          if after and after:match("%S") then out[#out+1] = after end
           out[#out+1] = ""
-          cur = nil
+          env_stack[#env_stack] = nil
         else
           out[#out+1] = line
         end
       end
     end
   end
-  if cur then out[#out+1] = ":::" end   -- unclosed environment: close the Div anyway
+  while #env_stack > 0 do
+    out[#out+1] = ":::"
+    env_stack[#env_stack] = nil
+  end
   return table.concat(out, "\n")
 end
 
@@ -1106,11 +1171,11 @@ end
 -- only the text between \begin{document} and \end{document}.
 local function pass_unwrap_document(text)
   local masked = mask_fences(text)
-  local bs, be = masked:find("\\begin{document}", 1, true)
-  local es = masked:match("^.*()\\end{document}")   -- anchored: unanchored was quadratic (9 s per 500 lines)
-  if bs and es and es > be and masked:sub(1, bs - 1):find("\\documentclass", 1, true) then
-    local finish = masked:find("\\end{document}", es, true)
-    if finish and masked:sub(finish + #"\\end{document}"):match("%S") then
+  local bs, be = masked:find("\\begin%s*{document}")
+  local es, ee = masked:match("^.*()(\\end%s*{document})")
+  if bs and es and es > be and masked:sub(1, bs - 1):find("\\documentclass") then
+    local finish = es + #ee - 1
+    if finish and masked:sub(finish + 1):match("%S") then
       warn("discarded non-whitespace text after \\end{document} in pasted full document")
     end
     process_lines(text:sub(1, bs - 1), true)
@@ -1127,15 +1192,86 @@ local function pass_hoist_body_commands(text)
   return process_lines(text, false)
 end
 
+-- Bare AMS math environments (align, equation, gather, multline...) in Markdown prose
+-- would otherwise be treated as plain text and escaped to \textbackslash begin under -raw_tex.
+-- Wrap them in $$ ... $$ so Pandoc parses them as native DisplayMath, which math_fix unwraps cleanly.
+local function pass_wrap_bare_math_envs(text)
+  local out, fence, in_display = {}, nil, false
+  local cur_env, env_lines, cur_bq = nil, nil, nil
+  for line in each_line(text) do
+    local mark = fence_mark(line, fence)
+    if mark then
+      fence = fence_next(fence, mark)
+      out[#out+1] = line
+    elseif fence then
+      out[#out+1] = line
+    else
+      if not cur_env then
+        local d1 = 0
+        for _ in line:gmatch("%$%$") do d1 = d1 + 1 end
+        if d1 % 2 == 1 then in_display = not in_display end
+
+        local prefix, b_env = line:match("^(.-)(\\begin%s*{[%a*]+}.*)$")
+        local env = not in_display and (b_env or line):match("\\begin%s*{([%a*]+)}")
+        local base_env = env and env:gsub("%*$", "")
+        if base_env and REGISTRY.MATH_ENVS[base_env] and not line:match("%$%$") and not line:match("\\%[") then
+          local bq = prefix and prefix:match("^([%s>]*>)%s*")
+          local prose = prefix
+          if bq then
+            if not bq:match("%s$") then bq = bq .. " " end
+            prose = prefix:sub(#bq + 1)
+          end
+          if prose and prose:match("%S") then out[#out+1] = (bq or "") .. prose end
+          cur_bq = bq
+          cur_env = env
+          local body_line = b_env or line
+          local e_env, suffix = body_line:match("^(.*\\end%s*{" .. env:gsub("%*", "%%*") .. "})(.*)$")
+          local bq_pfx = bq or ""
+          if e_env then
+            out[#out+1] = bq_pfx .. "$$\n" .. bq_pfx .. e_env .. "\n" .. bq_pfx .. "$$"
+            if suffix and suffix:match("%S") then out[#out+1] = bq_pfx .. suffix:gsub("^%s*", "") end
+            cur_env = nil; env_lines = nil; cur_bq = nil
+          else
+            env_lines = { body_line }
+          end
+        else
+          out[#out+1] = line
+        end
+      else
+        local stripped_line = line
+        if cur_bq then
+          local rest = line:match("^[%s>]*>(.*)$")
+          if rest then stripped_line = rest:gsub("^%s", "") end
+        end
+        local e_env, suffix = stripped_line:match("^(.*\\end%s*{" .. cur_env:gsub("%*", "%%*") .. "})(.*)$")
+        local bq_pfx = cur_bq or ""
+        if e_env then
+          env_lines[#env_lines+1] = e_env
+          out[#out+1] = bq_pfx .. "$$\n" .. bq_pfx .. table.concat(env_lines, "\n" .. bq_pfx) .. "\n" .. bq_pfx .. "$$"
+          if suffix and suffix:match("%S") then out[#out+1] = bq_pfx .. suffix:gsub("^%s*", "") end
+          cur_env = nil; env_lines = nil; cur_bq = nil
+        else
+          env_lines[#env_lines+1] = stripped_line
+        end
+      end
+    end
+  end
+  if cur_env and env_lines then
+    for _, l in ipairs(env_lines) do out[#out+1] = l end
+  end
+  return table.concat(out, "\n")
+end
+
 local TEXT_PASSES = {
   { name = "scrub",               apply = scrub },                -- 1. normalise characters, strip AI debris
   { name = "unwrap-document",     apply = pass_unwrap_document }, -- 2. needs clean text to find \begin{document}
   { name = "drop-maketitle",      apply = pass_drop_maketitle },  -- 3. the template prints the title itself
   { name = "space-tables",        apply = space_tables },         -- 4. blank line before pipe tables
   { name = "multiline-math",      apply = fix_multiline_math },   -- 5. must see paragraphs BEFORE hoisting
-  { name = "hoist-commands",      apply = pass_hoist_body_commands }, -- 6. also runs fix_math_line per line
-  { name = "markdown-in-lists",   apply = md_in_lists },          -- 7. after hoisting: lists are final
-  { name = "environments-to-divs",apply = envs_to_divs },         -- 8. last: output goes straight to pandoc
+  { name = "wrap-math-envs",      apply = pass_wrap_bare_math_envs }, -- 6. bare \begin{align} -> $$ for -raw_tex
+  { name = "hoist-commands",      apply = pass_hoist_body_commands }, -- 7. also runs fix_math_line per line
+  { name = "markdown-in-lists",   apply = md_in_lists },          -- 8. after hoisting: lists are final
+  { name = "environments-to-divs",apply = envs_to_divs },         -- 9. last: output goes straight to pandoc
 }
 
 local function mask_inline_code(text, store)
@@ -1155,9 +1291,8 @@ local function mask_inline_code(text, store)
         local x, y = text:find("`+", search)
         if not x then break end
         if y - x + 1 == ticks then
-          local preceding, k = 0, x - 1
-          while k >= 1 and text:sub(k, k) == "\\" do preceding = preceding + 1; k = k - 1 end
-          if preceding % 2 == 0 then close = y; break end
+          close = y
+          break
         end
         search = y + 1
       end
@@ -1199,12 +1334,13 @@ local function mask_literals(text)
       if fence_mark(line, fence) then fence = nil; flush_block() end
     elseif verbatim then
       block[#block+1] = line
-      if line:find("\\end{" .. verbatim .. "}", 1, true) then verbatim = nil; flush_block() end
+      if line:match("\\end%s*{" .. verbatim:gsub("%*", "%%*") .. "}") then verbatim = nil; flush_block() end
     else
       local mark = fence_mark(line)
-      local env = line:match("^%s*\\begin{(verbatim%*?)}")
-          or line:match("^%s*\\begin{(Verbatim%*?)}")
-          or line:match("^%s*\\begin{(lstlisting%*?)}")
+      local env = line:match("^%s*\\begin%s*{(verbatim%*?)}")
+          or line:match("^%s*\\begin%s*{(Verbatim%*?)}")
+          or line:match("^%s*\\begin%s*{(lstlisting%*?)}")
+          or line:match("^%s*\\begin%s*{(minted%*?)}")
       if mark then
         flush_prose()
         fence = mark
@@ -1212,7 +1348,7 @@ local function mask_literals(text)
       elseif env then
         flush_prose()
         block = { line }
-        if line:find("\\end{" .. env .. "}", 1, true) then flush_block()
+        if line:match("\\end%s*{" .. env:gsub("%*", "%%*") .. "}") then flush_block()
         else verbatim = env end
       elseif line:match("^    ") or line:match("^\t") then
         local is_list_item = line:match("^%s*[%*%-%+]%s+")
@@ -1317,6 +1453,10 @@ local function clean(text)
   text, file_meta = extract_yaml_fences(text)
   text = space_fences(text)
   text = normalize_fence_attributes(text)
+  for nm in text:gmatch("\\newtheorem%*?%s*{([^}]*)}") do
+    nm = nm:match("^%s*(.-)%s*$")
+    REGISTRY.DIV_ENVS[nm] = true
+  end
   local fence, malformed = nil, 0
   for line in each_line(text) do
     if fence then
@@ -1407,13 +1547,14 @@ end
 
 -- $$\begin{align}..\end{align}$$ would become \[\begin{align}..\] = LaTeX error.
 -- Emit the environment itself instead (keeps numbering, \label and \eqref working).
+-- Matches anywhere in display math to allow preceding/trailing text, spaces, or comments.
 local function math_fix(el)
   local changed = false
   local fixed = bold_greek(el.text)
   if fixed ~= el.text then el = pandoc.Math(el.mathtype, fixed); changed = true end
   if el.mathtype ~= "DisplayMath" then return changed and el or nil end
-  local env = el.text:match("^%s*\\begin{(%a+)%*?}")
-  if env and REGISTRY.MATH_ENVS[env] and el.text:match("\\end{" .. env .. "%*?}%s*$") then
+  local env = el.text:match("\\begin%s*{(%a+)%*?}")
+  if env and REGISTRY.MATH_ENVS[env] and el.text:match("\\end%s*{" .. env .. "%*?}") then
     return pandoc.RawInline("latex", "\n" .. el.text:gsub("^%s+", ""):gsub("%s+$", "") .. "\n")
   end
   return changed and el or nil
@@ -1427,26 +1568,183 @@ end
 -- blank and "Missing character".  Each one becomes \textsuperscript{base letter}, which follows
 -- the current font (bold in **..**, headings, ...).  Only ordinary text is touched: math, code
 -- spans and code blocks are separate AST elements and are left alone.
-local function str_fix(el)
-  local text, hit = el.text, false
-  for ch in text:gmatch(utf8.charpattern) do
-    if SUPER_LETTERS[ch] then hit = true; break end
+local function script_of_char(cp)
+  if not cp then return nil end
+  if cp >= 0x0980 and cp <= 0x09FF then
+    return "bengali"
+  elseif cp >= 0x0900 and cp <= 0x097F then
+    return "hindi"
+  elseif (cp >= 0x4E00 and cp <= 0x9FFF) or (cp >= 0x3400 and cp <= 0x4DBF)
+      or (cp >= 0x3000 and cp <= 0x303F) or (cp >= 0xFF00 and cp <= 0xFFEF) then
+    return "chinese-simplified"
   end
-  if not hit then return nil end
+  return nil
+end
+
+local function str_fix(el)
+  local text = el.text
+  local has_super = false
+  local has_script = false
+  for ch in text:gmatch(utf8.charpattern) do
+    if SUPER_LETTERS[ch] then has_super = true end
+    local cp = utf8.codepoint(ch)
+    if script_of_char(cp) then has_script = true end
+    if has_super and has_script then break end
+  end
+  local has_tex = text:find("\\", 1, true) ~= nil
+  if not has_super and not has_tex and not has_script then return nil end
+
   local out, buf = {}, {}
   local function flush()
     if #buf > 0 then out[#out+1] = pandoc.Str(table.concat(buf)); buf = {} end
   end
-  for ch in text:gmatch(utf8.charpattern) do
-    local base = SUPER_LETTERS[ch]
-    if base then
-      flush()
-      out[#out+1] = pandoc.RawInline("latex", "\\textsuperscript{" .. base .. "}")
-      State.super_fixes = State.super_fixes + 1
+
+  local pos = 1
+  local hit = false
+  while pos <= #text do
+    if text:sub(pos, pos) == "\\" then
+      local rest = text:sub(pos)
+      local sub_arg = rest:match("^\\textsubscript(%b{})")
+      local sup_arg = rest:match("^\\textsuperscript(%b{})")
+      local ref_cmd, ref_opt, ref_arg = rest:match("^\\([%a@]*ref%*?)(%b[])(%b{})")
+      if not ref_opt then
+        ref_cmd, ref_arg = rest:match("^\\([%a@]*ref%*?)(%b{})")
+        ref_opt = ""
+      end
+      local cite_cmd, cite_opt, cite_arg = rest:match("^\\([%a@]*cite%*?)(%b[])(%b{})")
+      if not cite_cmd then
+        cite_cmd, cite_arg = rest:match("^\\([%a@]*cite%*?)(%b{})")
+        cite_opt = ""
+      end
+      local url_arg = rest:match("^\\url(%b{})")
+      local href_opt, href_url, href_text = rest:match("^\\href(%b[])(%b{})(%b{})")
+      if not href_opt then
+        href_url, href_text = rest:match("^\\href(%b{})(%b{})")
+        href_opt = ""
+      end
+      local fn_opt, fn_arg = rest:match("^\\footnote(%b[])(%b{})")
+      if not fn_opt then
+        fn_arg = rest:match("^\\footnote(%b{})")
+        fn_opt = ""
+      end
+      local label_arg = rest:match("^\\label(%b{})")
+      local is_nbsp = rest:match("^\\nobreakspace{}") or rest:match("^\\nobreakspace%f[%A]")
+      local pb_cmd, pb_brace = rest:match("^\\(newpage)(%b{})")
+            or rest:match("^\\(clearpage)(%b{})")
+            or rest:match("^\\(pagebreak)(%b{})")
+            or rest:match("^\\(bigskip)(%b{})")
+            or rest:match("^\\(medskip)(%b{})")
+            or rest:match("^\\(smallskip)(%b{})")
+      if not pb_cmd then
+        pb_cmd = rest:match("^\\(newpage)%f[%A]")
+              or rest:match("^\\(clearpage)%f[%A]")
+              or rest:match("^\\(pagebreak)%f[%A]")
+              or rest:match("^\\(bigskip)%f[%A]")
+              or rest:match("^\\(medskip)%f[%A]")
+              or rest:match("^\\(smallskip)%f[%A]")
+              or rest:match("^\\(hfill)%f[%A]")
+              or rest:match("^\\(noindent)%f[%A]")
+        pb_brace = ""
+      end
+      local sp_cmd, sp_arg = rest:match("^\\([vh]space%*?)(%b{})")
+
+      if sub_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\textsubscript" .. sub_arg)
+        pos = pos + #("\\textsubscript" .. sub_arg)
+        hit = true
+      elseif sup_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\textsuperscript" .. sup_arg)
+        pos = pos + #("\\textsuperscript" .. sup_arg)
+        hit = true
+      elseif is_nbsp then
+        flush()
+        local nb_len = text:match("^\\nobreakspace{}", pos) and #("\\nobreakspace{}") or #("\\nobreakspace")
+        out[#out+1] = pandoc.RawInline("latex", "~")
+        pos = pos + nb_len
+        hit = true
+      elseif ref_cmd and ref_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\" .. ref_cmd .. ref_opt .. ref_arg)
+        pos = pos + 1 + #ref_cmd + #ref_opt + #ref_arg
+        hit = true
+      elseif cite_cmd and cite_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\" .. cite_cmd .. cite_opt .. cite_arg)
+        pos = pos + 1 + #cite_cmd + #cite_opt + #cite_arg
+        hit = true
+      elseif url_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\url" .. url_arg)
+        pos = pos + #("\\url" .. url_arg)
+        hit = true
+      elseif href_url and href_text then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\href" .. href_opt .. href_url .. href_text)
+        pos = pos + #("\\href" .. href_opt .. href_url .. href_text)
+        hit = true
+      elseif fn_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\footnote" .. fn_opt .. fn_arg)
+        pos = pos + #("\\footnote" .. fn_opt .. fn_arg)
+        hit = true
+      elseif label_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\label" .. label_arg)
+        pos = pos + #("\\label" .. label_arg)
+        hit = true
+      elseif pb_cmd then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\" .. pb_cmd .. pb_brace)
+        pos = pos + 1 + #pb_cmd + #pb_brace
+        hit = true
+      elseif sp_cmd and sp_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\" .. sp_cmd .. sp_arg)
+        pos = pos + 1 + #sp_cmd + #sp_arg
+        hit = true
+      else
+        local ch = text:match(utf8.charpattern, pos) or text:sub(pos, pos)
+        buf[#buf+1] = ch
+        pos = pos + #ch
+      end
     else
-      buf[#buf+1] = ch
+      local ch = text:match(utf8.charpattern, pos) or text:sub(pos, pos)
+      local base = SUPER_LETTERS[ch]
+      local cp = utf8.codepoint(ch)
+      local sc = script_of_char(cp)
+      if base then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\textsuperscript{" .. base .. "}")
+        State.super_fixes = State.super_fixes + 1
+        hit = true
+        pos = pos + #ch
+      elseif sc then
+        flush()
+        local schars = { ch }
+        local cur = pos + #ch
+        while cur <= #text do
+          local next_ch = text:match(utf8.charpattern, cur)
+          if not next_ch then break end
+          local next_cp = utf8.codepoint(next_ch)
+          if next_cp and script_of_char(next_cp) == sc then
+            schars[#schars+1] = next_ch
+            cur = cur + #next_ch
+          else
+            break
+          end
+        end
+        out[#out+1] = pandoc.RawInline("latex", "\\foreignlanguage{" .. sc .. "}{" .. table.concat(schars) .. "}")
+        pos = cur
+        hit = true
+      else
+        buf[#buf+1] = ch
+        pos = pos + #ch
+      end
     end
   end
+  if not hit then return nil end
   flush()
   return out
 end
@@ -1537,7 +1835,7 @@ end
 -- (pandoc usually reads it as a RawInline inside a paragraph; sometimes as a RawBlock.)
 local function rawblock_super(el)
   if not el.format:match("^%a*tex$") then return nil end
-  local env = el.text:match("^%s*\\begin{(%a+)%*?}")
+  local env = el.text:match("^%s*\\begin%s*{(%a+)%*?}")
   if not (env and REGISTRY.MATH_ENVS[env]) then return nil end
   local new, hit = scripts_in_math(el.text)
   if not hit then return nil end
@@ -1565,19 +1863,24 @@ end
 -- Drop images LaTeX cannot include, and say so (a missing file would be a LaTeX error).
 local function image_fix(el)
   local src = el.src or ""
-  local ext = src:match("%.(%w+)$")
+  local clean_src = src:gsub("^file:///*", ""):match("^([^?#]+)") or src
+  if not file_exists(clean_src) and file_exists((clean_src:gsub("%%20", " "))) then
+    clean_src = clean_src:gsub("%%20", " ")
+  end
+  local ext = clean_src:match("%.(%w+)$")
   local why
-  if src:match("^%a[%w+.%-]+:") and not src:match("^%a:[/\\]") then   -- http: https: data: file: sandbox: blob: ... (not C:/ or C:\)
+  if clean_src:match("^%a[%w+.%-]+:") and not clean_src:match("^%a:[/\\]") then   -- http: https: data: file: sandbox: blob: ... (not C:/ or C:\)
     why = "remote or sandbox image"
   elseif not (ext and REGISTRY.IMAGE_EXTENSIONS[ext:lower()]) then
     why = "unsupported type (png/jpg/pdf only)"
-  elseif not (file_exists(src) or file_exists((src:gsub("%%20", " ")))) then
+  elseif not file_exists(clean_src) then
     why = "file not found next to the input"
   end
   if why then
     warn("dropped image (" .. why .. "): " .. src)
     return {}
   end
+  if clean_src ~= src then el.src = clean_src end
   return nil
 end
 
@@ -1590,7 +1893,10 @@ local function figure_fix(el)
 end
 
 local function raw_html_fix(el)
-  if el.format:match("^html") then return {} end
+  if el.format:match("^html") then
+    if el.text:match("^<br%s*/?>$") then return pandoc.LineBreak() end
+    return {}
+  end
   return nil
 end
 
@@ -1878,6 +2184,25 @@ local function load_cleaned_input(doc)
     for _, block in ipairs(parsed.blocks) do blocks[#blocks+1] = block end
   end
   cleaned_meta = cleaned_meta or {}
+  if doc and doc.meta then
+    for key, value in pairs(doc.meta) do
+      if key == "header-includes" and cleaned_meta[key] then
+        local combined = {}
+        local function add_items(item)
+          if item.t == "MetaList" then
+            for _, x in ipairs(item) do combined[#combined + 1] = x end
+          else
+            combined[#combined + 1] = item
+          end
+        end
+        add_items(cleaned_meta[key])
+        add_items(value)
+        cleaned_meta[key] = pandoc.MetaList(combined)
+      else
+        cleaned_meta[key] = value
+      end
+    end
+  end
   return pandoc.Pandoc(blocks, cleaned_meta)
 end
 

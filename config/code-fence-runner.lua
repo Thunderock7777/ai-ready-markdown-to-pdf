@@ -1001,10 +1001,10 @@ local function render_latex(el, class, preamble, global_defs)
     out[#out + 1] = pandoc.CodeBlock(el.text, pandoc.Attr("", { class }))
   end
   local body = el.text
-  local bs, e = el.text:find("\\begin{document}", 1, true)
+  local bs, e = el.text:find("\\begin%s*{document}")
   if e then
     body = el.text:sub(e + 1)
-    local inner = body:match("^(.*)\\end{document}")
+    local inner = body:match("^(.*)\\end%s*{document}")
     if inner then
       body = inner
     else
@@ -1329,9 +1329,7 @@ end
 
 local function add_latex_preamble(doc, preamble)
   if #preamble == 0 then return end
-  local includes = { pandoc.MetaBlocks({
-    pandoc.RawBlock("latex", table.concat(preamble, "\n"))
-  }) }
+  local includes = {}
   local old = doc.meta["header-includes"]
   if old then
     if old.t == "MetaList" then
@@ -1340,6 +1338,9 @@ local function add_latex_preamble(doc, preamble)
       includes[#includes+1] = old
     end
   end
+  includes[#includes+1] = pandoc.MetaBlocks({
+    pandoc.RawBlock("latex", table.concat(preamble, "\n"))
+  })
   doc.meta["header-includes"] = pandoc.MetaList(includes)
 end
 

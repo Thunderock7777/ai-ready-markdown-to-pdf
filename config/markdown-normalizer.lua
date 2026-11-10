@@ -1133,11 +1133,11 @@ end
 -- only the text between \begin{document} and \end{document}.
 local function pass_unwrap_document(text)
   local masked = mask_fences(text)
-  local bs, be = masked:find("\\begin{document}", 1, true)
-  local es = masked:match("^.*()\\end{document}")   -- anchored: unanchored was quadratic (9 s per 500 lines)
-  if bs and es and es > be and masked:sub(1, bs - 1):find("\\documentclass", 1, true) then
-    local finish = masked:find("\\end{document}", es, true)
-    if finish and masked:sub(finish + #"\\end{document}"):match("%S") then
+  local bs, be = masked:find("\\begin%s*{document}")
+  local es, ee = masked:match("^.*()(\\end%s*{document})")
+  if bs and es and es > be and masked:sub(1, bs - 1):find("\\documentclass") then
+    local finish = es + #ee - 1
+    if finish and masked:sub(finish + 1):match("%S") then
       warn("discarded non-whitespace text after \\end{document} in pasted full document")
     end
     process_lines(text:sub(1, bs - 1), true)
@@ -1282,12 +1282,13 @@ local function mask_literals(text)
       if fence_mark(line, fence) then fence = nil; flush_block() end
     elseif verbatim then
       block[#block+1] = line
-      if line:find("\\end{" .. verbatim .. "}", 1, true) then verbatim = nil; flush_block() end
+      if line:match("\\end%s*{" .. verbatim:gsub("%*", "%%*") .. "}") then verbatim = nil; flush_block() end
     else
       local mark = fence_mark(line)
-      local env = line:match("^%s*\\begin{(verbatim%*?)}")
-          or line:match("^%s*\\begin{(Verbatim%*?)}")
-          or line:match("^%s*\\begin{(lstlisting%*?)}")
+      local env = line:match("^%s*\\begin%s*{(verbatim%*?)}")
+          or line:match("^%s*\\begin%s*{(Verbatim%*?)}")
+          or line:match("^%s*\\begin%s*{(lstlisting%*?)}")
+          or line:match("^%s*\\begin%s*{(minted%*?)}")
       if mark then
         flush_prose()
         fence = mark
@@ -1295,7 +1296,7 @@ local function mask_literals(text)
       elseif env then
         flush_prose()
         block = { line }
-        if line:find("\\end{" .. env .. "}", 1, true) then flush_block()
+        if line:match("\\end%s*{" .. env:gsub("%*", "%%*") .. "}") then flush_block()
         else verbatim = env end
       elseif line:match("^    ") or line:match("^\t") then
         local is_list_item = line:match("^%s*[%*%-%+]%s+")

@@ -459,9 +459,10 @@ Function reference: registration and LaTeX recovery
     {\begingroup\n ... \n\par\endgroup}, ensuring that definitions, colors, font sizes,
     lengths, and counter modifications remain strictly isolated to the block and cannot
     leak to outer Markdown prose or subsequent fences. If usepackage or documentclass appears
-    in a snippet without begin{document}, it warns that the pasted preamble is likely to fail.
-    Source display is opt-in for LaTeX (show=true). Redefinitions of document scaffolding macros
-    trigger automatic demotion to a code listing (run=false).
+    in a snippet without begin{document}, it emits a console warning and returns nil, automatically
+    demoting the block to a syntax-highlighted code listing (run=false) to prevent fatal document
+    compilation crashes. Source display is opt-in for LaTeX (show=true). Redefinitions of document
+    scaffolding macros trigger automatic demotion to a code listing (run=false).
 
 Function reference: execution and rendering
 --------------------------------------------

@@ -375,7 +375,8 @@ Math and LaTeX text repair
     Handles same-line dollar math, escaped NotebookLM math, trims clearly
     mathematical inner whitespace, and escapes table-cell vertical bars.
     Its local unescape(inner) closure rejects currency-like contents lacking
-    math markers.
+    math markers; skips currency amounts ($ followed by digits) when matching
+    closing delimiters to prevent mangling adjacent prose and equations.
   fix_paragraph(text) -> text
     Scans a paragraph with multiple lines and repairs clearly mathematical
     single-dollar delimiters. It skips escapes, exact-length code spans, and
@@ -432,7 +433,8 @@ Preamble collection and structural text
   envs_to_divs(text) -> text
     Converts supported multi-line environments into fenced Div syntax and
     stores each optional argument in State.env_opts. The Div carries lenv and
-    lopt attributes consumed later by div_fix.
+    lopt attributes consumed later by div_fix. Supports arbitrary re-entrant
+    nesting (e.g. quote or proof inside theorem) using an environment stack.
   pass_unwrap_document(text) -> text
     Detects a pasted full document only when documentclass precedes
     begin{document} and a later end{document} exists. Calls process_lines on
@@ -488,6 +490,8 @@ Math and Unicode
   math_fix(Math element) -> replacement or nil
     Applies bold Greek repair and converts selected display-math environments
     (align/equation-family) to raw LaTeX so they are not nested in \[...\].
+    Matches environments anywhere in display math to safely permit leading/trailing
+    text, comments, or spacing.
   str_fix(Str element) -> inline sequence or nil
     Converts supported Unicode superscript letters in ordinary text to
     \textsuperscript. Its local flush closure emits uninterrupted ordinary

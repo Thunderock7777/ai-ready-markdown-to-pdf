@@ -99,8 +99,9 @@ Pipeline and ordering
    global commands (\DeclareMathOperator, \DeclarePairedDelimiter, \newunicodechar, \newtheorem) or importing
    packages with conflicting options across blocks—automatically demotes the offending block to a
    syntax-highlighted code listing (run=false) with a console warning. Stray unfenced LaTeX commands in body text
-   are treated as literal Markdown prose (-raw_tex). Redefinitions of template scaffolding macros in LaTeX fences
-   also trigger automatic demotion to syntax-highlighted code listings.
+   are treated as literal Markdown prose (-raw_tex). Redefinitions of template scaffolding macros or preamble
+   commands (\usepackage, \documentclass) in fences lacking \begin{document} also trigger automatic demotion
+   to syntax-highlighted code listings (run=false).
 5. Pandoc writes temporary LaTeX. XeLaTeX runs in the temporary build folder
    with -cnf-line=max_print_line=1000 and -file-line-error, repeating up to
    three times when its log requests another reference pass. If XeLaTeX encounters

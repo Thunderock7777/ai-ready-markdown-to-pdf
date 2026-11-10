@@ -591,15 +591,24 @@ local function fix_math_line(line)
       out[#out+1] = line:sub(i, e + 1); i = e + 2
     else                                                      -- inline $ .. $
       local e = line:find("%$", s + 1)
-      while e and line:sub(e-1, e-1) == "\\" do e = line:find("%$", e + 1) end
-      if not e then out[#out+1] = line:sub(i); break end
-      local inner = line:sub(s + 1, e - 1)
-      if inner:match("[\\^_{}=]") then
-        inner = inner:gsub("^%s+", ""):gsub("%s+$", "")       -- "$ x $" is not math in pandoc
-        if is_table then inner = inner:gsub("([^\\])|", "%1\\vert "):gsub("^|", "\\vert ") end
+      while e do
+        if line:sub(e-1, e-1) == "\\" or line:sub(e+1, e+1):match("%d") then
+          e = line:find("%$", e + 1)
+        else
+          break
+        end
       end
-      out[#out+1] = line:sub(i, s - 1) .. "$" .. inner .. "$"
-      i = e + 1
+      if not e then
+        out[#out+1] = line:sub(i, s); i = s + 1
+      else
+        local inner = line:sub(s + 1, e - 1)
+        if inner:match("[\\^_{}=]") then
+          inner = inner:gsub("^%s+", ""):gsub("%s+$", "")       -- "$ x $" is not math in pandoc
+          if is_table then inner = inner:gsub("([^\\])|", "%1\\vert "):gsub("^|", "\\vert ") end
+        end
+        out[#out+1] = line:sub(i, s - 1) .. "$" .. inner .. "$"
+        i = e + 1
+      end
     end
   end
   return table.concat(out)
@@ -1061,8 +1070,10 @@ end
 -- \begin{theorem}[Name] ... \end{theorem}  ->  fenced Div, so the body is parsed as Markdown.
 -- div_fix() turns the Div back into \begin{theorem}[Name] ... \end{theorem}.
 -- Only used when begin and end are on separate lines; everything else stays raw LaTeX.
+-- Supports arbitrary nesting (e.g. quote or proof inside theorem) via an environment stack.
 local function envs_to_divs(text)
-  local out, fence, cur = {}, nil, nil
+  local out, fence = {}, nil
+  local env_stack = {}
   for line in each_line(text) do
     local mark = fence_mark(line, fence)
     if mark then
@@ -1072,28 +1083,31 @@ local function envs_to_divs(text)
       out[#out+1] = line
     else
       local env, rest = line:match("^%s*\\begin{(%a+)}(.*)$")
-      if not cur and env and REGISTRY.DIV_ENVS[env] and not rest:find("\\end{" .. env .. "}", 1, true) then
+      if env and REGISTRY.DIV_ENVS[env] and not rest:find("\\end{" .. env .. "}", 1, true) then
         local opt, tail = rest:match("^%s*(%b[])(.*)$")
         if not opt then tail = rest end
         State.env_opts[#State.env_opts + 1] = opt or ""
-        cur = env
+        env_stack[#env_stack + 1] = env
         out[#out+1] = ""
         out[#out+1] = string.format('::: {.latexenv lenv="%s" lopt="%d"}', env, #State.env_opts)
         if tail:match("%S") then out[#out+1] = (tail:gsub("^%s+", "")) end
       else
         local before, e = line:match("^(.-)\\end{(%a+)}%s*$")
-        if cur and e == cur then
+        if #env_stack > 0 and e == env_stack[#env_stack] then
           if before:match("%S") then out[#out+1] = before end
           out[#out+1] = ":::"
           out[#out+1] = ""
-          cur = nil
+          env_stack[#env_stack] = nil
         else
           out[#out+1] = line
         end
       end
     end
   end
-  if cur then out[#out+1] = ":::" end   -- unclosed environment: close the Div anyway
+  while #env_stack > 0 do
+    out[#out+1] = ":::"
+    env_stack[#env_stack] = nil
+  end
   return table.concat(out, "\n")
 end
 
@@ -1407,13 +1421,14 @@ end
 
 -- $$\begin{align}..\end{align}$$ would become \[\begin{align}..\] = LaTeX error.
 -- Emit the environment itself instead (keeps numbering, \label and \eqref working).
+-- Matches anywhere in display math to allow preceding/trailing text, spaces, or comments.
 local function math_fix(el)
   local changed = false
   local fixed = bold_greek(el.text)
   if fixed ~= el.text then el = pandoc.Math(el.mathtype, fixed); changed = true end
   if el.mathtype ~= "DisplayMath" then return changed and el or nil end
-  local env = el.text:match("^%s*\\begin{(%a+)%*?}")
-  if env and REGISTRY.MATH_ENVS[env] and el.text:match("\\end{" .. env .. "%*?}%s*$") then
+  local env = el.text:match("\\begin{(%a+)%*?}")
+  if env and REGISTRY.MATH_ENVS[env] and el.text:match("\\end{" .. env .. "%*?}") then
     return pandoc.RawInline("latex", "\n" .. el.text:gsub("^%s+", ""):gsub("%s+$", "") .. "\n")
   end
   return changed and el or nil

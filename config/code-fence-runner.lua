@@ -1054,8 +1054,8 @@ local function render_latex(el, class, preamble, global_defs)
       body = table.concat(local_cmds, "\n") .. "\n" .. body
     end
   elseif el.text:find("\\usepackage") or el.text:find("\\documentclass") then
-    warn("latex block has a preamble but no \\begin{document}: it is pasted as is and will " ..
-         "fail; wrap the body in \\begin{document}...\\end{document}")
+    warn("latex block has preamble commands (\\usepackage or \\documentclass) but no \\begin{document}; rendering as code listing (run=false)")
+    return nil
   end
   -- Universal Code Fence Isolation: wrap every block in a local scope
   -- so colors, styles, font sizes, lengths, and local macros never leak to outer document.

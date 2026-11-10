@@ -268,6 +268,13 @@ Version 1.3.3 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-10 | LaTeX preamble demotion without begin{document}, nested env stack, robust display math unwrap, and currency math isolation | source +33 / -18 | 51 / 500
+  2026-11-10 | Versioned Group 2 LaTeX and Markdown pipeline fixes as 1.3.4 (PATCH)
+
+Version 1.3.4 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 For each later accepted change, append one entry in this format:
 

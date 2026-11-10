@@ -793,6 +793,7 @@ local function is_structural_line(line)
   return not line:match("%S") or line:match("^[%s>]*|") or line:match("^[%s>]*#+%s")
       or line:match("^[%s>]*\\begin%s*{") or line:match("^[%s>]*\\end%s*{")
       or line:match("^[%s>]*%-%-%-+%s*$")
+      or line:match("^[%s>]*\\newpage%s*$") or line:match("^[%s>]*\\clearpage%s*$") or line:match("^[%s>]*\\pagebreak%s*$")
       or line:find("FIXGROUPS_LITERAL", 1, true) ~= nil
 end
 
@@ -1614,10 +1615,18 @@ local function str_fix(el)
       local pb_cmd, pb_brace = rest:match("^\\(newpage)(%b{})")
             or rest:match("^\\(clearpage)(%b{})")
             or rest:match("^\\(pagebreak)(%b{})")
+            or rest:match("^\\(bigskip)(%b{})")
+            or rest:match("^\\(medskip)(%b{})")
+            or rest:match("^\\(smallskip)(%b{})")
       if not pb_cmd then
         pb_cmd = rest:match("^\\(newpage)%f[%A]")
               or rest:match("^\\(clearpage)%f[%A]")
               or rest:match("^\\(pagebreak)%f[%A]")
+              or rest:match("^\\(bigskip)%f[%A]")
+              or rest:match("^\\(medskip)%f[%A]")
+              or rest:match("^\\(smallskip)%f[%A]")
+              or rest:match("^\\(hfill)%f[%A]")
+              or rest:match("^\\(noindent)%f[%A]")
         pb_brace = ""
       end
       local sp_cmd, sp_arg = rest:match("^\\([vh]space%*?)(%b{})")

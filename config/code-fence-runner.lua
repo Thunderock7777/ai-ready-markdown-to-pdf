@@ -631,7 +631,8 @@ local function java_command(exe, script, out, err, prefix, text)
   local java_dir = prefix .. "_java"
   local javac_env = os.getenv("JAVAC_COMPILER")
   local javac = (javac_env and javac_env ~= "") and javac_env or "javac"
-  local has_javac = (javac_env and javac_env ~= "") or (os.execute((IS_WIN and "where " or "which ") .. javac .. " > " .. NULL_DEV .. " 2>&1") == 0)
+  local has_javac = file_exists(javac) or file_exists(javac .. ".exe")
+      or (os.execute((IS_WIN and "where " or "which ") .. quote_executable(javac) .. " > " .. NULL_DEV .. " 2>&1") == 0)
   if has_javac then
     local comp = quote_executable(javac) .. ' -d "' .. to_os_path(java_dir) .. '" ' .. quote_executable(script)
     local run = quote_executable(exe) .. ' -cp "' .. to_os_path(java_dir) .. '" ' .. class_name

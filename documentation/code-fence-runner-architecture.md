@@ -562,7 +562,8 @@ share:
   register's alias loop
     Maps every lowercased alias to the same validated spec object.
   extract_commands has no nested function objects; it uses cursor/index locals
-    for escaped group scans and command-arity parsing.
+    for escaped group scans, unbraced control sequence tokens (DeclareMathOperator, DeclarePairedDelimiter),
+    and command-arity parsing including subordinate counter resets (newtheorem[section]).
   fill's gsub callback(token)
     Resolves each placeholder and asserts when its value is missing.
   Python _audit helpers are inline path/mode tests, not separate functions;

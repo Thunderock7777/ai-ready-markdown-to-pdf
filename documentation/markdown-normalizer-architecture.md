@@ -252,8 +252,8 @@ inlines
   image_fix validates local image scheme, extension, and file existence;
   invalid images are dropped with a warning.
   link_fix preserves links or unwraps them according to CONFIG.keep_links.
-  RawInline removes HTML raw content and also checks raw TeX math environments.
-  str_fix converts supported superscript letters in ordinary text.
+  RawInline maps HTML <br> tags to native LineBreak elements, strips unsupported HTML tags, and checks raw TeX math environments.
+  str_fix converts supported superscript letters in ordinary text and emits unescaped RawInline("latex", ...) nodes for \textsubscript{...}, \textsuperscript{...}, \nobreakspace{}, \ref{...}, \eqref{...}, \autoref{...}, \pageref{...}, \nameref{...}, \cite{...}, and \label{...} so they render without \textbackslash escaping under -raw_tex.
   note_code_super records characters in Code and CodeBlock nodes for later
   preamble definitions without changing the displayed code.
 

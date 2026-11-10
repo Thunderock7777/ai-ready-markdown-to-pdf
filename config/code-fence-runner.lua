@@ -853,38 +853,50 @@ local function extract_commands(pre)
           if e then optional = pre:sub(cursor, e); cursor = e + 1 end
         end
         cursor = skip_space(pre, cursor)
+        local first_end
         if pre:sub(cursor, cursor) == "{" then
-          local first_end = match_group(pre, cursor, "{", "}")
-          if first_end then
-            if name == "DeclareMathOperator" or name == "newtheorem"
-                or name == "DeclarePairedDelimiter" or name == "newenvironment" or name == "newunicodechar"
-                or THREE_ARG_PREAMBLE[name] then
-              local next_arg = skip_space(pre, first_end + 1)
-              if (name == "newtheorem" or name == "newenvironment")
-                  and pre:sub(next_arg, next_arg) == "[" then
+          first_end = match_group(pre, cursor, "{", "}")
+        elseif pre:sub(cursor, cursor) == "\\" and (name == "DeclareMathOperator" or name == "DeclarePairedDelimiter" or THREE_ARG_PREAMBLE[name]) then
+          local token = pre:sub(cursor):match("^\\[%a@]+")
+          first_end = token and (cursor + #token - 1) or nil
+        end
+        if first_end then
+          if name == "DeclareMathOperator" or name == "newtheorem"
+              or name == "DeclarePairedDelimiter" or name == "newenvironment" or name == "newunicodechar"
+              or THREE_ARG_PREAMBLE[name] then
+            local next_arg = skip_space(pre, first_end + 1)
+            if (name == "newtheorem" or name == "newenvironment")
+                and pre:sub(next_arg, next_arg) == "[" then
+              local optional_end = match_group(pre, next_arg, "[", "]")
+              next_arg = optional_end and optional_end + 1 or next_arg
+            end
+            if name == "newenvironment" then
+              next_arg = skip_space(pre, next_arg)
+              if pre:sub(next_arg, next_arg) == "[" then
                 local optional_end = match_group(pre, next_arg, "[", "]")
                 next_arg = optional_end and optional_end + 1 or next_arg
               end
-              if name == "newenvironment" then
-                next_arg = skip_space(pre, next_arg)
-                if pre:sub(next_arg, next_arg) == "[" then
-                  local optional_end = match_group(pre, next_arg, "[", "]")
-                  next_arg = optional_end and optional_end + 1 or next_arg
-                end
-              end
-              next_arg = skip_space(pre, next_arg)
-              local second_end = pre:sub(next_arg, next_arg) == "{"
-                  and match_group(pre, next_arg, "{", "}") or nil
-              finish = second_end
-              if second_end and (name == "newenvironment" or name == "DeclarePairedDelimiter"
-                  or THREE_ARG_PREAMBLE[name]) then
-                next_arg = skip_space(pre, second_end + 1)
-                finish = pre:sub(next_arg, next_arg) == "{"
-                    and match_group(pre, next_arg, "{", "}") or nil
-              end
-            else
-              finish = first_end
             end
+            next_arg = skip_space(pre, next_arg)
+            local second_end = pre:sub(next_arg, next_arg) == "{"
+                and match_group(pre, next_arg, "{", "}") or nil
+            finish = second_end
+            if second_end and (name == "newenvironment" or name == "DeclarePairedDelimiter"
+                or THREE_ARG_PREAMBLE[name]) then
+              next_arg = skip_space(pre, second_end + 1)
+              finish = pre:sub(next_arg, next_arg) == "{"
+                  and match_group(pre, next_arg, "{", "}") or nil
+            end
+            if second_end and name == "newtheorem" then
+              local trailing = skip_space(pre, second_end + 1)
+              if pre:sub(trailing, trailing) == "[" then
+                local trailing_end = match_group(pre, trailing, "[", "]")
+                if trailing_end then finish = trailing_end end
+              end
+            end
+          else
+            finish = first_end
+          end
             if finish then
               local first = pre:sub(cursor + 1, first_end - 1)
               if name == "usepackage" then
@@ -899,7 +911,6 @@ local function extract_commands(pre)
             end
           end
         end
-      end
       if finish then
         if command then commands[#commands+1] = command end
         pos = finish + 1

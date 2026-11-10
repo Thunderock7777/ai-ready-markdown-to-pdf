@@ -275,6 +275,13 @@ Version 1.3.4 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-10 | Full Unicode subscript coverage, newtheorem reset counters, unbraced operator commands, AST raw tex protection, and trailing backslash code spans | source +136 / -43 | 179 / 500
+  2026-11-10 | Versioned silent LaTeX and Markdown pipeline fixes as 1.3.5 (PATCH)
+
+Version 1.3.5 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 For each later accepted change, append one entry in this format:
 

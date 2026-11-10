@@ -222,6 +222,8 @@ REGISTRY.SUBSCRIPT_CHARS = {
   [0x208B]="-", [0x208C]="=", [0x208D]="(", [0x208E]=")", [0x2090]="a", [0x2091]="e",
   [0x2092]="o", [0x2093]="x", [0x2095]="h", [0x2096]="k", [0x2097]="l", [0x2098]="m",
   [0x2099]="n", [0x209A]="p", [0x209B]="s", [0x209C]="t",
+  [0x1D62]="i", [0x2C7C]="j", [0x1D63]="r", [0x1D64]="u", [0x1D65]="v",
+  [0x1D66]="\\beta", [0x1D67]="\\gamma", [0x1D68]="\\rho", [0x1D69]="\\phi", [0x1D6A]="\\chi",
 }
 
 
@@ -488,13 +490,13 @@ end
 local function rule_html_leftovers(text)
   text = text:gsub("<sub>(.-)</sub>", "\\textsubscript{%1}")
   text = text:gsub("<sup>(.-)</sup>", "\\textsuperscript{%1}")
-  text = text:gsub("<br%s*/?>", "\\newline ")
+  text = text:gsub("<br%s*/?>%s*\n?", "  \n")
   return text
 end
 
--- LaTeX habit "Eq.~\eqref{..}" : a bare ~ in Markdown prose is literal, so use a real tie
+-- LaTeX habit "Eq.~\eqref{..}" : a bare ~ in Markdown prose is literal, so use a real tie (\u{00A0} -> ~ in LaTeX)
 local function rule_latex_ties(text)
-  text = text:gsub("~(\\%a*ref%f[%A])", "\\nobreakspace{}%1"):gsub("~(\\%a*cite%f[%A])", "\\nobreakspace{}%1")
+  text = text:gsub("~(\\%a*ref%f[%A])", "\u{00A0}%1"):gsub("~(\\%a*cite%f[%A])", "\u{00A0}%1")
   return text
 end
 
@@ -1169,9 +1171,8 @@ local function mask_inline_code(text, store)
         local x, y = text:find("`+", search)
         if not x then break end
         if y - x + 1 == ticks then
-          local preceding, k = 0, x - 1
-          while k >= 1 and text:sub(k, k) == "\\" do preceding = preceding + 1; k = k - 1 end
-          if preceding % 2 == 0 then close = y; break end
+          close = y
+          break
         end
         search = y + 1
       end
@@ -1443,25 +1444,81 @@ end
 -- the current font (bold in **..**, headings, ...).  Only ordinary text is touched: math, code
 -- spans and code blocks are separate AST elements and are left alone.
 local function str_fix(el)
-  local text, hit = el.text, false
+  local text = el.text
+  local has_super = false
   for ch in text:gmatch(utf8.charpattern) do
-    if SUPER_LETTERS[ch] then hit = true; break end
+    if SUPER_LETTERS[ch] then has_super = true; break end
   end
-  if not hit then return nil end
+  local has_tex = text:find("\\", 1, true) ~= nil
+  if not has_super and not has_tex then return nil end
+
   local out, buf = {}, {}
   local function flush()
     if #buf > 0 then out[#out+1] = pandoc.Str(table.concat(buf)); buf = {} end
   end
-  for ch in text:gmatch(utf8.charpattern) do
-    local base = SUPER_LETTERS[ch]
-    if base then
-      flush()
-      out[#out+1] = pandoc.RawInline("latex", "\\textsuperscript{" .. base .. "}")
-      State.super_fixes = State.super_fixes + 1
+
+  local pos = 1
+  local hit = false
+  while pos <= #text do
+    if text:sub(pos, pos) == "\\" then
+      local sub_arg = text:match("^\\textsubscript(%b{})", pos)
+      local sup_arg = text:match("^\\textsuperscript(%b{})", pos)
+      local ref_cmd, ref_arg = text:match("^\\([%a@]*ref)(%b{})", pos)
+      local cite_cmd, cite_arg = text:match("^\\([%a@]*cite)(%b{})", pos)
+      local label_arg = text:match("^\\label(%b{})", pos)
+      local is_nbsp = text:match("^\\nobreakspace{}", pos) or text:match("^\\nobreakspace%f[%A]", pos)
+
+      if sub_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\textsubscript" .. sub_arg)
+        pos = pos + #("\\textsubscript" .. sub_arg)
+        hit = true
+      elseif sup_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\textsuperscript" .. sup_arg)
+        pos = pos + #("\\textsuperscript" .. sup_arg)
+        hit = true
+      elseif is_nbsp then
+        flush()
+        local nb_len = text:match("^\\nobreakspace{}", pos) and #("\\nobreakspace{}") or #("\\nobreakspace")
+        out[#out+1] = pandoc.RawInline("latex", "~")
+        pos = pos + nb_len
+        hit = true
+      elseif ref_cmd and ref_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\" .. ref_cmd .. ref_arg)
+        pos = pos + 1 + #ref_cmd + #ref_arg
+        hit = true
+      elseif cite_cmd and cite_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\" .. cite_cmd .. cite_arg)
+        pos = pos + 1 + #cite_cmd + #cite_arg
+        hit = true
+      elseif label_arg then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\label" .. label_arg)
+        pos = pos + #("\\label" .. label_arg)
+        hit = true
+      else
+        local ch = text:match(utf8.charpattern, pos) or text:sub(pos, pos)
+        buf[#buf+1] = ch
+        pos = pos + #ch
+      end
     else
-      buf[#buf+1] = ch
+      local ch = text:match(utf8.charpattern, pos) or text:sub(pos, pos)
+      local base = SUPER_LETTERS[ch]
+      if base then
+        flush()
+        out[#out+1] = pandoc.RawInline("latex", "\\textsuperscript{" .. base .. "}")
+        State.super_fixes = State.super_fixes + 1
+        hit = true
+      else
+        buf[#buf+1] = ch
+      end
+      pos = pos + #ch
     end
   end
+  if not hit then return nil end
   flush()
   return out
 end
@@ -1605,7 +1662,10 @@ local function figure_fix(el)
 end
 
 local function raw_html_fix(el)
-  if el.format:match("^html") then return {} end
+  if el.format:match("^html") then
+    if el.text:match("^<br%s*/?>$") then return pandoc.LineBreak() end
+    return {}
+  end
   return nil
 end
 

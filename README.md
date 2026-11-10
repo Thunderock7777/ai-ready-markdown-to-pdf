@@ -5,7 +5,7 @@ Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
 and Java can run during the build with universal caching and approval controls,
 while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.3.4**.
+**Current project version: 1.3.5**.
 
 > **Paste an AI chat response and compile it directly.** A copied response from
 > ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses
@@ -20,6 +20,10 @@ while LaTeX fences render source snippets without executing them.
 - **Uniform Fence Syntax**: Standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````) across all languages; raw delimiters like `---` are reserved for horizontal rules and never treated as metadata.
 - **Block Boundary Spacing & Clean Tables**: Standalone horizontal rules (`---`) and fences are automatically padded with empty lines. Non-standard `simple_tables` are disabled to prevent narrow column collapses, ensuring pipe tables (`| col | col |`) render reliably.
 - **Code Fence Isolation & Stray TeX Protection**: LaTeX fences are locally scoped (`{\begingroup...\par\endgroup}`), isolating definitions, low-level TeX primitives (`\def`, `\let`), font families, and environments. Cross-fence global command collisions and incomplete preamble fences (lacking `\begin{document}`) automatically demote to syntax-highlighted code listings (`run=false`). Unfenced LaTeX commands in prose are treated as literal text (`-raw_tex`).
+- **Flexible Preamble Hoisting & Counters**: Rescues braced or unbraced control sequences (`\DeclareMathOperator\argmax{...}`, `\DeclarePairedDelimiter\ceil{...}`) and subordinate theorem reset counters (`\newtheorem{lem}{Lemma}[section]`) from full-document LaTeX fences.
+- **Comprehensive Unicode & Script Normalization**: Full Unicode math and prose coverage for all subscripts (Latin letters `ₐ ₑ ₕ ᵢ ⱼ ₖ ₗ ₘ ₙ ₒ ₚ ᵣ ₛ ₜ ᵤ ᵥ ₓ` and Greek subscripts `ᵦ ᵧ ᵨ ᵩ ᵪ`) in both math mode (`x_{i}`) and text mode.
+- **AST Protection for HTML Leftovers & Ties**: Preserves `<sub>...</sub>`, `<sup>...</sup>`, `<br>`, LaTeX cross-references (`\ref`, `\eqref`, `\autoref`, `\pageref`, `\nameref`, `\cite`), and ties (`~` / `\nobreakspace{}`) at the AST level without literal `\textbackslash` escaping under `-raw_tex`.
+- **CommonMark Code Span Parsing**: Inline code span matching strictly follows CommonMark: backslashes do not escape closing backticks (e.g. `` `C:\Windows\` `` closes cleanly without corrupting subsequent text passes).
 - **Robust Environment & Math Normalization**: Theorem-like environments support arbitrary re-entrant nesting (`\begin{theorem}...\begin{quote}...\end{quote}...\end{theorem}`) via an environment stack. Display math (`$$...$$`) unwraps `\begin{align}` even when preceded or followed by text or comments, and inline currency amounts (e.g. `$50 (base_fee = $30)`) are strictly isolated from math delimiter heuristics.
 - **Localized XeLaTeX Error Recovery**: Neutralizes localized LaTeX document errors with red `[!!!]` badges in the PDF and yellow console diagnostics instead of crashing the build.
 - **Page Layout & Title Controls**: Toggle between standard A4 and 16:9 presentation layout, or hide the horizontal title divider rule using YAML front matter.

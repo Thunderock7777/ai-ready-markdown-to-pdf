@@ -1925,6 +1925,30 @@ end
 
 local function link_fix(el)
   if not CONFIG.keep_links then return el.content end
+  local target = el.target or ""
+  if target:match("^https?://") or target:match("^ftp://") or target:match("^mailto:") or target:match("^#") then
+    return nil
+  end
+
+  local is_file_proto = target:match("^file:") ~= nil
+  local clean = target:gsub("^file:///*", "")
+  clean = clean:gsub("^localhost/", "")
+  clean = clean:gsub("\\", "/")
+  clean = clean:gsub("%%(%x%x)", function(hex)
+    return string.char(tonumber(hex, 16))
+  end)
+
+  local is_drive = clean:match("^%a:[/\\]") ~= nil
+  local is_local = is_file_proto or is_drive or file_exists(clean)
+
+  if is_local then
+    local inlines = { pandoc.RawInline("latex", "\\href{run:" .. clean .. "}{") }
+    for _, c in ipairs(el.content) do
+      inlines[#inlines + 1] = c
+    end
+    inlines[#inlines + 1] = pandoc.RawInline("latex", "}")
+    return inlines
+  end
   return nil
 end
 

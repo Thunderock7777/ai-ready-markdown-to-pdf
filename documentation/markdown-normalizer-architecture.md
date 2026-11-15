@@ -256,7 +256,7 @@ inlines
   superscript/subscript conversion.
   image_fix validates local image scheme, extension, and file existence;
   invalid images are dropped with a warning.
-  link_fix preserves links or unwraps them according to CONFIG.keep_links.
+  link_fix normalizes local file links (stripping file:/// schemes, decoding percent-encoded paths, and emitting \href{run:...} for Windows drive and local file targets to ensure reliable OS-level file opening) and respects CONFIG.keep_links.
   RawInline maps HTML <br> tags to native LineBreak elements, strips unsupported HTML tags, and checks raw TeX math environments.
   str_fix converts supported superscript letters in ordinary text and emits unescaped RawInline("latex", ...) nodes for \textsubscript{...}, \textsuperscript{...}, \nobreakspace{}, \ref{...}, \ref*{...}, \eqref{...}, \autoref{...}, \pageref{...}, \nameref{...}, \cite{...}, \cite[...]{...}, \url{...}, \href{...}{...}, \footnote{...}, \label{...}, page/spacing commands (\newpage, \clearpage, \pagebreak, \bigskip, \medskip, \smallskip, \vspace, \hspace), typographic primitives (\hfill, \noindent), and routes non-Latin Unicode scripts (Bengali, Hindi, CJK) through \foreignlanguage with Babel font mapping so they render without \textbackslash escaping under -raw_tex.
   note_code_super records characters in Code and CodeBlock nodes for later
@@ -540,9 +540,11 @@ Images, tables, links, environments
     Walks the Figure for a surviving Image and removes an empty Figure.
   raw_html_fix(RawBlock/RawInline) -> empty sequence or nil
     Removes raw HTML nodes; leaves non-HTML raw formats unchanged.
-  link_fix(Link) -> content or nil
-    Returns Link content when CONFIG.keep_links is false; otherwise leaves the
-    Link unchanged.
+  link_fix(Link) -> content, inlines, or nil
+    Returns Link content when CONFIG.keep_links is false. For local file paths
+    (file:// URIs, Windows drive paths, or local files), decodes URL percent-escapes,
+    normalizes slashes, and wraps in \href{run:...} to generate OS file-launch
+    actions (/S/Launch) without invalid drive slashes. Leaves web URLs and anchors unchanged.
   bad_math(math_text) -> boolean
     Detects alignment/environment constructs that must not remain nested in a
     formatting wrapper in a table cell.

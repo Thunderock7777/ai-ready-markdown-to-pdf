@@ -306,6 +306,7 @@ Change ledger
   2026-11-10 | Automated environment installer setup.bat for Pandoc, LaTeX, and package configuration with optional runtime checks | source +264 / -0 | 264 / 500
   2026-11-10 | Multilingual script router for Bengali, Hindi, and CJK with str_fix repair | source +55 / -2 | 321 / 500
   2026-11-10 | List-continuation and indented math/environment literal unmasking in mask_literals | source +23 / -0 | 344 / 500
+  2026-11-16 | Local file link normalization (file URI stripping, %20 decoding, and run: OS launch emission) | source +24 / -0 | 368 / 500
 
 For each later accepted change, append one entry in this format:
 

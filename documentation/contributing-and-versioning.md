@@ -308,6 +308,13 @@ Change ledger
   2026-11-10 | List-continuation and indented math/environment literal unmasking in mask_literals | source +23 / -0 | 344 / 500
   2026-11-16 | Local file link normalization (file URI stripping, %20 decoding, and run: OS launch emission) | source +24 / -0 | 368 / 500
   2026-11-24 | Breakable colorful nested boxes (tcolorbox) and callout div support | source +64 / -11 | 443 / 500
+  2026-11-24 | ```color code fence syntax, true-random color selection, and parent-child color divergence | source +94 / -0 | 537 / 500
+  2026-11-24 | Versioned colorful boxes, ```color fences, and dynamic color divergence as 1.3.8 (PATCH)
+
+Version 1.3.8 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 For each later accepted change, append one entry in this format:
 

@@ -457,27 +457,33 @@ The outer 4 backticks prevent the inner 3 backticks from closing the box!
 
 ---
 
-### 3.9. Colorful Frames & Nested Callout Boxes (`tcolorbox`, `::: {.box}`, `::: {.callout}`)
+### 3.9. Colorful Frames, Nested Callouts & ```` ```color ```` Fences (`tcolorbox`, `::: {.box}`, ```` ```color ````)
 
 #### How It Renders Under the Hood
 * **Engine & Multi-Page Breaking:** Colorful frames are rendered via LaTeX's **`tcolorbox`** package with `[most]`, configured globally with `enhanced jigsaw, breakable, arc=1.5mm, boxrule=0.8pt`. This guarantees that boxes break cleanly across page boundaries without clipping borders or orphan overflows.
-* **Dual Syntax Support:**
+* **Triple Syntax Support:**
+  * **Code Fence Syntax (```` ```color ````):** Standard code block syntax ```` ```color title="..." ````, ```` ```color color="..." ````, or ```` ```{color ...} ````. Pre-processed in Stage A into structural box blocks, enabling rich Markdown, math, and inner code fences to run inside.
+  * **Markdown Fenced Divs (`::: {.box}`):** Pandoc fenced divs (`::: {.box ...}` or `::: {.callout ...}`) are automatically mapped to styled `tcolorbox` environments. Standard semantic callout classes (`::: {.note}`, `::: {.warning}`, `::: {.tip}`, `::: {.danger}`, `::: {.info}`) are also supported.
   * **LaTeX Syntax:** Direct `\begin{tcolorbox}[colback=..., colframe=..., title=...] ... \end{tcolorbox}` environments are recognized in Markdown prose, converted into AST Div structures during normalization, and restored to native XeLaTeX environments.
-  * **Markdown Fenced Divs:** Pandoc fenced divs (`::: {.box ...}` or `::: {.callout ...}`) are automatically mapped to styled `tcolorbox` environments. Standard semantic callout classes (`::: {.note}`, `::: {.warning}`, `::: {.tip}`, `::: {.danger}`, `::: {.info}`) are also supported.
+* **True-Random Color Assignment & Parent-Child Divergence:**
+  * When `color="..."` is omitted on a box or ```` ```color ```` fence, the normalizer dynamically picks a random color from a rich palette of standard colors (`blue`, `teal`, `orange`, `purple`, `green`, `red`, `magenta`, `olive`, `cyan`, `violet`) using system randomness (`math.random`).
+  * **Parent-Child Color Collision Prevention:** For nested child boxes, the candidate color pool automatically excludes the parent's color ($\text{Candidates} = \text{PALETTE} \setminus \{\text{parent\_color}\}$). This mathematically guarantees that no child box ever renders with the same color as its parent container.
+  * If an explicit color is provided (e.g. `color="red"`), that color is preserved, and any child boxes inside it will automatically avoid `red`.
 * **Color Presets:** Specifying `color="<preset>"` on a fenced div automatically sets complementary background and frame colors:
   * `blue`: light blue background (`blue!5!white`) with vibrant blue frame (`blue!75!black`).
   * `green`: subtle green background (`green!5!white`) with dark green frame (`green!60!black`).
   * `red`: light red background (`red!5!white`) with crimson frame (`red!75!black`).
-  * `orange`: warm peach background (`orange!7!white`) with deep orange frame (`orange!85!black`).
+  * `orange`: warm peach background (`orange!10!white`) with deep orange frame (`orange!80!black`).
   * `purple`: lavender background (`purple!5!white`) with rich purple frame (`purple!75!black`).
   * `yellow`: pale yellow background (`yellow!10!white`) with amber frame (`yellow!60!black`).
-  * `gray` / `grey`: neutral light gray background (`gray!6!white`) with slate gray frame (`gray!70!black`).
+  * `gray` / `grey`: neutral light gray background (`gray!5!white`) with slate gray frame (`gray!60!black`).
   * `cyan`: light cyan background (`cyan!5!white`) with deep cyan frame (`cyan!75!black`).
   * `magenta`: soft magenta background (`magenta!5!white`) with dark magenta frame (`magenta!75!black`).
   * `teal`: mint background (`teal!5!white`) with deep teal frame (`teal!75!black`).
-  * `olive`: soft olive background (`olive!7!white`) with deep olive frame (`olive!75!black`).
-  * *Default*: gray frame and neutral background if no color is specified.
-* **Arbitrary Nesting:** Fenced boxes can be nested within one another to any depth (e.g. an outer blue container enclosing an inner orange warning box enclosing an inner green tip box). The LIFO environment stack in `markdown-normalizer.lua` and bottom-up AST processing in Pandoc guarantee that inner boxes are fully resolved before outer containers close.
+  * `olive`: soft olive background (`olive!5!white`) with deep olive frame (`olive!75!black`).
+  * `violet`: soft violet background (`violet!5!white`) with deep violet frame (`violet!75!black`).
+  * *Unspecified*: randomly selected from `PALETTE` excluding parent color.
+* **Arbitrary Nesting:** Fenced boxes can be nested within one another to any depth (e.g. an outer container enclosing an inner warning box enclosing an inner tip box). The LIFO environment stack in `markdown-normalizer.lua` and bottom-up AST processing in Pandoc guarantee that inner boxes are fully resolved before outer containers close.
 * **Full Pipeline Compatibility Inside Boxes:** All pipeline features function inside nested boxes without degradation:
   * Display math and AMS environments (`align`, `equation`, `gather`) render with full equation numbering and formatting.
   * Executable code fences (Python, C, C++, Java) compile, run, cache, and capture stdout/figures directly within the box frame.
@@ -488,6 +494,24 @@ The outer 4 backticks prevent the inner 3 backticks from closing the box!
 * **Universal Hoist Deduplication:** If user notes or pasted documents include `\usepackage{tcolorbox}` or `\usepackage{xcolor}`, the normalizer's `SKIP_PACKAGES` list prevents duplicate package loading, avoiding LaTeX option clashes.
 
 #### Examples
+
+**Using the ```` ```color ```` Code Fence Syntax:**
+````markdown
+```color title="Dynamic Outer Container"
+This box automatically receives a random color on compilation.
+
+```python
+data = [x**2 for x in range(4)]
+print(f"Computed inside color fence: {data}")
+```
+
+```color title="Nested Child Box"
+This child automatically receives a DIFFERENT random color from its parent!
+
+$$e^{i\pi} + 1 = 0$$
+```
+```
+````
 
 **Basic Fenced Div Callout:**
 ```markdown

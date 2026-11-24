@@ -303,19 +303,21 @@ Writing `[ ] First task` without the leading `-` is just paragraph text, not a
 list.
 
 Colorful frames and nested callout boxes:
-Use Markdown fenced divs (`::: {.box color="..." title="..."} ... :::` or `::: {.callout ...}`)
-or native LaTeX `\begin{tcolorbox}[...] ... \end{tcolorbox}`. Boxes support arbitrary nesting,
-break across page boundaries, and support math, executable code blocks, tables, and multilingual text:
+Use ```` ```color ```` code fences, Markdown fenced divs (`::: {.box title="..."} ... :::`),
+or native LaTeX `\begin{tcolorbox}[...] ... \end{tcolorbox}`. If no color is specified, the pipeline
+automatically assigns a random color and guarantees nested child boxes never share their parent's color:
 
-    ::: {.box color="blue" title="Module Summary"}
+    ```color title="Outer Dynamic Box"
     Energy-momentum relation: $E^2 = (pc)^2 + (m_0 c^2)^2$.
 
-    ::: {.box color="orange" title="Warning"}
-    Check your units before computing!
-    :::
-    :::
+    ```color title="Inner Child Box"
+    Child box automatically receives a DIFFERENT random color!
+    ```
+    ```
 
-Supported color presets include `blue`, `green`, `red`, `orange`, `purple`, `yellow`, `gray`, `cyan`, `magenta`, `teal`, and `olive`.
+    ::: {.box color="blue" title="Explicit Blue Box"}
+    Explicit colors like `blue`, `orange`, `green`, `red`, `teal`, `purple`, `cyan`, `magenta`, `yellow`, `gray`, `olive`, and `violet` are respected, and child boxes avoid that parent color.
+    :::
 
 LaTeX — use a LaTeX fence to render a snippet (not execute it):
 

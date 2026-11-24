@@ -239,10 +239,17 @@ Detailed Stage A call path
   environments.
   envs_to_divs writes Div markers into text; pandoc.read parses them; later
   div_fix replaces those marker Divs with RawBlock begin/end wrappers.
+  pass_color_fences translates ```color ... ``` fences into Pandoc fenced Divs
+  (::: {.box ...}) before Pandoc parses, preserving inner code fences.
 
 STAGE B: AST passes
 -------------------
 AST_PASSES is also ordered:
+
+assign_box_colors
+  Traverses document blocks top-down, dynamically assigning true-random colors
+  from a curated palette to uncolored boxes while guaranteeing child boxes
+  never share their parent's color. Runs before AST walk passes.
 
 tables
   table_fix walks Strong nodes in each Table. strong_fix moves complex math

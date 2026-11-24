@@ -5,7 +5,7 @@ Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
 and Java can run during the build with universal caching and approval controls,
 while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.3.7**.
+**Current project version: 1.3.8**.
 
 > **Paste an AI chat response and compile it directly.** A copied response from
 > ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses
@@ -17,7 +17,7 @@ while LaTeX fences render source snippets without executing them.
 - **Direct AI Chat Compilation**: Compile copied responses from ChatGPT, Gemini, or NotebookLM with zero manual editing for supported content.
 - **Automated Environment Setup**: One-click `setup.bat` script automatically verifies or installs Pandoc, MiKTeX/XeLaTeX, enables automatic package installation, pre-installs required LaTeX packages, and checks (never installs) optional language compilers.
 - **Multilingual Typesetting**: Full native support for Bengali (Bangla ligatures and conjuncts via Kalpurush/Nirmala UI), Hindi (Devanagari script via Nirmala UI), CJK (Chinese, Japanese, Korean), and Latin scripts via XeLaTeX and Babel.
-- **Breakable Colorful Frames & Nested Callout Boxes**: Arbitrary nesting of distinct, colorful frames via native LaTeX `\begin{tcolorbox}[...]` or Markdown fenced divs (`::: {.box color="blue" title="..."}` or callout classes like `.note`, `.warning`, `.tip`, `.danger`, `.info`). Supports multi-page breaking (`enhanced jigsaw, breakable`), automatic color presets, and full nested execution of math, code blocks, tables, and multilingual text.
+- **Breakable Colorful Frames & Nested ```color``` Fences**: Arbitrary nesting of distinct, colorful frames via ```` ```color ```` code fences, Markdown fenced divs (`::: {.box title="..."}` or `.note`, `.warning`, `.tip`, etc.), or native LaTeX `\begin{tcolorbox}[...]`. Features automatic true-random color selection across compilations with guaranteed parent-child color divergence (child frames never share a parent's color), multi-page breaking (`enhanced jigsaw, breakable`), and full nested execution of math, code blocks, tables, and multilingual text.
 - **Multi-File Concatenation**: Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order into a single unified PDF.
 - **Universal Executable Code Fences**: Python, C, C++, and Java blocks execute with persistent SHA-1 caching, interactive confirmation prompts (`trusted=true` bypass), output capture, and compiler/runtime error reporting.
 - **Uniform Fence Syntax**: Standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````) across all languages; raw delimiters like `---` are reserved for horizontal rules and never treated as metadata.

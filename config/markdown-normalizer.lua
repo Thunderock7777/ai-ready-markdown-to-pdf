@@ -1471,10 +1471,51 @@ local function normalize_fence_attributes(text)
   return table.concat(out, "\n")
 end
 
+-- Converts ```color ... ``` fences into Pandoc fenced Divs (::: {.box ...})
+-- Supports nesting of color boxes and leaves inner non-color code fences untouched.
+local function pass_color_fences(text)
+  local out = {}
+  local color_stack = {}
+  local code_fence = nil
+  for line in each_line(text) do
+    local indent, ticks, rest = line:match("^(%s*)([`~]+)%s*(.*)$")
+    if ticks and #ticks >= 3 then
+      local is_color, attrs = nil, nil
+      if rest:match("^color%f[%A]") then
+        is_color = true
+        attrs = rest:match("^color%s*(.*)$")
+      elseif rest:match("^{%.color") then
+        is_color = true
+        attrs = rest:match("^{%.color%s*(.-)}%s*$")
+      end
+      if not code_fence and is_color then
+        color_stack[#color_stack + 1] = { len = #ticks }
+        local attr_str = (attrs and attrs:match("%S")) and (" " .. attrs) or ""
+        out[#out + 1] = indent .. "::: {.box" .. attr_str .. "}"
+      elseif not code_fence and #color_stack > 0 and rest:match("^%s*$") and #ticks >= color_stack[#color_stack].len then
+        color_stack[#color_stack] = nil
+        out[#out + 1] = indent .. ":::"
+      elseif not code_fence and rest:match("%S") then
+        code_fence = { len = #ticks }
+        out[#out + 1] = line
+      elseif code_fence and rest:match("^%s*$") and #ticks >= code_fence.len then
+        code_fence = nil
+        out[#out + 1] = line
+      else
+        out[#out + 1] = line
+      end
+    else
+      out[#out + 1] = line
+    end
+  end
+  return table.concat(out, "\n")
+end
+
 local function clean(text)
   text = text:gsub("^" .. U(0xFEFF), ""):gsub("\r\n?", "\n")
   local file_meta
   text, file_meta = extract_yaml_fences(text)
+  text = pass_color_fences(text)
   text = space_fences(text)
   text = normalize_fence_attributes(text)
   for nm in text:gmatch("\\newtheorem%*?%s*{([^}]*)}") do
@@ -2049,6 +2090,58 @@ local function table_fix(t)
   return t
 end
 
+local BOX_CLASSES = word_set("tcolorbox box callout note warning tip important danger info")
+local BOX_PALETTE = { "blue", "teal", "orange", "purple", "green", "red", "magenta", "olive", "cyan", "violet" }
+if not pcall(math.randomseed) then
+  math.randomseed(os.time() + math.floor((os.clock() or 0) * 1000000))
+end
+
+local function pick_random_color(parent_color)
+  local candidates = {}
+  for _, c in ipairs(BOX_PALETTE) do
+    if c ~= parent_color then
+      candidates[#candidates + 1] = c
+    end
+  end
+  return candidates[math.random(#candidates)]
+end
+
+local function is_box_div(el)
+  if el.tag ~= "Div" then return false end
+  if el.attributes["lenv"] == "tcolorbox" then return true end
+  for cls in pairs(BOX_CLASSES) do
+    if el.classes:includes(cls) then return true end
+  end
+  return false
+end
+
+local function assign_box_colors(blocks, parent_color)
+  if not blocks then return end
+  for _, b in ipairs(blocks) do
+    if is_box_div(b) then
+      local col = b.attributes["color"]
+      if not col or col == "" then
+        for _, cls in ipairs(b.classes) do
+          if cls == "note" or cls == "info" or cls == "blue" then col = "blue"; break
+          elseif cls == "warning" or cls == "amber" or cls == "orange" then col = "amber"; break
+          elseif cls == "tip" or cls == "success" or cls == "green" then col = "green"; break
+          elseif cls == "danger" or cls == "important" or cls == "red" then col = "red"; break
+          elseif cls == "purple" or cls == "deep" then col = "purple"; break
+          elseif cls == "gray" or cls == "neutral" then col = "gray"; break
+          end
+        end
+      end
+      if not col or col == "" then
+        col = pick_random_color(parent_color)
+        b.attributes["color"] = col
+      end
+      assign_box_colors(b.content, col)
+    elseif b.content then
+      assign_box_colors(b.content, parent_color)
+    end
+  end
+end
+
 -- Inverse of envs_to_divs: turn the marker Div back into \begin{env}[opt] .. \end{env}.
 -- Also supports Markdown fenced divs ::: {.tcolorbox ...}, ::: {.box ...}, ::: {.callout ...}
 local function div_fix(el)
@@ -2305,6 +2398,7 @@ end
 
 function Pandoc(doc)
   doc = load_cleaned_input(doc)                                  -- Stage A
+  assign_box_colors(doc.blocks, nil)                             -- Stage B box color hierarchy
   for _, pass in ipairs(AST_PASSES) do doc = doc:walk(pass.filter) end   -- Stage B
   for _, step in ipairs(FINALIZE_STEPS) do step.apply(doc) end   -- Stage C
   if doc.meta.bibliography or doc.meta.references then

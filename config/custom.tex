@@ -569,7 +569,7 @@ $endif$
 \IfFileExists{enumitem.sty}{\usepackage{enumitem}}{}
 \IfFileExists{zref.sty}{\usepackage[savepos,abspage,user]{zref}}{}
 \IfFileExists{xparse.sty}{\usepackage{xparse}}{}
-% --------------------------------------------- marginbox (pure TeX breakable boxes)
+% --------------------------------------------- marginbox (pure TeX breakable boxes with bold header band & shadow)
 \ExplSyntaxOn
 \tl_new:N  \l__marginbox_color_tl
 \tl_new:N  \l__marginbox_bg_tl
@@ -584,26 +584,29 @@ $endif$
 \dim_new:N \l__marginbox_parsep_dim
 \dim_new:N \l__marginbox_rule_dim
 \dim_new:N \l__marginbox_radius_dim
+\dim_new:N \l__marginbox_bar_dim
+\dim_new:N \l__marginbox_shadow_dim
+\dim_new:N \l__marginbox_yh_dim
 \keys_define:nn { marginbox }
   {
     color    .tl_set:N  = \l__marginbox_color_tl,
     color    .initial:n = NavyBlue,
     colframe .tl_set:N  = \l__marginbox_color_tl,
     bg       .tl_set:N  = \l__marginbox_bg_tl,
-    bg       .initial:n = none,
+    bg       .initial:n = auto,
     colback  .tl_set:N  = \l__marginbox_bg_tl,
     title    .tl_set:N  = \l__marginbox_title_tl,
     title    .initial:n = {},
     left     .dim_set:N = \l__marginbox_left_dim,
-    left     .initial:n = 1.2em,
+    left     .initial:n = 1.5em,
     right    .dim_set:N = \l__marginbox_right_dim,
-    right    .initial:n = 1.2em,
+    right    .initial:n = 1.5em,
     padleft  .dim_set:N = \l__marginbox_padleft_dim,
-    padleft  .initial:n = 0.75em,
+    padleft  .initial:n = 1em,
     padright .dim_set:N = \l__marginbox_padright_dim,
-    padright .initial:n = 0.75em,
+    padright .initial:n = 1em,
     padtop   .dim_set:N = \l__marginbox_padtop_dim,
-    padtop   .initial:n = 0.55\baselineskip,
+    padtop   .initial:n = 0.2\baselineskip,
     padbot   .dim_set:N = \l__marginbox_padbot_dim,
     padbot   .initial:n = 0.55\baselineskip,
     topsep   .dim_set:N = \l__marginbox_topsep_dim,
@@ -611,9 +614,13 @@ $endif$
     parsep   .dim_set:N = \l__marginbox_parsep_dim,
     parsep   .initial:n = 0.5\baselineskip,
     rule     .dim_set:N = \l__marginbox_rule_dim,
-    rule     .initial:n = 0.9pt,
+    rule     .initial:n = 1.1pt,
     radius   .dim_set:N = \l__marginbox_radius_dim,
-    radius   .initial:n = 0pt,
+    radius   .initial:n = 5pt,
+    bar      .dim_set:N = \l__marginbox_bar_dim,
+    bar      .initial:n = 5pt,
+    shadow   .dim_set:N = \l__marginbox_shadow_dim,
+    shadow   .initial:n = 3pt,
   }
 \int_new:N \g__marginbox_id_int
 \int_new:N \l__marginbox_curr_id_int
@@ -630,16 +637,27 @@ $endif$
 \NewDocumentEnvironment{marginbox}{ O{} G{} }
   {
     \keys_set:nn { marginbox }
-      { color=NavyBlue, bg=none, title={}, left=1.2em, right=1.2em, padleft=0.75em, padright=0.75em,
-        padtop=0.55\baselineskip, padbot=0.55\baselineskip, topsep=0.75\baselineskip,
-        parsep=0.5\baselineskip, rule=0.9pt, radius=0pt, #1 }
+      { color=NavyBlue, bg=auto, title={}, left=1.5em, right=1.5em, padleft=1em, padright=1em,
+        padtop=0.2\baselineskip, padbot=0.55\baselineskip, topsep=0.75\baselineskip,
+        parsep=0.5\baselineskip, rule=1.1pt, radius=5pt, bar=5pt, shadow=3pt, #1 }
     \tl_if_blank:nF { #2 }
       { \tl_set:Nn \l__marginbox_title_tl { #2 } }
+    \tl_if_eq:NnT \l__marginbox_bg_tl { auto }
+      { \tl_set:Nx \l__marginbox_bg_tl { \l__marginbox_color_tl ! 7 } }
     \int_gincr:N \g__marginbox_id_int
     \int_set_eq:NN \l__marginbox_curr_id_int \g__marginbox_id_int
     \seq_gput_right:Nx \g__marginbox_ids_seq { \int_use:N \l__marginbox_curr_id_int }
+    \tl_if_empty:NTF \l__marginbox_title_tl
+      {
+        \dim_add:Nn \l__marginbox_padtop_dim { 0.35\baselineskip }
+        \tl_gset:cn { g__marginbox_hd_ \int_use:N \l__marginbox_curr_id_int _tl } { 0 }
+      }
+      {
+        \tl_gset:cn { g__marginbox_hd_ \int_use:N \l__marginbox_curr_id_int _tl } { 1 }
+      }
     \cs_if_exist:cT { @listdepth }
       { \int_gdecr:c { @listdepth } }
+    \par\vskip 0.5\baselineskip
     \list{}
       {
         \setlength{\leftmargin}{\l__marginbox_left_dim}
@@ -653,7 +671,7 @@ $endif$
         \setlength{\listparindent}{0pt}
       }
     \item\relax
-    \setlength{\labelsep}{0.5em}
+    \setlength{\labelsep}{0.5em}% restore for nested lists (after the empty label was built)
     \tl_gset:cx { g__marginbox_color_ \int_use:N \l__marginbox_curr_id_int _tl }  { \l__marginbox_color_tl }
     \tl_gset:cx { g__marginbox_bg_ \int_use:N \l__marginbox_curr_id_int _tl }     { \l__marginbox_bg_tl }
     \tl_gset:cx { g__marginbox_lw_ \int_use:N \l__marginbox_curr_id_int _tl }     { \dim_use:N \linewidth }
@@ -661,6 +679,8 @@ $endif$
     \tl_gset:cx { g__marginbox_padr_ \int_use:N \l__marginbox_curr_id_int _tl }   { \dim_use:N \l__marginbox_padright_dim }
     \tl_gset:cx { g__marginbox_rule_ \int_use:N \l__marginbox_curr_id_int _tl }   { \dim_use:N \l__marginbox_rule_dim }
     \tl_gset:cx { g__marginbox_radius_ \int_use:N \l__marginbox_curr_id_int _tl } { \dim_use:N \l__marginbox_radius_dim }
+    \tl_gset:cx { g__marginbox_bar_ \int_use:N \l__marginbox_curr_id_int _tl }    { \dim_use:N \l__marginbox_bar_dim }
+    \tl_gset:cx { g__marginbox_shadow_ \int_use:N \l__marginbox_curr_id_int _tl } { \dim_use:N \l__marginbox_shadow_dim }
     \noindent\strut
     \zsavepos{mb-top-\int_use:N \l__marginbox_curr_id_int}%
     \zlabel{mb-top-pg-\int_use:N \l__marginbox_curr_id_int}%
@@ -669,11 +689,9 @@ $endif$
     \tl_if_empty:NF \l__marginbox_title_tl
       {
         \noindent
-        {\bfseries\color{\l__marginbox_color_tl}\l__marginbox_title_tl}%
-        \par\nobreak\vskip -0.4\baselineskip\nobreak
-        \noindent
-        {\color{\l__marginbox_color_tl!50}\rule{\linewidth}{0.5pt}}%
-        \par\nobreak\vskip 0.35\baselineskip\nobreak
+        {\sffamily\bfseries\color{white}\tl_use:N \l__marginbox_title_tl}%
+        \zsavepos{mb-hd-\int_use:N \l__marginbox_curr_id_int}%
+        \par\nobreak\vskip 0.55\baselineskip\nobreak
       }
   }
   {
@@ -685,6 +703,7 @@ $endif$
     \par\nobreak
     \vskip -\baselineskip\nobreak
     \endlist
+    \par\vskip 1.15\baselineskip
     \cs_if_exist:cT { @listdepth }
       { \int_gincr:c { @listdepth } }
   }
@@ -718,18 +737,49 @@ $endif$
           { \dim_set_eq:NN \l__marginbox_yt_dim \l__marginbox_ypagetop_dim }
         \int_compare:nNnF { \l__marginbox_pend_int } = { \l__marginbox_pcurr_int }
           { \dim_set_eq:NN \l__marginbox_yb_dim \l__marginbox_ypagebot_dim }
+        \tl_if_eq:cnTF { g__marginbox_hd_#1_tl } { 1 }
+          { \dim_set:Nn \l__marginbox_yh_dim { \zposy{mb-hd-#1}sp - 0.42\baselineskip } }
+          { \dim_set_eq:NN \l__marginbox_yh_dim \l__marginbox_yt_dim }
         \begin{tikzpicture}[remember~picture, overlay]
           \coordinate (MB_TL) at ([xshift=\l__marginbox_xl_dim, yshift=\l__marginbox_yt_dim] current~page.south~west);
           \coordinate (MB_TR) at ([xshift=\l__marginbox_xr_dim, yshift=\l__marginbox_yt_dim] current~page.south~west);
           \coordinate (MB_BL) at ([xshift=\l__marginbox_xl_dim, yshift=\l__marginbox_yb_dim] current~page.south~west);
           \coordinate (MB_BR) at ([xshift=\l__marginbox_xr_dim, yshift=\l__marginbox_yb_dim] current~page.south~west);
-          \tl_if_eq:cnF { g__marginbox_bg_#1_tl } { none }
+          \coordinate (MB_HR) at ([xshift=\l__marginbox_xr_dim, yshift=\l__marginbox_yh_dim] current~page.south~west);
+
+          % hard offset shadow (only for boxes that sit on a single page)
+          \int_compare:nNnT { \l__marginbox_pstart_int } = { \l__marginbox_pcurr_int }
             {
-              \fill[
-                fill=\tl_use:c { g__marginbox_bg_#1_tl },
-                rounded~corners=\tl_use:c { g__marginbox_radius_#1_tl }
-              ] (MB_BL) rectangle (MB_TR);
+              \int_compare:nNnT { \l__marginbox_pend_int } = { \l__marginbox_pcurr_int }
+                {
+                  \dim_compare:nNnF { \tl_use:c { g__marginbox_shadow_#1_tl } } = { 0pt }
+                    {
+                      \fill[
+                        color=\tl_use:c { g__marginbox_color_#1_tl }!35,
+                        rounded~corners=\tl_use:c { g__marginbox_radius_#1_tl }
+                      ]
+                        ([shift={(\tl_use:c { g__marginbox_shadow_#1_tl },-\tl_use:c { g__marginbox_shadow_#1_tl })}]MB_BL)
+                        rectangle
+                        ([shift={(\tl_use:c { g__marginbox_shadow_#1_tl },-\tl_use:c { g__marginbox_shadow_#1_tl })}]MB_TR);
+                    }
+                }
             }
+
+          % clipped fills: tint, accent bar, header band
+          \begin{scope}
+            \clip[rounded~corners=\tl_use:c { g__marginbox_radius_#1_tl }] (MB_BL) rectangle (MB_TR);
+            \tl_if_eq:cnF { g__marginbox_bg_#1_tl } { none }
+              { \fill[fill=\tl_use:c { g__marginbox_bg_#1_tl }] (MB_BL) rectangle (MB_TR); }
+            \fill[fill=\tl_use:c { g__marginbox_color_#1_tl }]
+              (MB_BL) rectangle ([xshift=\tl_use:c { g__marginbox_bar_#1_tl }]MB_TL);
+            \int_compare:nNnT { \l__marginbox_pstart_int } = { \l__marginbox_pcurr_int }
+              {
+                \tl_if_eq:cnT { g__marginbox_hd_#1_tl } { 1 }
+                  { \fill[fill=\tl_use:c { g__marginbox_color_#1_tl }] (MB_TL) rectangle (MB_HR); }
+              }
+          \end{scope}
+
+          % outline
           \int_compare:nNnTF { \l__marginbox_pstart_int } = { \l__marginbox_pcurr_int }
             {
               \int_compare:nNnTF { \l__marginbox_pend_int } = { \l__marginbox_pcurr_int }

@@ -462,6 +462,12 @@ The outer 4 backticks prevent the inner 3 backticks from closing the box!
 
 #### How It Renders Under the Hood
 * **Engine & Multi-Page Breaking:** Colorful frames are rendered via the custom **`marginbox`** LaTeX system. Unlike legacy box packages (`tcolorbox`, `mdframed`, `framed`) that encapsulate body text inside rigid TeX `\vbox` registers (preventing inner boxes from breaking across pages), `marginbox` keeps all content directly in TeX's main vertical list using LaTeX list primitives (`\list{} ... \endlist`) with decremented list depth (`\@listdepth`) to allow infinite list nesting.
+* **Bold Styling with Solid Header Band & Drop Shadow:**
+  * **Solid Header Band:** Titled boxes render a bold, high-contrast header band filled with the frame color, showcasing the title in crisp white sans-serif text (`\sffamily\bfseries\color{white}`).
+  * **Vertical Left Accent Bar:** A solid vertical bar (default `bar=5pt`) runs down the left edge in the theme color.
+  * **Hard Offset Drop Shadow:** Single-page boxes render a crisp offset drop shadow (`shadow=3pt`) tinted in `color!35`.
+  * **Automatic Background Tinting:** Backgrounds default to `bg=auto`, automatically deriving a subtle 7% tint from the theme color (`color!7`).
+  * **Custom Option Controls:** Attributes like `shadow="0pt"`, `radius="0pt"`, `bar="0pt"`, or `bg="none"` can be passed directly to fenced divs for a flat or minimalist style.
 * **Non-Invasive TikZ Geometry Overlays:** Boundary coordinates and absolute page numbers are tracked via `zref-savepos` (`mb-top` and `mb-bot`). The 4-sided borders and optional background tint fills are drawn asynchronously during `\AddToHook{shipout/background}` via TikZ `overlay, remember picture`. When a box (or a nested child box) spans across page boundaries, the hook automatically detects multi-page splits and renders seamless open borders (open at bottom on the first page, open at top on the final page, open at top and bottom on intermediate pages).
 * **Triple Syntax Support:**
   * **Code Fence Syntax (```` ```color ````):** Standard code block syntax ```` ```color title="..." ````, ```` ```color color="..." ````, or ```` ```{color ...} ````. Pre-processed in Stage A into structural box blocks, enabling rich Markdown, math, and inner code fences to run inside.

@@ -2184,31 +2184,40 @@ local function div_fix(el)
     end
     if color then
       if color == "blue" or color == "info" or color == "note" then
-        opts[#opts + 1] = "color=NavyBlue,bg=NavyBlue!4"
+        opts[#opts + 1] = "color=NavyBlue"
       elseif color == "red" or color == "danger" or color == "important" then
-        opts[#opts + 1] = "color=RubineRed,bg=red!5"
+        opts[#opts + 1] = "color=RubineRed"
       elseif color == "green" or color == "success" or color == "tip" then
-        opts[#opts + 1] = "color=ForestGreen,bg=green!5"
+        opts[#opts + 1] = "color=ForestGreen"
       elseif color == "amber" or color == "warning" or color == "orange" then
-        opts[#opts + 1] = "color=BurntOrange,bg=orange!7"
+        opts[#opts + 1] = "color=BurntOrange"
       elseif color == "purple" or color == "deep" then
-        opts[#opts + 1] = "color=RoyalPurple,bg=purple!5"
+        opts[#opts + 1] = "color=RoyalPurple"
       elseif color == "gray" or color == "neutral" then
-        opts[#opts + 1] = "color=Gray,bg=gray!6"
+        opts[#opts + 1] = "color=Gray"
       elseif color == "teal" then
-        opts[#opts + 1] = "color=TealBlue,bg=teal!5"
+        opts[#opts + 1] = "color=TealBlue"
       elseif color == "magenta" then
-        opts[#opts + 1] = "color=Magenta,bg=magenta!5"
+        opts[#opts + 1] = "color=Magenta"
       elseif color == "olive" then
-        opts[#opts + 1] = "color=OliveGreen,bg=olive!5"
+        opts[#opts + 1] = "color=OliveGreen"
       elseif color == "cyan" then
-        opts[#opts + 1] = "color=ProcessBlue,bg=cyan!5"
+        opts[#opts + 1] = "color=ProcessBlue"
       else
-        opts[#opts + 1] = "color=" .. color .. ",bg=" .. color .. "!5"
+        opts[#opts + 1] = "color=" .. color
       end
+    end
+    if el.attributes["bg"] then
+      opts[#opts + 1] = "bg=" .. el.attributes["bg"]
     end
     if el.attributes["radius"] then
       opts[#opts + 1] = "radius=" .. el.attributes["radius"]
+    end
+    if el.attributes["bar"] then
+      opts[#opts + 1] = "bar=" .. el.attributes["bar"]
+    end
+    if el.attributes["shadow"] then
+      opts[#opts + 1] = "shadow=" .. el.attributes["shadow"]
     end
     if el.attributes["options"] then
       opts[#opts + 1] = el.attributes["options"]

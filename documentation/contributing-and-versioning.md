@@ -322,6 +322,13 @@ Change ledger
   2026-11-24 | Documented nested child box tcolorbox pagebreak limitation across features and limitations | source +0 / -0 | 228 / 500
   2026-11-24 | Whiteboard maximum width ceiling clamp (100in) matching height limit | source +5 / -0 | 233 / 500
   2026-11-24 | Pure TeX marginbox architecture replacing rigid vbox/tcolorbox with 100% nested child box pagebreakability | source +258 / -28 | 463 / 500
+  2026-11-24 | Bold marginbox design with solid header band, accent bar, and drop shadow | source +93 / -34 | 522 / 500
+  2026-11-24 | Versioned pure TeX breakable marginbox with bold header band and drop shadow as 1.3.9 (PATCH)
+
+Version 1.3.9 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 For each later accepted change, append one entry in this format:
 

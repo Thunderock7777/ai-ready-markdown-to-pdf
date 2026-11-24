@@ -2397,6 +2397,11 @@ local function calculate_whiteboard_width(doc)
   -- Round up to nearest 0.25in for clean paper geometry
   local final_width = math.ceil(max_needed * 4) / 4
   if final_width < floor_width then final_width = floor_width end
+  local ceiling_width = 100.0 -- safe upper ceiling matching height limit (8.33 ft wide)
+  if final_width > ceiling_width then
+    final_width = ceiling_width
+    warn("whiteboard width reached 100in ceiling; clamped to 100in")
+  end
 
   doc.meta.whiteboard_width = pandoc.MetaString(string.format("%.2fin", final_width))
   if table_expanded then

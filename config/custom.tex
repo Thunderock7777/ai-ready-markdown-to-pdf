@@ -525,7 +525,10 @@ $endif$
 \IfFileExists{subcaption.sty}{\usepackage{subcaption}}{}
 \IfFileExists{listings.sty}{\usepackage{listings}}{}
 \IfFileExists{enumitem.sty}{\usepackage{enumitem}}{}
-\IfFileExists{tcolorbox.sty}{\usepackage[most]{tcolorbox}}{}
+\IfFileExists{tcolorbox.sty}{%
+  \usepackage[most]{tcolorbox}%
+  \tcbset{enhanced jigsaw, breakable, arc=1.5mm, boxrule=0.8pt}%
+}{}
 \IfFileExists{adjustbox.sty}{\usepackage{adjustbox}}{}
 \IfFileExists{pgfplotstable.sty}{\usepackage{pgfplotstable}}{}
 \IfFileExists{tikz-cd.sty}{\usepackage{tikz-cd}}{}

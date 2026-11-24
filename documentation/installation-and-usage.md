@@ -302,6 +302,21 @@ For a checklist, include the list marker before the checkbox:
 Writing `[ ] First task` without the leading `-` is just paragraph text, not a
 list.
 
+Colorful frames and nested callout boxes:
+Use Markdown fenced divs (`::: {.box color="..." title="..."} ... :::` or `::: {.callout ...}`)
+or native LaTeX `\begin{tcolorbox}[...] ... \end{tcolorbox}`. Boxes support arbitrary nesting,
+break across page boundaries, and support math, executable code blocks, tables, and multilingual text:
+
+    ::: {.box color="blue" title="Module Summary"}
+    Energy-momentum relation: $E^2 = (pc)^2 + (m_0 c^2)^2$.
+
+    ::: {.box color="orange" title="Warning"}
+    Check your units before computing!
+    :::
+    :::
+
+Supported color presets include `blue`, `green`, `red`, `orange`, `purple`, `yellow`, `gray`, `cyan`, `magenta`, `teal`, and `olive`.
+
 LaTeX — use a LaTeX fence to render a snippet (not execute it):
 
     ```{.latex}

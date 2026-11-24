@@ -153,7 +153,7 @@ REGISTRY.THEOREMS = word_set("theorem lemma proposition corollary definition exa
 
 -- Environments whose body should still be parsed as Markdown (**bold**, lists, $math$ ...).
 -- A bare \begin{theorem}..\end{theorem} is otherwise passed through as one raw LaTeX block.
-REGISTRY.DIV_ENVS = word_set("proof abstract quote")
+REGISTRY.DIV_ENVS = word_set("proof abstract quote tcolorbox")
 for name in pairs(REGISTRY.THEOREMS) do REGISTRY.DIV_ENVS[name] = true end
 
 -- Commands that are moved to the LaTeX preamble when found in the BODY.
@@ -1173,13 +1173,14 @@ local function pass_unwrap_document(text)
   local masked = mask_fences(text)
   local bs, be = masked:find("\\begin%s*{document}")
   local es, ee = masked:match("^.*()(\\end%s*{document})")
-  if bs and es and es > be and masked:sub(1, bs - 1):find("\\documentclass") then
+  local ds, de = masked:find("\\documentclass")
+  if bs and es and es > be and ds and ds < bs then
     local finish = es + #ee - 1
-    if finish and masked:sub(finish + 1):match("%S") then
-      warn("discarded non-whitespace text after \\end{document} in pasted full document")
-    end
-    process_lines(text:sub(1, bs - 1), true)
-    text = text:sub(be + 1, es - 1)
+    process_lines(text:sub(ds, bs - 1), true)
+    local before_dc = text:sub(1, ds - 1)
+    local doc_body = text:sub(be + 1, es - 1)
+    local after_doc = finish and text:sub(finish + 1) or ""
+    text = before_dc .. "\n" .. doc_body .. "\n" .. after_doc
   end
   return text
 end
@@ -2049,11 +2050,60 @@ local function table_fix(t)
 end
 
 -- Inverse of envs_to_divs: turn the marker Div back into \begin{env}[opt] .. \end{env}.
+-- Also supports Markdown fenced divs ::: {.tcolorbox ...}, ::: {.box ...}, ::: {.callout ...}
 local function div_fix(el)
   local env = el.attributes["lenv"]
-  if not env then return nil end
-  local opt = State.env_opts[tonumber(el.attributes["lopt"] or "")] or ""
-  local out = { pandoc.RawBlock("latex", "\\begin{" .. env .. "}" .. opt) }
+  local opt = ""
+  if env then
+    opt = State.env_opts[tonumber(el.attributes["lopt"] or "")] or ""
+  elseif el.classes:includes("tcolorbox") or el.classes:includes("box") or el.classes:includes("callout")
+      or el.classes:includes("note") or el.classes:includes("warning") or el.classes:includes("tip")
+      or el.classes:includes("important") or el.classes:includes("danger") or el.classes:includes("info") then
+    env = "tcolorbox"
+    local opts = {}
+    if el.attributes["title"] then
+      opts[#opts + 1] = "title={" .. el.attributes["title"] .. "}"
+    end
+    local color = el.attributes["color"] or el.classes[2]
+    if not color then
+      for _, cls in ipairs(el.classes) do
+        if cls == "note" or cls == "info" or cls == "blue" then color = "blue"; break
+        elseif cls == "warning" or cls == "amber" or cls == "orange" then color = "amber"; break
+        elseif cls == "tip" or cls == "success" or cls == "green" then color = "green"; break
+        elseif cls == "danger" or cls == "important" or cls == "red" then color = "red"; break
+        elseif cls == "purple" or cls == "deep" then color = "purple"; break
+        elseif cls == "gray" or cls == "neutral" then color = "gray"; break
+        end
+      end
+    end
+    if color then
+      if color == "blue" or color == "info" or color == "note" then
+        opts[#opts + 1] = "colback=blue!5!white,colframe=blue!75!black"
+      elseif color == "red" or color == "danger" or color == "important" then
+        opts[#opts + 1] = "colback=red!5!white,colframe=red!75!black"
+      elseif color == "green" or color == "success" or color == "tip" then
+        opts[#opts + 1] = "colback=green!5!white,colframe=green!60!black"
+      elseif color == "amber" or color == "warning" or color == "orange" then
+        opts[#opts + 1] = "colback=orange!10!white,colframe=orange!80!black"
+      elseif color == "purple" or color == "deep" then
+        opts[#opts + 1] = "colback=purple!5!white,colframe=purple!75!black"
+      elseif color == "gray" or color == "neutral" then
+        opts[#opts + 1] = "colback=gray!5!white,colframe=gray!60!black"
+      else
+        opts[#opts + 1] = "colback=" .. color .. "!5!white,colframe=" .. color .. "!75!black"
+      end
+    end
+    if el.attributes["options"] then
+      opts[#opts + 1] = el.attributes["options"]
+    end
+    if #opts > 0 then
+      opt = "[" .. table.concat(opts, ",") .. "]"
+    end
+  else
+    return nil
+  end
+  local safe_opt = (opt or ""):gsub("([^\\])&", "%1\\&"):gsub("^&", "\\&")
+  local out = { pandoc.RawBlock("latex", "\\begin{" .. env .. "}" .. safe_opt) }
   for _, b in ipairs(el.content) do out[#out + 1] = b end
   out[#out + 1] = pandoc.RawBlock("latex", "\\end{" .. env .. "}")
   return out

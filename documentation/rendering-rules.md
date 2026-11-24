@@ -457,6 +457,74 @@ The outer 4 backticks prevent the inner 3 backticks from closing the box!
 
 ---
 
+### 3.9. Colorful Frames & Nested Callout Boxes (`tcolorbox`, `::: {.box}`, `::: {.callout}`)
+
+#### How It Renders Under the Hood
+* **Engine & Multi-Page Breaking:** Colorful frames are rendered via LaTeX's **`tcolorbox`** package with `[most]`, configured globally with `enhanced jigsaw, breakable, arc=1.5mm, boxrule=0.8pt`. This guarantees that boxes break cleanly across page boundaries without clipping borders or orphan overflows.
+* **Dual Syntax Support:**
+  * **LaTeX Syntax:** Direct `\begin{tcolorbox}[colback=..., colframe=..., title=...] ... \end{tcolorbox}` environments are recognized in Markdown prose, converted into AST Div structures during normalization, and restored to native XeLaTeX environments.
+  * **Markdown Fenced Divs:** Pandoc fenced divs (`::: {.box ...}` or `::: {.callout ...}`) are automatically mapped to styled `tcolorbox` environments. Standard semantic callout classes (`::: {.note}`, `::: {.warning}`, `::: {.tip}`, `::: {.danger}`, `::: {.info}`) are also supported.
+* **Color Presets:** Specifying `color="<preset>"` on a fenced div automatically sets complementary background and frame colors:
+  * `blue`: light blue background (`blue!5!white`) with vibrant blue frame (`blue!75!black`).
+  * `green`: subtle green background (`green!5!white`) with dark green frame (`green!60!black`).
+  * `red`: light red background (`red!5!white`) with crimson frame (`red!75!black`).
+  * `orange`: warm peach background (`orange!7!white`) with deep orange frame (`orange!85!black`).
+  * `purple`: lavender background (`purple!5!white`) with rich purple frame (`purple!75!black`).
+  * `yellow`: pale yellow background (`yellow!10!white`) with amber frame (`yellow!60!black`).
+  * `gray` / `grey`: neutral light gray background (`gray!6!white`) with slate gray frame (`gray!70!black`).
+  * `cyan`: light cyan background (`cyan!5!white`) with deep cyan frame (`cyan!75!black`).
+  * `magenta`: soft magenta background (`magenta!5!white`) with dark magenta frame (`magenta!75!black`).
+  * `teal`: mint background (`teal!5!white`) with deep teal frame (`teal!75!black`).
+  * `olive`: soft olive background (`olive!7!white`) with deep olive frame (`olive!75!black`).
+  * *Default*: gray frame and neutral background if no color is specified.
+* **Arbitrary Nesting:** Fenced boxes can be nested within one another to any depth (e.g. an outer blue container enclosing an inner orange warning box enclosing an inner green tip box). The LIFO environment stack in `markdown-normalizer.lua` and bottom-up AST processing in Pandoc guarantee that inner boxes are fully resolved before outer containers close.
+* **Full Pipeline Compatibility Inside Boxes:** All pipeline features function inside nested boxes without degradation:
+  * Display math and AMS environments (`align`, `equation`, `gather`) render with full equation numbering and formatting.
+  * Executable code fences (Python, C, C++, Java) compile, run, cache, and capture stdout/figures directly within the box frame.
+  * Markdown tables, blockquotes, lists, and task lists render cleanly.
+  * Multilingual text (Bengali, Hindi, CJK) routes through Babel fonts without glyph corruption.
+  * Local file hyperlinks (`file:///...`) resolve to launchable native links.
+* **Special Character Sanitization (`&` in Titles):** In LaTeX `tcolorbox`, an unescaped ampersand (`&`) in `title={...}` triggers a `Misplaced alignment tab character &` compilation crash. The normalizer's `div_fix` automatically escapes unescaped ampersands (`&` $\to$ `\&`) in box options and titles.
+* **Universal Hoist Deduplication:** If user notes or pasted documents include `\usepackage{tcolorbox}` or `\usepackage{xcolor}`, the normalizer's `SKIP_PACKAGES` list prevents duplicate package loading, avoiding LaTeX option clashes.
+
+#### Examples
+
+**Basic Fenced Div Callout:**
+```markdown
+::: {.box color="blue" title="Physics & Mathematics"}
+Energy-momentum relation in special relativity:
+
+$$E^2 = (pc)^2 + (m_0 c^2)^2$$
+:::
+```
+
+**Nested Boxes with Executable Code and Tables:**
+```markdown
+::: {.box color="blue" title="Outer Project Architecture"}
+Here is the high-level architecture overview.
+
+::: {.box color="orange" title="Inner Computation Engine"}
+Below is an executable Python snippet running inside the box:
+
+```python
+data = [x**2 for x in range(5)]
+print(f"Computed squares: {data}")
+```
+
+| Step | Complexity |
+|---|---|
+| Generation | $O(N)$ |
+| Formatting | $O(1)$ |
+
+::: {.box color="green" title="Tip: Verification"}
+All nested assertions verified!
+:::
+:::
+:::
+```
+
+---
+
 ## 4. Universal Attribute Reference Table
 
 Use this reference table to see which attributes apply to which languages in the latest version:

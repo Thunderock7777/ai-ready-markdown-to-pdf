@@ -307,6 +307,7 @@ Change ledger
   2026-11-10 | Multilingual script router for Bengali, Hindi, and CJK with str_fix repair | source +55 / -2 | 321 / 500
   2026-11-10 | List-continuation and indented math/environment literal unmasking in mask_literals | source +23 / -0 | 344 / 500
   2026-11-16 | Local file link normalization (file URI stripping, %20 decoding, and run: OS launch emission) | source +24 / -0 | 368 / 500
+  2026-11-24 | Breakable colorful nested boxes (tcolorbox) and callout div support | source +64 / -11 | 443 / 500
 
 For each later accepted change, append one entry in this format:
 

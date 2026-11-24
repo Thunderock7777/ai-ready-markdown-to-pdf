@@ -98,7 +98,7 @@ Exact name-set contents in the current source
   THEOREMS:
     theorem lemma proposition corollary definition example remark
   DIV_ENVS:
-    proof abstract quote, plus every name in THEOREMS.
+    proof abstract quote tcolorbox, plus every name in THEOREMS.
   BODY_HOIST:
     Emptied under strict code fence isolation and disabled raw_tex (-raw_tex).
     Unfenced LaTeX commands in the Markdown body are treated as literal text and
@@ -452,7 +452,9 @@ Preamble collection and structural text
   pass_unwrap_document(text) -> text
     Detects a pasted full document only when documentclass precedes
     begin{document} and a later end{document} exists. Calls process_lines on
-    the preamble, warns about non-whitespace tail text, and keeps the body.
+    the preamble slice (from \documentclass up to \begin{document}), preserving
+    any pre-documentclass Markdown text and post-end{document} tail text in
+    the body.
   pass_drop_maketitle(text) -> text
     Removes body occurrences of \maketitle.
   pass_hoist_body_commands(text) -> text
@@ -563,7 +565,10 @@ Images, tables, links, environments
     Applies strong_fix to table descendants and restores the original caption.
   div_fix(Div) -> blocks or nil
     Rebuilds begin/end LaTeX blocks for a Div bearing this filter's lenv marker,
-    restoring the saved optional argument referenced by lopt.
+    restoring the saved optional argument referenced by lopt. Also transforms
+    Markdown fenced Divs (.box, .callout, .note, .warning, .tip, .danger, .info)
+    into styled, breakable \begin{tcolorbox}[...] environments with color presets,
+    automatically sanitizing unescaped ampersands (& -> \&) in box titles and options.
 
 Document-level processing and finalization
   define_code_superscripts()

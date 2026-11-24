@@ -1134,7 +1134,6 @@ local function render_latex(el, class, preamble, global_defs)
 
     -- Disallow defining or redefining in subsequent fences commands that cause global/document-level conflicts
     -- (DeclareMathOperator, DeclarePairedDelimiter, newunicodechar, newtheorem, and conflicting usepackage options)
-    local block_targets = {}
     local all_cmds_to_check = {}
     for _, cmd in ipairs(hoisted_cmds) do all_cmds_to_check[#all_cmds_to_check + 1] = cmd end
     for _, cmd in ipairs(local_cmds) do
@@ -1158,11 +1157,10 @@ local function render_latex(el, class, preamble, global_defs)
       else
         local target = get_global_command_target(cmd)
         if target then
-          if (global_defs and global_defs[target]) or block_targets[target] then
+          if global_defs and global_defs[target] then
             warn(string.format("latex block redefines global command '%s'; rendering as code listing (run=false)", target))
             return nil
           end
-          block_targets[target] = true
         end
       end
     end

@@ -70,10 +70,10 @@
 %             mappings above.  pgfplots 1.18 or newer is needed (compat setting).
 %   Refs      only pandoc --citeproc is supported.  \cite is redefined (figure label / [key]), so
 %             raw natbib / biblatex citations are not available.
-%   Layout    Page size is A4 unless YAML page-layout is "presentation"; that preset uses a 16:9
-%             landscape page. Other layout values fall back to A4 with a warning. Header position
-%             is fixed; font size is 10/11/12pt only; other layout variables are ignored; English
-%             hyphenation only.
+%   Layout    Page size is A4 unless YAML page-layout is "presentation" (16:9 landscape)
+%             or "whiteboard" (11in wide, single continuous page with flexible height). Other layout
+%             values fall back to A4 with a warning. Header position is fixed; font size is
+%             10/11/12pt only; other layout variables are ignored; English hyphenation only.
 %   \qty      physics' own \qty does not accept  \qty\{..\}  (it prints (){..}); use \qty{..}.
 %   Unicode   an unmapped symbol prints blank with a "Missing character" warning in the log.
 %             Typed TeX double scripts (x^2² or x_1₂) are real errors and still fail.
@@ -84,9 +84,38 @@
 %             (the text-cleaning reader also enables autolink_bare_uris).
 % ======================================================================
 \PassOptionsToPackage{dvipsnames,svgnames,table}{xcolor}   % pasted preambles may ask for these
-\documentclass[$if(presentation_layout)$$else$a4paper,$endif$$if(fontsize)$$fontsize$$else$12pt$endif$]{article}
+\documentclass[$if(presentation_layout)$$else$$if(whiteboard_layout)$$else$a4paper,$endif$$endif$$if(fontsize)$$fontsize$$else$12pt$endif$]{article}
 
 % ---------------------------------------------------------------- Layout
+$if(whiteboard_layout)$
+\makeatletter
+\IfFileExists{\jobname.aux}{%
+  \begingroup
+    \def\relax{}%
+    \def\@abspage@last##1{}%
+    \makeatletter
+    \input{\jobname.aux}%
+  \endgroup
+}{}
+\newdimen\wb@calcHeight
+\ifx\wbSavedHeight\@undefined
+  \usepackage[paperwidth=11in,paperheight=500cm,margin=0.5in]{geometry}
+\else
+  \setlength{\wb@calcHeight}{\wbSavedHeight}
+  \ifdim\wb@calcHeight<3in
+    \setlength{\wb@calcHeight}{3in}
+  \fi
+  \usepackage[paperwidth=11in,paperheight=\dimexpr\wb@calcHeight + 1.2in\relax,margin=0.5in]{geometry}
+\fi
+\AtEndDocument{%
+  \immediate\write\@auxout{\string\gdef\string\wbSavedHeight{\the\pagetotal}}%
+  \ifx\wbSavedHeight\@undefined
+    \PackageWarning{whiteboard}{Rerun to get dimensions right}%
+  \fi
+}
+\pagestyle{empty}
+\makeatother
+$else$
 \usepackage[$if(presentation_layout)$paperwidth=13.333333in,paperheight=7.5in,margin=0.5in$else$a4paper,margin=2.5cm$endif$]{geometry}
 \usepackage{fancyhdr}
 \setlength{\headheight}{14.5pt}
@@ -95,6 +124,7 @@
 \lhead{$if(header-left)$$header-left$$else$Notes$endif$}
 \rhead{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
+$endif$
 
 % ----------------------------------------------------------------- Maths
 \usepackage{mathtools}                  % loads amsmath
@@ -605,7 +635,11 @@ $endfor$
 \begin{document}
 
 \maketitle
+$if(whiteboard_layout)$
+\thispagestyle{empty}
+$else$
 \thispagestyle{fancy}
+$endif$
 % The normalizer defaults title_rule to true and maps YAML title-rule: false to false.
 $if(title_rule)$
 \hrule
@@ -626,7 +660,27 @@ $for(include-before)$
 $include-before$
 $endfor$
 
+$if(whiteboard_layout)$
+\makeatletter
+\let\wb@orig@newpage\newpage
+\let\wb@orig@clearpage\clearpage
+\def\newpage{\par\vspace{1.5em}\noindent\rule{\linewidth}{0.4pt}\par\vspace{1.5em}}%
+\def\pagebreak{\newpage}%
+\def\clearpage{\newpage}%
+\def\cleardoublepage{\newpage}%
+\def\eject{\newpage}%
+\let\tcbbreak\relax
+\makeatother
+$endif$
+
 $body$
+
+$if(whiteboard_layout)$
+\makeatletter
+\let\newpage\wb@orig@newpage
+\let\clearpage\wb@orig@clearpage
+\makeatother
+$endif$
 
 $for(include-after)$
 $include-after$

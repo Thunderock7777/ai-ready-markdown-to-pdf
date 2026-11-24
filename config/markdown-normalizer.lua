@@ -2150,6 +2150,9 @@ end
 -- Inverse of envs_to_divs: turn the marker Div back into \begin{env}[opt] .. \end{env}.
 -- Also supports Markdown fenced divs ::: {.tcolorbox ...}, ::: {.box ...}, ::: {.callout ...}
 local function div_fix(el)
+  if el.classes:includes("pagebreak") then
+    return { pandoc.HorizontalRule() }
+  end
   local env = el.attributes["lenv"]
   local opt = ""
   if env then
@@ -2281,8 +2284,10 @@ local function apply_page_layout(doc)
   local layout = pandoc.utils.stringify(value):match("^%s*(.-)%s*$"):lower()
   if layout == "presentation" then
     doc.meta.presentation_layout = pandoc.MetaBool(true)
+  elseif layout == "whiteboard" then
+    doc.meta.whiteboard_layout = pandoc.MetaBool(true)
   else
-    warn("unsupported page-layout '" .. layout .. "'; using A4 (supported value: presentation)")
+    warn("unsupported page-layout '" .. layout .. "'; using A4 (supported values: presentation, whiteboard)")
   end
 end
 

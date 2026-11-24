@@ -119,6 +119,7 @@ The integral ∫ from 0 to ∞ of $e^{-x}\,dx = 1$.
 * **Elimination of Traditional `--- ... ---`:** Standard Markdown frontmatter (`---`) is deliberately disabled. This ensures that hyphens, horizontal divider rules, and negative numbers can never be misparsed as broken YAML headers.
 * **Supported Layout Presets:**
   * `page-layout: presentation`: Switches page geometry from standard portrait A4 to 16:9 widescreen landscape (13.33 in $\times$ 7.5 in, 0.5 in margins) with scaled headings.
+  * `page-layout: whiteboard`: Generates a single continuous canvas page (11.0 in width, 0.5 in margins) whose height dynamically and precisely expands to fit all content (two-pass `.aux` height auto-calibration). Strict pagebreak prohibition is enforced: any manual page break (`\newpage`, `\pagebreak`, `\clearpage`, `\cleardoublepage`, `\eject`, `\tcbbreak`, `::: {.pagebreak}`) in Markdown or LaTeX code fences is automatically converted into an elegant horizontal canvas section divider line, guaranteeing strictly 1 page without pagination.
   * `title-rule: false`: Disables the horizontal decorative rule rendered beneath the document title block.
   * `header-left: "..."`: Sets the running header on the top left of every page (defaults to "Notes").
 * **Verbatim Listing Mode (`run=false`):** When you need to display YAML code in your document without applying it to the document's settings, add `run=false`. The pre-processor ignores it as metadata and leaves it as a syntax-highlighted code block.

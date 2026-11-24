@@ -316,6 +316,7 @@ Version 1.3.8 cycle
 
 Change ledger
   2026-11-24 | Space boundary protection for fenced divs, callout boxes, and tcolorbox | source +6 / -1 | 7 / 500
+  2026-11-24 | Whiteboard single-page layout with dynamic canvas height and strict pagebreak prohibition | source +65 / -6 | 72 / 500
 
 For each later accepted change, append one entry in this format:
 

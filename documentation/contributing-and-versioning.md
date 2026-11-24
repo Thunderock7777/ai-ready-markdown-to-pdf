@@ -332,6 +332,7 @@ Change ledger
   2026-11-24 | Dual-box ecosystem: side-by-side marginbox and vbox/tcolorbox, fence mapping, and shared random color divergence | source +124 / -31 | 155 / 500
   2026-11-24 | Stabilized marginbox 3-pass TikZ overlay rendering and protected whiteboard preamble aux loading | source +18 / -3 | 176 / 500
   2026-11-24 | Declarative Mermaid vector PDF diagram rendering, SHA-1 caching, and mmdc CLI auto-detection | source +77 / -4 | 257 / 500
+  2026-11-24 | Whiteboard maximum width ceiling notification in compile.bat and LaTeX warning | source +25 / -1 | 283 / 500
 
 For each later accepted change, append one entry in this format:
 

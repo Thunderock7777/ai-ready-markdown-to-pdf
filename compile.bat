@@ -170,6 +170,10 @@ if errorlevel 1 (
     goto CLEANUP_FAIL
 )
 
+set "WB_WIDTH_MAX="
+findstr /C:"WHITEBOARD_WIDTH_MAX_REACHED" "%TEX_OUTPUT%" >nul 2>&1
+if not errorlevel 1 set "WB_WIDTH_MAX=1"
+
 REM =========================================================
 REM XELATEX  (all build files go to the temp folder)
 REM =========================================================
@@ -267,6 +271,18 @@ if not errorlevel 1 (
     echo ------------------------------------------
 )
 
+if not defined WB_WIDTH_MAX (
+    findstr /C:"Whiteboard width reached maximum" "%LOG_FILE%" >nul 2>&1
+    if not errorlevel 1 set "WB_WIDTH_MAX=1"
+)
+if "%WB_WIDTH_MAX%"=="1" (
+    color 0E
+    echo ------------------------------------------
+    echo  WARNING: Whiteboard width reached maximum ceiling ^(100in^).
+    echo  Width was clamped to 100in.
+    echo ------------------------------------------
+)
+
 REM =========================================================
 REM DELIVER PDF + CLEAN UP EVERYTHING ELSE
 REM =========================================================
@@ -288,6 +304,9 @@ echo           CONVERSION COMPLETED
 echo ==========================================
 echo.
 echo PDF: "%PDF_OUTPUT%"
+if "%WB_WIDTH_MAX%"=="1" (
+    echo Note: Whiteboard width reached maximum ceiling ^(100in^).
+)
 echo.
 pause
 endlocal

@@ -1421,7 +1421,12 @@ local function space_fences(text)
         fence = mark
       else
         local is_hr = line:match("^%s*%-%-%-+%s*$") or line:match("^%s*%*%*%*+%s*$") or line:match("^%s*___+%s*$")
-        if is_hr then
+        local is_div = line:match("^%s*:::+")
+        local env_begin = line:match("^%s*\\begin%s*{([%a*]+)}")
+        local is_env_begin = env_begin and (REGISTRY.DIV_ENVS[env_begin] or env_begin == "tcolorbox")
+        local env_end = line:match("^%s*\\end%s*{([%a*]+)}")
+        local is_env_end = env_end and (REGISTRY.DIV_ENVS[env_end] or env_end == "tcolorbox")
+        if is_hr or is_div or is_env_begin or is_env_end then
           if #out > 0 and out[#out]:match("%S") then
             out[#out + 1] = ""
           end

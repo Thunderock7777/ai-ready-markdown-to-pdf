@@ -478,9 +478,10 @@ Preamble collection and structural text
     the block from body text. Traditional `--- ... ---` blocks are deliberately
     ignored as metadata. Preserves verbatim YAML code listings marked with run=false.
   space_fences(text) -> spaced source
-    Ensures an empty line precedes and follows every opening/closing code fence
-    and every standalone horizontal rule (---, ***, ___), guaranteeing universal
-    block boundary separation and preventing table, heading, or code fence misparsing.
+    Ensures an empty line precedes and follows every opening/closing code fence,
+    every standalone horizontal rule (---, ***, ___), fenced Divs (:::), and
+    LaTeX box/theorem environments (\begin{tcolorbox}, \end{tcolorbox}), guaranteeing
+    universal block boundary separation and preventing paragraph misparsing.
   normalize_fence_attributes(text) -> normalized source
     Scans code fence openers and normalizes space-separated attributes lacking
     braces (e.g., ```c run=false or ```java trusted=true) to standard Pandoc

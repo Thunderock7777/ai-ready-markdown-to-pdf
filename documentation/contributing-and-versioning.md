@@ -315,6 +315,7 @@ Version 1.3.8 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-24 | Space boundary protection for fenced divs, callout boxes, and tcolorbox | source +6 / -1 | 7 / 500
 
 For each later accepted change, append one entry in this format:
 

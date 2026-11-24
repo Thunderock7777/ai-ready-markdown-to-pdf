@@ -484,6 +484,7 @@ The outer 4 backticks prevent the inner 3 backticks from closing the box!
   * `violet`: soft violet background (`violet!5!white`) with deep violet frame (`violet!75!black`).
   * *Unspecified*: randomly selected from `PALETTE` excluding parent color.
 * **Arbitrary Nesting:** Fenced boxes can be nested within one another to any depth (e.g. an outer container enclosing an inner warning box enclosing an inner tip box). The LIFO environment stack in `markdown-normalizer.lua` and bottom-up AST processing in Pandoc guarantee that inner boxes are fully resolved before outer containers close.
+* **Universal Space & Boundary Protection:** In Stage A cleaning, `space_fences` automatically injects blank line boundaries before and after `\begin{tcolorbox}`, `\end{tcolorbox}`, `::: {.box}`, and `:::`. Even if AI responses or pasted notes directly touch paragraph text without empty lines, boxes are never merged into adjacent paragraphs.
 * **Full Pipeline Compatibility Inside Boxes:** All pipeline features function inside nested boxes without degradation:
   * Display math and AMS environments (`align`, `equation`, `gather`) render with full equation numbering and formatting.
   * Executable code fences (Python, C, C++, Java) compile, run, cache, and capture stdout/figures directly within the box frame.

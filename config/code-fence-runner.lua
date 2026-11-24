@@ -702,6 +702,7 @@ local SIMPLE_PREAMBLE = {
 }
 local PAIR_DELIM = {
   DeclarePairedDelimiter = 2, DeclarePairedDelimiterX = 3, DeclarePairedDelimiterXPP = 5,
+  DeclareMathSymbol = 3, DeclareMathDelimiter = 5, DeclareMathAccent = 3,
 }
 local THREE_ARG_PREAMBLE = { NewDocumentCommand = true, DeclareDocumentCommand = true }
 -- Fontspec font family/face definition commands that survive preamble deletion (kept in local_cmds).
@@ -913,6 +914,14 @@ local function extract_commands(pre)
               if pre:sub(next_arg, next_arg) == "{" then
                 finish = match_group(pre, next_arg, "{", "}")
                 next_arg = finish and finish + 1 or next_arg
+              elseif pre:sub(next_arg, next_arg) == "\\" then
+                local token = pre:sub(next_arg):match("^\\[%a@]+")
+                finish = token and (next_arg + #token - 1) or nil
+                next_arg = finish and finish + 1 or next_arg
+              elseif pre:sub(next_arg, next_arg):match('^[%w"%-\']') then
+                local token = pre:sub(next_arg):match('^"[^"]*"') or pre:sub(next_arg):match("^'[^']*'") or pre:sub(next_arg):match("^[%w%-]+")
+                finish = token and (next_arg + #token - 1) or nil
+                next_arg = finish and finish + 1 or next_arg
               else
                 finish = nil; break
               end
@@ -1027,6 +1036,13 @@ local function get_global_command_target(cmd)
     if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$") end
     if sym then return "\\newunicodechar{" .. sym .. "}" end
   end
+  if cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccent]+") then
+    local sym = cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccent]+%s*(%b{})")
+    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
+    else sym = cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccent]+%s*(\\[%a@]+)") end
+    if sym and not sym:match("^\\") then sym = "\\" .. sym end
+    return sym
+  end
   if cmd:match("^%s*\\newtheorem") then
     local sym = cmd:match("^%s*\\newtheorem%*?%s*(%b{})")
     if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$") end
@@ -1109,7 +1125,8 @@ local function render_latex(el, class, preamble, global_defs)
 
     for _, cmd in ipairs(hoisted_cmds) do
       -- Make operator and delimiter declarations safe against pre-existing package or template definitions
-      if cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\DeclarePairedDelimiter") then
+      if cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\DeclarePairedDelimiter")
+          or cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccent]+") then
         local target = get_global_command_target(cmd)
         if target and target:match("^\\[%a@]+") then
           cmd = "\\let" .. target .. "\\relax " .. cmd

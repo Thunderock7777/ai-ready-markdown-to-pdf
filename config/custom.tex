@@ -71,9 +71,9 @@
 %   Refs      only pandoc --citeproc is supported.  \cite is redefined (figure label / [key]), so
 %             raw natbib / biblatex citations are not available.
 %   Layout    Page size is A4 unless YAML page-layout is "presentation" (16:9 landscape)
-%             or "whiteboard" (11in wide, single continuous page with flexible height). Other layout
-%             values fall back to A4 with a warning. Header position is fixed; font size is
-%             10/11/12pt only; other layout variables are ignored; English hyphenation only.
+%             or "whiteboard" (single continuous page with flexible height and width: 11in min floor,
+%             auto-expanding for wide tables/boxes). Other layout values fall back to A4 with a warning.
+%             Header position is fixed; font size is 10/11/12pt only; other layout variables are ignored; English hyphenation only.
 %   \qty      physics' own \qty does not accept  \qty\{..\}  (it prints (){..}); use \qty{..}.
 %   Unicode   an unmapped symbol prints blank with a "Missing character" warning in the log.
 %             Typed TeX double scripts (x^2² or x_1₂) are real errors and still fail.
@@ -99,13 +99,13 @@ $if(whiteboard_layout)$
 }{}
 \newdimen\wb@calcHeight
 \ifx\wbSavedHeight\@undefined
-  \usepackage[paperwidth=11in,paperheight=500cm,margin=0.5in]{geometry}
+  \usepackage[paperwidth=$if(whiteboard_width)$$whiteboard_width$$else$11in$endif$,paperheight=500cm,margin=0.5in]{geometry}
 \else
   \setlength{\wb@calcHeight}{\wbSavedHeight}
   \ifdim\wb@calcHeight<3in
     \setlength{\wb@calcHeight}{3in}
   \fi
-  \usepackage[paperwidth=11in,paperheight=\dimexpr\wb@calcHeight + 1.2in\relax,margin=0.5in]{geometry}
+  \usepackage[paperwidth=$if(whiteboard_width)$$whiteboard_width$$else$11in$endif$,paperheight=\dimexpr\wb@calcHeight + 1.2in\relax,margin=0.5in]{geometry}
 \fi
 \AtEndDocument{%
   \immediate\write\@auxout{\string\gdef\string\wbSavedHeight{\the\pagetotal}}%
@@ -557,7 +557,7 @@ $endif$
 \IfFileExists{enumitem.sty}{\usepackage{enumitem}}{}
 \IfFileExists{tcolorbox.sty}{%
   \usepackage[most]{tcolorbox}%
-  \tcbset{enhanced jigsaw, breakable, arc=1.5mm, boxrule=0.8pt}%
+  \tcbset{enhanced jigsaw, $if(whiteboard_layout)$unbreakable$else$breakable$endif$, arc=1.5mm, boxrule=0.8pt}%
 }{}
 \IfFileExists{adjustbox.sty}{\usepackage{adjustbox}}{}
 \IfFileExists{pgfplotstable.sty}{\usepackage{pgfplotstable}}{}
@@ -670,6 +670,7 @@ $if(whiteboard_layout)$
 \def\cleardoublepage{\newpage}%
 \def\eject{\newpage}%
 \let\tcbbreak\relax
+\IfFileExists{tcolorbox.sty}{\tcbsetforeverylayer{unbreakable}}{}%
 \makeatother
 $endif$
 

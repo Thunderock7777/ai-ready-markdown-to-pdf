@@ -2277,6 +2277,133 @@ local function apply_extra_meta(doc)
   end
 end
 
+local function parse_dimension_in_inches(val)
+  if not val then return nil end
+  local str = pandoc.utils.stringify(val)
+  local num, unit = str:match("^%s*([%d%.]+)%s*([%a]*)%s*$")
+  num = tonumber(num)
+  if not num then return nil end
+  unit = (unit or ""):lower()
+  if unit == "in" or unit == "inch" or unit == "inches" or unit == "" then
+    return num
+  elseif unit == "cm" then
+    return num / 2.54
+  elseif unit == "mm" then
+    return num / 25.4
+  elseif unit == "pt" then
+    return num / 72.27
+  end
+  return nil
+end
+
+local function calculate_whiteboard_width(doc)
+  local floor_width = 11.0 -- minimum floor (little less than presentation's 13.33in)
+  local user_width = parse_dimension_in_inches(doc.meta["whiteboard-width"] or doc.meta["page-width"])
+  local max_needed = floor_width
+  if user_width and user_width > max_needed then
+    max_needed = user_width
+  end
+
+  local max_cols = 0
+  local max_depth = 0
+  local table_expanded = false
+
+  local function scan_blocks(blocks, depth)
+    if not blocks then return end
+    for _, b in ipairs(blocks) do
+      if b.tag == "RawBlock" and b.format == "latex" then
+        if b.text:match("\\begin%s*{tcolorbox") or b.text:match("\\begin%s*{quote") then
+          depth = depth + 1
+        elseif b.text:match("\\end%s*{tcolorbox") or b.text:match("\\end%s*{quote") then
+          depth = math.max(0, depth - 1)
+        end
+      elseif is_box_div(b) then
+        scan_blocks(b.content, depth + 1)
+      elseif b.tag == "Div" then
+        scan_blocks(b.content, depth)
+      elseif b.tag == "BlockQuote" then
+        scan_blocks(b.content, depth + 1)
+      elseif b.tag == "Table" then
+        local num_cols = #(b.colspecs or {})
+        if num_cols == 0 and b.head and b.head.rows and #b.head.rows > 0 then
+          num_cols = #(b.head.rows[1].cells or {})
+        end
+        if num_cols > 0 then
+          local col_max_len = {}
+          for c = 1, num_cols do col_max_len[c] = 0 end
+
+          local function inspect_row(row)
+            if not row or not row.cells then return end
+            for c, cell in ipairs(row.cells) do
+              if c <= num_cols then
+                local txt = pandoc.utils.stringify(cell.contents or {})
+                local len = #txt
+                if len > col_max_len[c] then col_max_len[c] = len end
+              end
+            end
+          end
+
+          if b.head and b.head.rows then
+            for _, r in ipairs(b.head.rows) do inspect_row(r) end
+          end
+          if b.bodies then
+            for _, body in ipairs(b.bodies) do
+              if body.body then
+                for _, r in ipairs(body.body) do inspect_row(r) end
+              end
+              if body.head then
+                for _, r in ipairs(body.head) do inspect_row(r) end
+              end
+            end
+          end
+          if b.foot and b.foot.rows then
+            for _, r in ipairs(b.foot.rows) do inspect_row(r) end
+          end
+
+          local col_total = 0
+          for c = 1, num_cols do
+            local l = col_max_len[c] or 0
+            local cw = 1.6
+            if l > 40 then cw = 3.2
+            elseif l > 25 then cw = 2.5
+            elseif l > 12 then cw = 2.0
+            elseif l > 5 then cw = 1.6
+            else cw = 1.3
+            end
+            col_total = col_total + cw
+          end
+
+          -- tabcolsep: 2 per col = 12pt ≈ 0.17in
+          local cell_padding = num_cols * 0.17
+          -- nesting indent: ~0.60in per level (padding + frame rules)
+          local nesting_indent = depth * 0.60
+          -- page margins: 0.5in * 2 = 1.0in
+          local page_margins = 1.0
+
+          local needed = page_margins + nesting_indent + cell_padding + col_total
+          if needed > max_needed then
+            max_needed = needed
+            max_cols = num_cols
+            max_depth = depth
+            table_expanded = true
+          end
+        end
+      end
+    end
+  end
+
+  scan_blocks(doc.blocks, 0)
+
+  -- Round up to nearest 0.25in for clean paper geometry
+  local final_width = math.ceil(max_needed * 4) / 4
+  if final_width < floor_width then final_width = floor_width end
+
+  doc.meta.whiteboard_width = pandoc.MetaString(string.format("%.2fin", final_width))
+  if table_expanded then
+    warn(string.format("whiteboard width expanded to %.2fin to accommodate %d-column table at box nesting depth %d", final_width, max_cols, max_depth))
+  end
+end
+
 -- Map only the supported YAML preset to the template flag; invalid values warn and keep A4.
 local function apply_page_layout(doc)
   local value = doc.meta["page-layout"]
@@ -2286,6 +2413,7 @@ local function apply_page_layout(doc)
     doc.meta.presentation_layout = pandoc.MetaBool(true)
   elseif layout == "whiteboard" then
     doc.meta.whiteboard_layout = pandoc.MetaBool(true)
+    calculate_whiteboard_width(doc)
   else
     warn("unsupported page-layout '" .. layout .. "'; using A4 (supported values: presentation, whiteboard)")
   end

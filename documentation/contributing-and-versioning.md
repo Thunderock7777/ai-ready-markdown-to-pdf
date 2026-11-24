@@ -336,6 +336,7 @@ Change ledger
   2026-11-24 | Hoist and guard DeclareMathSymbol, DeclareMathDelimiter, and DeclareMathAccent in LaTeX fences | source +18 / -1 | 302 / 500
   2026-11-24 | Universal preamble hoisting for colors, math alphabets, setters, counters, lengths, and symbols | source +84 / -31 | 417 / 500
   2026-11-24 | Allow sequential operator redeclaration in same fence while preserving cross-fence conflict protection | source +0 / -3 | 420 / 500
+  2026-11-24 | Co-occurrence hoisting for local macros sharing tokens with universal permeables in same fence | source +46 / -6 | 472 / 500
 
 For each later accepted change, append one entry in this format:
 

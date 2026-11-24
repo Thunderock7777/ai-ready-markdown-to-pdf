@@ -1117,18 +1117,58 @@ local function render_latex(el, class, preamble, global_defs)
     else
       warn("latex block has \\begin{document} but no \\end{document}: using everything after it")
     end
-    -- Scope-isolated: packages, libraries, and preamble-only commands go to the preamble; macros stay local
+    -- Scope-isolated: packages, libraries, and preamble-only commands go to the preamble; macros stay local.
+    -- Co-occurrence rule: If a command token (e.g. \Tr) is targeted/used in a universal hoisted permeable
+    -- AND is also used in a local macro inside the same fence, hoist each of them universally in relative order.
     local commands = extract_commands(el.text:sub(1, bs - 1))
+    local is_universal_cmd = function(cmd)
+      local cmd_name = cmd:match("^%s*\\(%a+)")
+      return cmd_name and (cmd_name == "usepackage" or cmd_name == "RequirePackage"
+          or SIMPLE_PREAMBLE[cmd_name] or cmd_name == "DeclareMathOperator"
+          or PAIR_DELIM[cmd_name] or cmd_name == "newtheorem")
+    end
+
+    local universal_symbols = {}
+    for _, cmd in ipairs(commands) do
+      if is_universal_cmd(cmd) then
+        local target = get_global_command_target(cmd)
+        if target and target:match("^\\[%a@]+") then
+          universal_symbols[target] = true
+        end
+        local macro_target = cmd:match("^%s*\\[%a@]+%*?%s*(%b{})")
+        if macro_target then
+          local inner = macro_target:sub(2, -2):match("^%s*(.-)%s*$")
+          if inner and inner:match("^\\[%a@]+") then
+            universal_symbols[inner] = true
+          end
+        else
+          local unbraced_target = cmd:match("^%s*\\[%a@]+%*?%s*(\\[%a@]+)")
+          if unbraced_target then
+            universal_symbols[unbraced_target] = true
+          end
+        end
+      end
+    end
+
     local hoisted_cmds = {}
     local local_cmds = {}
     for _, cmd in ipairs(commands) do
-      local cmd_name = cmd:match("^%s*\\(%a+)")
-      if cmd_name and (cmd_name == "usepackage" or cmd_name == "RequirePackage" or SIMPLE_PREAMBLE[cmd_name]
-          or cmd_name == "DeclareMathOperator" or PAIR_DELIM[cmd_name]
-          or cmd_name == "newtheorem") then
+      if is_universal_cmd(cmd) then
         hoisted_cmds[#hoisted_cmds + 1] = cmd
       else
-        local_cmds[#local_cmds + 1] = cmd
+        local promoted = false
+        for sym in pairs(universal_symbols) do
+          local pat = sym:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1") .. "%f[%A]"
+          if cmd:match(pat) then
+            promoted = true
+            break
+          end
+        end
+        if promoted then
+          hoisted_cmds[#hoisted_cmds + 1] = cmd
+        else
+          local_cmds[#local_cmds + 1] = cmd
+        end
       end
     end
 

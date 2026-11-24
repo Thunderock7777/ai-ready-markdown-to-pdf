@@ -92,20 +92,31 @@ $if(whiteboard_layout)$
 \IfFileExists{\jobname.aux}{%
   \begingroup
     \def\relax{}%
-    \def\@abspage@last##1{}%
     \makeatletter
     \input{\jobname.aux}%
   \endgroup
 }{}
-\newdimen\wb@calcHeight
-\ifx\wbSavedHeight\@undefined
-  \usepackage[paperwidth=$if(whiteboard_width)$$whiteboard_width$$else$11in$endif$,paperheight=500cm,margin=0.5in]{geometry}
+\ifx\@abspage@last\@undefined
+  \def\wbTotalPages{1}
 \else
-  \setlength{\wb@calcHeight}{\wbSavedHeight}
-  \ifdim\wb@calcHeight<3in
-    \setlength{\wb@calcHeight}{3in}
+  \edef\wbTotalPages{\@abspage@last}
+\fi
+\newdimen\wb@calcHeight
+\ifnum\wbTotalPages>1\relax
+  \usepackage[paperwidth=$if(whiteboard_width)$$whiteboard_width$$else$11in$endif$,paperheight=100in,margin=0.5in]{geometry}
+\else
+  \ifx\wbSavedHeight\@undefined
+    \usepackage[paperwidth=$if(whiteboard_width)$$whiteboard_width$$else$11in$endif$,paperheight=100in,margin=0.5in]{geometry}
+  \else
+    \setlength{\wb@calcHeight}{\wbSavedHeight}
+    \ifdim\wb@calcHeight<3in
+      \setlength{\wb@calcHeight}{3in}
+    \fi
+    \ifdim\wb@calcHeight>98in
+      \setlength{\wb@calcHeight}{98in}
+    \fi
+    \usepackage[paperwidth=$if(whiteboard_width)$$whiteboard_width$$else$11in$endif$,paperheight=\dimexpr\wb@calcHeight + 1.2in\relax,margin=0.5in]{geometry}
   \fi
-  \usepackage[paperwidth=$if(whiteboard_width)$$whiteboard_width$$else$11in$endif$,paperheight=\dimexpr\wb@calcHeight + 1.2in\relax,margin=0.5in]{geometry}
 \fi
 \AtEndDocument{%
   \immediate\write\@auxout{\string\gdef\string\wbSavedHeight{\the\pagetotal}}%
@@ -557,7 +568,7 @@ $endif$
 \IfFileExists{enumitem.sty}{\usepackage{enumitem}}{}
 \IfFileExists{tcolorbox.sty}{%
   \usepackage[most]{tcolorbox}%
-  \tcbset{enhanced jigsaw, $if(whiteboard_layout)$unbreakable$else$breakable$endif$, arc=1.5mm, boxrule=0.8pt}%
+  \tcbset{enhanced jigsaw, breakable, arc=1.5mm, boxrule=0.8pt}%
 }{}
 \IfFileExists{adjustbox.sty}{\usepackage{adjustbox}}{}
 \IfFileExists{pgfplotstable.sty}{\usepackage{pgfplotstable}}{}
@@ -670,7 +681,6 @@ $if(whiteboard_layout)$
 \def\cleardoublepage{\newpage}%
 \def\eject{\newpage}%
 \let\tcbbreak\relax
-\IfFileExists{tcolorbox.sty}{\tcbsetforeverylayer{unbreakable}}{}%
 \makeatother
 $endif$
 

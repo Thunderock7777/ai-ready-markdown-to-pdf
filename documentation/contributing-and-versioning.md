@@ -319,6 +319,7 @@ Change ledger
   2026-11-24 | Whiteboard single-page layout with dynamic canvas height and strict pagebreak prohibition | source +65 / -6 | 72 / 500
   2026-11-24 | Flexible whiteboard width with 11in minimum floor, table column protection, and unbreakable box overflow fix | source +135 / -6 | 207 / 500
   2026-11-24 | Whiteboard multi-page height limit ceiling (100in) and breakable box page overflow handling | source +21 / -10 | 228 / 500
+  2026-11-24 | Documented nested child box tcolorbox pagebreak limitation across features and limitations | source +0 / -0 | 228 / 500
 
 For each later accepted change, append one entry in this format:
 

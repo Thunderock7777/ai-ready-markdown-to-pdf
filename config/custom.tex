@@ -72,8 +72,9 @@
 %             raw natbib / biblatex citations are not available.
 %   Layout    Page size is A4 unless YAML page-layout is "presentation" (16:9 landscape)
 %             or "whiteboard" (single continuous page with flexible height and width: 11in min floor,
-%             auto-expanding for wide tables/boxes). Other layout values fall back to A4 with a warning.
+%             auto-expanding for wide tables/boxes, up to 100in ceiling before page break). Other layout values fall back to A4 with a warning.
 %             Header position is fixed; font size is 10/11/12pt only; other layout variables are ignored; English hyphenation only.
+%             Child boxes: in tcolorbox, nested child boxes cannot break across page boundaries; on whiteboard they have up to 100in (~8.5 A4 pages) headroom before hitting a page break.
 %   \qty      physics' own \qty does not accept  \qty\{..\}  (it prints (){..}); use \qty{..}.
 %   Unicode   an unmapped symbol prints blank with a "Missing character" warning in the log.
 %             Typed TeX double scripts (x^2² or x_1₂) are real errors and still fail.

@@ -55,7 +55,7 @@ Final Output PDF (Delivered beside first input file)
 
 ## 2. Master Language Index & Classification
 
-The pipeline recognizes **7 distinct language categories**, each with its own execution model, isolation guarantees, and output formatting:
+The pipeline recognizes **8 distinct language categories**, each with its own execution model, isolation guarantees, and output formatting:
 
 | Language Identifier | Aliases | Classification | Execution Engine | Primary Output in PDF |
 |---|---|---|---|---|
@@ -66,6 +66,7 @@ The pipeline recognizes **7 distinct language categories**, each with its own ex
 | **C** | `c` | Compiled Native Binary | `gcc -O2` + Auto-Wrapper + Cache | Console stdout + Compiler errors |
 | **C++** | `cpp`, `c++`, `cxx`, `cc` | Compiled Native Binary | `g++ -O2 -std=c++17` + Auto-Wrapper + Cache | Console stdout + Compiler errors |
 | **Java** | `java` | JVM Compiled / Script Execution | `javac` / `java` + Auto-Wrapper + Cache | Console stdout + JVM diagnostics |
+| **Mermaid** | `mermaid`, `mmd` | Declarative Vector Diagram | `mmdc` (Mermaid CLI) + Vector PDF + Cache | Standalone vector diagram with optional `caption` and `width` |
 | **Raw / Gibberish Text** | `text`, `txt`, *(no tag)* | 100% Crash-Proof Verbatim | LaTeX `fvextra` Verbatim Engine | Verbatim text box with automatic line-wrapping |
 
 ---
@@ -80,6 +81,7 @@ The pipeline recognizes **7 distinct language categories**, each with its own ex
 #### How It Renders Under the Hood
 * **Normalizer Interception:** In Stage A, `markdown-normalizer.lua` scans the document before Pandoc touches it. It scrubs invisible Unicode characters, normalizes lookalike math symbols (converting raw Unicode Greek `α`, `β`, arrows `→`, and operators `≤`, `∫` into their correct LaTeX counterparts `\alpha`, `\beta`, `\to`, `\le`, `\int`), and aggregates stacked super/subscripts (`x¹²` $\rightarrow$ `x^{12}`). Full Latin and Greek subscript coverage (`ₐ ₑ ₕ ᵢ ⱼ ₖ ₗ ₘ ₙ ₒ ₚ ᵣ ₛ ₜ ᵤ ᵥ ₓ` and `ᵦ ᵧ ᵨ ᵩ ᵪ`) is guaranteed in both math mode (`x_{i}`) and text mode without font glyph dropouts.
 * **Stray TeX Protection (`-raw_tex`) & AST-Preserved Constructs:** Pandoc runs with `-raw_tex` disabled. Unfenced arbitrary LaTeX commands typed in ordinary paragraphs (e.g. `\lhead{Notes}` or `\mycommand`) are **not** executed by XeLaTeX; they are automatically escaped to literal text (`\textbackslash{}lhead\{Notes\}`) so they can never crash the build. Meanwhile, standard document cross-references (`\ref{...}`, `\ref*{...}`, `\eqref{...}`, `\autoref{...}`, `\pageref{...}`, `\nameref{...}`, `\cite{...}`, `\cite[...]{...}`), hyperlinks (`\url{...}`, `\href{...}{...}`), footnotes (`\footnote{...}`), non-breaking ties (`~` / `\nobreakspace{}`), page/spacing commands (`\newpage`, `\clearpage`, `\pagebreak`, `\bigskip`, `\medskip`, `\smallskip`, `\vspace`, `\hspace`), typographic primitives (`\hfill`, `\noindent`, `<sub>...</sub>`, `<sup>...</sup>`, `<br>`), and non-Latin Unicode scripts (Bengali, Hindi, CJK routed to Babel fonts) are preserved and converted to native unescaped AST nodes so they render cleanly in LaTeX. Structural pagebreaks on their own line are isolated as block boundaries to prevent unintended paragraph merging.
+* **Local File & Document Links:** Links to local files (e.g. `[notes](file:///D:/path/file.pdf)` or `[doc](D:/notes/doc.pdf)`) are automatically normalized in Stage B AST processing: `file:///` and `file://` prefixes are stripped, URL percent-encodings (such as `%20`) are decoded to filesystem paths, and targets are routed through `\href{run:...}`. This creates native OS-level file launch actions (`/S/Launch`) in the PDF, allowing desktop PDF viewers (such as SumatraPDF or Acrobat) to open the referenced document in its default external application without path corruption.
 * **CommonMark Code Span Boundaries:** Backticks inside inline code spans are parsed strictly under CommonMark rules: preceding backslashes do not escape closing backticks (e.g. `` `C:\Windows\` `` closes properly and never leaks into subsequent text).
 * **Table & Layout Safety (`-simple_tables`):** Pandoc's `simple_tables` extension is disabled. Three consecutive dashes (`---`) typed on their own line are always treated as a visual horizontal rule divider, never as an unclosed table row. Pipe tables (`| col | col |`) receive universal boundary spacing (including blockquote prefix preservation) to prevent merging with surrounding text.
 * **Nested Environment & Display Math Robustness:** Theorem-like and quote environments can be nested to arbitrary depths (`\begin{theorem}...\begin{quote}...\end{quote}...\end{theorem}`) via a re-entrant stack in `markdown-normalizer.lua`. Bare AMS math environments (`\begin{align}`, `equation`, `gather`, `multline`, etc.) appearing directly in Markdown prose without math delimiters are automatically wrapped in `$$\n...\n$$`, ensuring they are parsed natively as DisplayMath rather than escaped to `\textbackslash begin` under `-raw_tex`. Blockquote nesting is preserved so greater-than markers never corrupt display math formulas. Any custom theorem environment declared via `\newtheorem` is dynamically registered into `REGISTRY.DIV_ENVS`, enabling native Markdown Div conversion. Display math (`$$...$$`) unwraps `\begin{align}` even when preceded or followed by text or comments, and inline currency amounts (e.g. `$50 (base_fee = $30)`) are strictly isolated from math delimiter heuristics.
@@ -118,6 +120,7 @@ The integral ∫ from 0 to ∞ of $e^{-x}\,dx = 1$.
 * **Elimination of Traditional `--- ... ---`:** Standard Markdown frontmatter (`---`) is deliberately disabled. This ensures that hyphens, horizontal divider rules, and negative numbers can never be misparsed as broken YAML headers.
 * **Supported Layout Presets:**
   * `page-layout: presentation`: Switches page geometry from standard portrait A4 to 16:9 widescreen landscape (13.33 in $\times$ 7.5 in, 0.5 in margins) with scaled headings.
+  * `page-layout: whiteboard`: Generates a continuous canvas page (with 0.5 in margins) whose height dynamically and precisely expands to fit all content (two-pass `.aux` height auto-calibration up to a 100 in ceiling). When content exceeds the 100 in height limit, it cleanly starts a new whiteboard canvas page. Width is flexible with a minimum floor of 11.0 in (little less than the presentation layout) and an upper safety ceiling of 100.0 in (matching the 100-inch height limit); it automatically expands when multi-column tables or nested color boxes require extra horizontal clearance to prevent table column overlap or cramping. Authors may also supply an explicit override via `page-width:` or `whiteboard-width:` (e.g. `16in`), strictly enforced between the 11.0 in floor and 100.0 in ceiling. Boxes are breakable across page boundaries so content flows cleanly when hitting the height limit without clipping or TeX dimension overflow. Strict manual pagebreak prohibition is enforced: any manual page break (`\newpage`, `\pagebreak`, `\clearpage`, `\cleardoublepage`, `\eject`, `\tcbbreak`, `::: {.pagebreak}`) in Markdown or LaTeX code fences is automatically converted into an elegant horizontal canvas section divider line.
   * `title-rule: false`: Disables the horizontal decorative rule rendered beneath the document title block.
   * `header-left: "..."`: Sets the running header on the top left of every page (defaults to "Notes").
 * **Verbatim Listing Mode (`run=false`):** When you need to display YAML code in your document without applying it to the document's settings, add `run=false`. The pre-processor ignores it as metadata and leaves it as a syntax-highlighted code block.
@@ -161,8 +164,16 @@ database:
   \par\endgroup}
   ```
   This ensures that any macro definitions, low-level TeX primitives (`\def`, `\gdef`, `\edef`, `\let`), font family declarations (`\newfontfamily`, `\newfontface`), color overrides (`\color{...}`), font size changes (`\Huge`), or dimension adjustments (`\setlength`) made inside a block **cannot leak** into subsequent sections or corrupt the outer document geometry.
-* **Pasted Document Extraction & Preamble Hoisting:** If a full pasted LaTeX document containing `\begin{document} ... \end{document}` is passed, the runner automatically hoists `\usepackage` declarations, TikZ/PGF libraries, and preamble-only commands (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\DeclarePairedDelimiterX`, `\DeclarePairedDelimiterXPP`, `\newtheorem`, `\theoremstyle`, `\hypersetup`, `\mathtoolsset`, `\newunicodechar`) into the global document preamble (`$header-includes$`). Hoisted `\DeclareMathOperator` and `\DeclarePairedDelimiter` (including `X` and `XPP`) declarations accept both braced (`\DeclareMathOperator{\cmd}{...}`) and unbraced (`\DeclareMathOperator\cmd{...}`) syntax with optional argument counts (`[num]`), and are safely guarded with `\let\cmd\relax` to prevent crashes against pre-existing kernel or template operators/delimiters (`\Tr`, `\Pr`, `\Re`, `\abs`, `\norm`, `physics.sty` macros, etc.). `\newtheorem` declarations preserve optional subordinate reset counters (`\newtheorem{env}{Title}[section]`) as well as shared counters (`\newtheorem{env}[shared]{Title}`) and preceding `\theoremstyle` definitions. User-defined macros, low-level TeX primitives (`\def`, `\gdef`, `\edef`, `\let`), custom environments, and fontspec font family/face commands (`\newfontfamily`, `\renewfontfamily`, `\setfontfamily`, `\providefontfamily`, `\newfontface`, `\renewfontface`, `\setfontface`, `\providefontface`) remain strictly local to the fence's `{\begingroup ... \par\endgroup}` body.
-* **Cross-Fence Global Command Conflict Protection:** Defining or redefining any global command (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\newunicodechar`, `\newtheorem`) or importing a package with conflicting options across multiple fences automatically demotes the offending block to `run=false` (syntax-highlighted code listing) with a console warning.
+* **Pasted Document Extraction & Universal Preamble Hoisting:** If a full pasted LaTeX document containing `\begin{document} ... \end{document}` is passed, the runner automatically hoists preamble-only commands, package configurations, and global definitions into the global document preamble (`$header-includes$`):
+  * **Package Loading & Options:** `\usepackage`, `\RequirePackage`, and `\PassOptionsToPackage`.
+  * **Math Operators, Symbols, Alphabets & Accents:** `\DeclareMathOperator`, `\DeclarePairedDelimiter` (including `X` and `XPP`), `\DeclareMathSymbol`, `\DeclareMathDelimiter`, `\DeclareMathAccent`, `\DeclareMathAlphabet`, `\SetMathAlphabet`, `\DeclareSymbolFont`, `\SetSymbolFont`, `\DeclareSymbolFontAlphabet`, `\DeclareMathVersion`, `\DeclareMathSizes`, and `\numberwithin`. All hoisted math operators, delimiters, alphabets, symbol fonts, and symbols accept both braced and unbraced forms and are safely guarded with `\let\cmd\relax` to prevent crashes against pre-existing kernel or package definitions (`\Tr`, `\Pr`, `\Re`, `\abs`, `\norm`, `physics.sty` macros, etc.).
+  * **Color Palettes:** `\definecolor`, `\colorlet` (with optional model arguments), and `\providecolor`.
+  * **Package Setters & Configuration:** `\tcbset`, `\lstset`, `\captionsetup`, `\setlist`, `\setchemfig`, `\definesubmol`, `\swapnumbers`, `\hypersetup`, `\mathtoolsset`, and TikZ/PGF libraries (`\usetikzlibrary`, `\usepgflibrary`, `\usegdlibrary`).
+  * **Lengths & Counters:** `\newlength`, `\setlength`, `\addtolength`, `\newcounter` (with optional parent reset counter `[parent]`), `\setcounter`, and `\addtocounter`. `\newlength` targets are protected with `\let\target\relax` collision guards.
+  * **Unicode Character Mappings:** `\newunicodechar` and `\DeclareUnicodeCharacter`.
+  * **Theorems:** `\newtheorem` (preserving optional subordinate reset counters `[section]` or shared counters `[shared]`) and preceding `\theoremstyle` definitions.
+  * **Universal Code Fence Isolation for Body Macros:** User-defined macros (`\newcommand`, `\renewcommand`, `\providecommand`, `\NewDocumentCommand`, `\RenewDocumentCommand`, `\ProvideDocumentCommand`, `\DeclareDocumentCommand`, `\NewExpandableDocumentCommand`), low-level TeX primitives (`\def`, `\gdef`, `\edef`, `\let`), custom environments, and fontspec font family/face commands (`\newfontfamily`, `\renewfontfamily`, `\setfontfamily`, `\providefontfamily`, `\newfontface`, `\renewfontface`, `\setfontface`, `\providefontface`) remain strictly local to the fence's `{\begingroup ... \par\endgroup}` body, preventing cross-fence namespace pollution. **Co-Occurrence Hoisting Rule:** If a specific command token (e.g. `\Tr`) is targeted in a universal hoisted permeable (`\DeclareMathOperator{\Tr}{...}`) and is simultaneously referenced in a local macro (`\let\Tr\relax`) inside the same fence, both are hoisted universally in their exact relative order to preserve sequential redefinition semantics while keeping all independent local macros isolated.
+* **Cross-Fence Global Command Conflict Protection:** Defining or redefining any global hoisted command (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\DeclareMathSymbol`, `\DeclareMathAlphabet`, `\newlength`, `\definecolor`, `\newunicodechar`, `\newtheorem`) or importing a package with conflicting options across multiple fences automatically demotes the offending block to `run=false` (syntax-highlighted code listing) with a console warning. Within the same fence, sequential redefinitions (e.g. `\DeclareMathOperator{\Tr}{Tr}` followed by `\let\Tr\relax \DeclareMathOperator{\Tr}{Trace}`) are fully permitted, matching standard LaTeX and Overleaf behavior with automatic `\let\cmd\relax` collision guards.
 * **Scaffolding Macro Protection:** If user LaTeX code attempts to redefine critical document scaffolding macros (`\maketitle`, `\tableofcontents`, `\title`, `\author`, `\date`), the runner automatically demotes the block to `run=false` (syntax-highlighted code listing) to prevent fatal document compilation crashes.
 * **Incomplete Preamble Protection:** If a LaTeX code fence contains preamble-only commands (`\usepackage` or `\documentclass`) but lacks `\begin{document}`, the runner automatically demotes the block to `run=false` (syntax-highlighted code listing) with a console warning, preventing fatal XeLaTeX document body crashes.
 
@@ -418,7 +429,62 @@ public class MatrixMultiplier {
 
 ---
 
-### 3.8. Raw / Gibberish Text (`text`, `txt`, Verbatim Mode)
+### 3.8. Mermaid (`mermaid`, `mmd`)
+
+#### How It Renders Under the Hood
+* **Vector Diagram Engine (`mmdc`):** Mermaid blocks are compiled directly to tight, transparent vector PDF figures using Mermaid CLI (`mmdc -i <script> -o <prefix>_1.pdf -b transparent`).
+* **Zero Machine-Specific Path Requirements:** Automatically discovers `mmdc` on the system `PATH` or resolves Windows npm global installations (`%APPDATA%\npm\mmdc.cmd`).
+* **Declarative Diagram Isolation:** Because Mermaid is a declarative diagram format rather than an arbitrary script runner, interactive confirmation prompts default to disabled (`MD2PDF_CONFIRM_MERMAID="0"`).
+* **Clean PDF Output:** Diagram-generation CLI log output (such as "Generating single mermaid chart") and source code listings are suppressed from the PDF by default so only the standalone visual diagram renders. Source code can be included by passing `show=true`, and CLI output by passing `output=true`.
+* **Persistent SHA-1 Cache:** Diagram runs are keyed and cached in `md2pdf_cache/`. Unmodified Mermaid code blocks compile instantly on subsequent passes without invoking Puppeteer or Chromium.
+* **Captions & Width Scaling:** Supports optional fence attributes:
+  * `caption="..."`: Wraps the diagram in a floating, centered `figure` environment with an official numbered caption.
+  * `width="..."`: Scales the vector diagram (e.g. `width="75%"` or `width="12cm"`).
+
+#### Examples
+
+**Standard Flowchart:**
+````markdown
+```mermaid
+graph TD
+    A[Start] --> B{Valid?}
+    B -- Yes --> C[Process Data]
+    B -- No --> D[Error Alert]
+    C --> E[Complete]
+```
+````
+
+**Diagram with Custom Caption and Width:**
+````markdown
+```mermaid caption="Pipeline Architecture" width="80%"
+sequenceDiagram
+    participant User
+    participant Runner as code-fence-runner.lua
+    participant CLI as mmdc
+    participant TeX as XeLaTeX
+
+    User->>Runner: Markdown source
+    Runner->>CLI: Compile diagram
+    CLI-->>Runner: Vector PDF
+    Runner->>TeX: Embed figure
+    TeX-->>User: Final PDF
+```
+````
+
+**Show Source Code AND Render Diagram (`show=true`):**
+````markdown
+```mermaid show=true caption="State Diagram"
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Processing : Submit
+    Processing --> Done : Success
+    Done --> [*]
+```
+````
+
+---
+
+### 3.9. Raw / Gibberish Text (`text`, `txt`, Verbatim Mode)
 
 #### How It Renders Under the Hood
 * **100% Crash-Proof Verbatim Engine:** Rendered through LaTeX's **`fvextra`** package (`Highlighting` verbatim block).
@@ -453,6 +519,128 @@ author: "Alice"
 The outer 4 backticks prevent the inner 3 backticks from closing the box!
 ````
 `````
+
+---
+
+### 3.9. Dual-Box Ecosystem: `marginbox` (Pure TeX Breakable Frames) & `vbox` (Classic `tcolorbox`)
+
+#### How It Renders Under the Hood
+* **Dual Box Architecture:**
+  * **`marginbox` (Pure TeX List Primitives):** Engineered for 100% line-level and multi-page breakability. Unlike legacy box packages that encapsulate body text inside rigid TeX `\vbox` registers (preventing inner child boxes from breaking across pages), `marginbox` keeps all content directly in TeX's main vertical list using LaTeX list primitives (`\list{} ... \endlist`) with decremented list depth (`\@listdepth`) to allow infinite list nesting.
+  * **`vbox` / `tcolorbox` (Classic LaTeX `tcolorbox`):** Provides standard `\vbox`-based LaTeX `tcolorbox` environments for users needing classic `tcolorbox` styling and behaviors.
+* **Bold Styling with Solid Header Band & Drop Shadow (`marginbox`):**
+  * **Solid Header Band:** Titled boxes render a bold, high-contrast header band filled with the frame color, showcasing the title in crisp white sans-serif text (`\sffamily\bfseries\color{white}`).
+  * **Vertical Left Accent Bar:** A solid vertical bar (default `bar=5pt`) runs down the left edge in the theme color.
+  * **Hard Offset Drop Shadow:** Single-page boxes render a crisp offset drop shadow (`shadow=3pt`) tinted in `color!35`.
+  * **Automatic Background Tinting:** Backgrounds default to `bg=auto`, automatically deriving a subtle 7% tint from the theme color (`color!7`).
+  * **Custom Option Controls:** Attributes like `shadow="0pt"`, `radius="0pt"`, `bar="0pt"`, or `bg="none"` can be passed directly to fenced divs for a flat or minimalist style.
+* **Non-Invasive TikZ Geometry Overlays (`marginbox`):** Boundary coordinates and absolute page numbers are tracked via `zref-savepos` (`mb-top` and `mb-bot`). The 4-sided borders and optional background tint fills are drawn asynchronously during `\AddToHook{shipout/background}` via TikZ `overlay, remember picture`. When a box (or a nested child box) spans across page boundaries, the hook automatically detects multi-page splits and renders seamless open borders (open at bottom on the first page, open at top on the final page, open at top and bottom on intermediate pages).
+* **Dual Syntax Mapping:**
+  * **Code Fence Syntax:**
+    * ```` ```marginbox [title="..."] [color=...] ```` $\to$ maps to pure TeX `marginbox`.
+    * ```` ```vbox [title="..."] [color=...] ```` $\to$ maps to classic `tcolorbox`.
+  * **Markdown Fenced Divs:**
+    * `::: {.marginbox}`, `::: {.box}`, `::: {.callout}`, and semantic callouts (`::: {.note}`, `::: {.warning}`, `::: {.tip}`, `::: {.danger}`, `::: {.important}`, `::: {.info}`) map to styled `marginbox` environments.
+    * `::: {.vbox}` and `::: {.tcolorbox}` map to styled `tcolorbox` environments.
+  * **LaTeX Syntax:**
+    * Native `\begin{marginbox}[options]{title} ... \end{marginbox}` and `\begin{tcolorbox}[options] ... \end{tcolorbox}` both exist independently side-by-side with zero collisions.
+* **Shared True-Random Color Assignment & Parent-Child Divergence:**
+  * When `color="..."` is omitted on a box fence or fenced div (both `marginbox` and `vbox`), the normalizer dynamically picks a random color from a rich palette of standard colors (`blue`, `teal`, `orange`, `purple`, `green`, `red`, `magenta`, `olive`, `cyan`, `violet`) using system randomness (`math.random`).
+  * **Parent-Child Color Collision Prevention:** For nested child boxes (whether `marginbox` inside `vbox`, `vbox` inside `marginbox`, or homogeneous nesting), the candidate color pool automatically excludes the parent's color ($\text{Candidates} = \text{PALETTE} \setminus \{\text{parent\_color}\}$). This mathematically guarantees that no child box ever renders with the same color as its parent container.
+  * If an explicit color is provided (e.g. `color="red"`), that color is preserved, and any child boxes inside it will automatically avoid `red`.
+* **Color Presets:** Specifying `color="<preset>"` on a fenced div automatically sets complementary background and frame colors:
+  * `blue`: subtle blue background (`NavyBlue!4` / `blue!5`) with vibrant frame (`NavyBlue` / `blue!75!black`).
+  * `green`: subtle green background (`green!5`) with forest green frame (`ForestGreen` / `green!60!black`).
+  * `red`: subtle red background (`red!5`) with ruby red frame (`RubineRed` / `red!75!black`).
+  * `orange`: warm orange background (`orange!7` / `orange!10`) with burnt orange frame (`BurntOrange` / `orange!80!black`).
+  * `purple`: subtle purple background (`purple!5`) with royal purple frame (`RoyalPurple` / `purple!75!black`).
+  * `gray` / `grey`: neutral light gray background (`gray!6` / `gray!5`) with slate gray frame (`Gray` / `gray!60!black`).
+  * `cyan`: subtle cyan background (`cyan!5`) with process blue frame (`ProcessBlue` / `cyan!75!black`).
+  * `magenta`: soft magenta background (`magenta!5`) with vivid magenta frame (`Magenta` / `magenta!75!black`).
+  * `teal`: mint background (`teal!5`) with deep teal frame (`TealBlue` / `teal!75!black`).
+  * `olive`: soft olive background (`olive!5`) with olive green frame (`OliveGreen` / `olive!75!black`).
+  * *Unspecified*: randomly selected from `PALETTE` excluding parent color.
+* **Arbitrary Nesting & Complete Child Box Pagebreakability:** Fenced boxes can be nested within one another to any depth (e.g. a `marginbox` enclosing a `vbox`, or a `vbox` enclosing a `marginbox`). When using `marginbox`, content resides in TeX's unboxed vertical list, so **both top-level parent boxes and inner child boxes break cleanly across page boundaries at any line or paragraph**.
+* **Universal Space & Boundary Protection:** In Stage A cleaning, `space_fences` automatically injects blank line boundaries before and after `\begin{marginbox}`, `\begin{tcolorbox}`, `::: {.box}`, `::: {.vbox}`, `::: {.marginbox}`, and `:::`. Even if AI responses or pasted notes directly touch paragraph text without empty lines, boxes are never merged into adjacent paragraphs.
+* **Full Pipeline Compatibility Inside Boxes:** All pipeline features function inside nested boxes without degradation:
+  * Display math and AMS environments (`align`, `equation`, `gather`) render with full equation numbering and formatting.
+  * Executable code fences (Python, C, C++, Java) compile, run, cache, and capture stdout/figures directly within the box frame.
+  * Markdown tables, blockquotes, lists, and task lists render cleanly.
+  * Multilingual text (Bengali, Hindi, CJK) routes through Babel fonts without glyph corruption.
+  * Local file hyperlinks (`file:///...`) resolve to launchable native links.
+* **Special Character Sanitization (`&` in Titles):** Unescaped ampersands (`&`) in titles and options are automatically escaped (`&` $\to$ `\&`) during AST normalization to prevent compilation issues.
+* **Universal Hoist Deduplication:** If user notes or pasted documents include `\usepackage{tcolorbox}`, `\usepackage{zref}`, `\usepackage{xparse}`, or `\usepackage{xcolor}`, the normalizer's `SKIP_PACKAGES` list prevents duplicate package loading, avoiding LaTeX option clashes.
+
+#### Examples
+
+**Using the ```` ```marginbox ```` Code Fence Syntax:**
+````markdown
+```marginbox title="Pure TeX Marginbox"
+This box automatically receives a random color on compilation and breaks across page boundaries.
+
+```vbox title="Nested TColorBox Child"
+This inner box uses classic tcolorbox with an automatically diverged color!
+```
+```
+````
+
+**Using the ```` ```vbox ```` Code Fence Syntax:**
+````markdown
+```vbox title="Classic TColorBox" color=purple
+This box renders via real tcolorbox.sty.
+```
+````
+
+**Using Markdown Fenced Divs (`::: {.box}` and `::: {.vbox}`):**
+````markdown
+::: {.box title="Breakable Outer Container"}
+Outer pure TeX marginbox.
+
+::: {.vbox title="Nested TColorBox"}
+Inner classic tcolorbox child.
+:::
+:::
+````
+This child automatically receives a DIFFERENT random color from its parent!
+
+$$e^{i\pi} + 1 = 0$$
+```
+```
+````
+
+**Basic Fenced Div Callout:**
+```markdown
+::: {.box color="blue" title="Physics & Mathematics"}
+Energy-momentum relation in special relativity:
+
+$$E^2 = (pc)^2 + (m_0 c^2)^2$$
+:::
+```
+
+**Nested Boxes with Executable Code and Tables:**
+```markdown
+::: {.box color="blue" title="Outer Project Architecture"}
+Here is the high-level architecture overview.
+
+::: {.box color="orange" title="Inner Computation Engine"}
+Below is an executable Python snippet running inside the box:
+
+```python
+data = [x**2 for x in range(5)]
+print(f"Computed squares: {data}")
+```
+
+| Step | Complexity |
+|---|---|
+| Generation | $O(N)$ |
+| Formatting | $O(1)$ |
+
+::: {.box color="green" title="Tip: Verification"}
+All nested assertions verified!
+:::
+:::
+:::
+```
 
 ---
 

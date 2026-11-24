@@ -145,7 +145,7 @@ REGISTRY.SKIP_PACKAGES = word_set([[
   tikz pgf pgfplots booktabs longtable array float caption fvextra xurl soul etoolbox
   newunicodechar unicode-math bm cancel mhchem placeins multirow calc footnotehyper
   textcomp mathrsfs bookmark color siunitx circuitikz tcolorbox algorithm algpseudocode
-  chemfig subcaption listings enumitem adjustbox pgfplotstable tikz-cd footnote
+  chemfig subcaption listings enumitem adjustbox pgfplotstable tikz-cd footnote zref xparse
 ]])
 
 -- Theorem-like environments (defined by the template, so \newtheorem of them is dropped).
@@ -153,7 +153,7 @@ REGISTRY.THEOREMS = word_set("theorem lemma proposition corollary definition exa
 
 -- Environments whose body should still be parsed as Markdown (**bold**, lists, $math$ ...).
 -- A bare \begin{theorem}..\end{theorem} is otherwise passed through as one raw LaTeX block.
-REGISTRY.DIV_ENVS = word_set("proof abstract quote")
+REGISTRY.DIV_ENVS = word_set("proof abstract quote tcolorbox marginbox")
 for name in pairs(REGISTRY.THEOREMS) do REGISTRY.DIV_ENVS[name] = true end
 
 -- Commands that are moved to the LaTeX preamble when found in the BODY.
@@ -1136,10 +1136,15 @@ local function envs_to_divs(text)
       if env and REGISTRY.DIV_ENVS[env] and not rest:match("\\end%s*{" .. env:gsub("%*", "%%*") .. "}") then
         local opt, tail = rest:match("^%s*(%b[])(.*)$")
         if not opt then tail = rest end
+        local title_group = nil
+        if env == "marginbox" then
+          title_group, tail = tail:match("^%s*(%b{})(.*)$")
+        end
         State.env_opts[#State.env_opts + 1] = opt or ""
         env_stack[#env_stack + 1] = env
         out[#out+1] = ""
-        out[#out+1] = string.format('::: {.latexenv lenv="%s" lopt="%d"}', env, #State.env_opts)
+        local title_attr = title_group and string.format(' ltitle="%s"', title_group:sub(2, -2):gsub('"', '\\"')) or ""
+        out[#out+1] = string.format('::: {.latexenv lenv="%s" lopt="%d"%s}', env, #State.env_opts, title_attr)
         if tail:match("%S") then out[#out+1] = (tail:gsub("^%s+", "")) end
       else
         local before, e, after = line:match("^(.-)\\end%s*{([%a*]+)}(.*)$")
@@ -1173,13 +1178,14 @@ local function pass_unwrap_document(text)
   local masked = mask_fences(text)
   local bs, be = masked:find("\\begin%s*{document}")
   local es, ee = masked:match("^.*()(\\end%s*{document})")
-  if bs and es and es > be and masked:sub(1, bs - 1):find("\\documentclass") then
+  local ds, de = masked:find("\\documentclass")
+  if bs and es and es > be and ds and ds < bs then
     local finish = es + #ee - 1
-    if finish and masked:sub(finish + 1):match("%S") then
-      warn("discarded non-whitespace text after \\end{document} in pasted full document")
-    end
-    process_lines(text:sub(1, bs - 1), true)
-    text = text:sub(be + 1, es - 1)
+    process_lines(text:sub(ds, bs - 1), true)
+    local before_dc = text:sub(1, ds - 1)
+    local doc_body = text:sub(be + 1, es - 1)
+    local after_doc = finish and text:sub(finish + 1) or ""
+    text = before_dc .. "\n" .. doc_body .. "\n" .. after_doc
   end
   return text
 end
@@ -1313,6 +1319,7 @@ end
 local function mask_literals(text)
   local store, out, prose, block = {}, {}, {}, {}
   local fence, verbatim = nil, nil
+  local in_list = false
   local function stash(value)
     store[#store+1] = value
     return "\1FIXGROUPS_LITERAL_" .. #store .. "\2"
@@ -1342,10 +1349,12 @@ local function mask_literals(text)
           or line:match("^%s*\\begin%s*{(lstlisting%*?)}")
           or line:match("^%s*\\begin%s*{(minted%*?)}")
       if mark then
+        in_list = false
         flush_prose()
         fence = mark
         block = { line }
       elseif env then
+        in_list = false
         flush_prose()
         block = { line }
         if line:match("\\end%s*{" .. env:gsub("%*", "%%*") .. "}") then flush_block()
@@ -1355,13 +1364,33 @@ local function mask_literals(text)
             or line:match("^%s*%d+[%.%]%)]%s+")
             or line:match("^%s*%([%a%d]+%)%s+")
             or line:match("^%s*[%a][%.)]%s+")
+        local is_math_or_env = line:match("^%s*\\%[")
+            or line:match("^%s*\\\\%[")
+            or line:match("^%s*\\%(")
+            or line:match("^%s*\\\\%(")
+            or line:match("^%s*%$%$")
+            or line:match("^%s*\\begin%s*{")
+            or line:match("^%s*\\end%s*{")
+            or line:match("^%s*\\%a+")
         if is_list_item then
+          in_list = true
+          prose[#prose+1] = line
+        elseif in_list or is_math_or_env then
           prose[#prose+1] = line
         else
           flush_prose()
           out[#out+1] = stash(line)
         end
       else
+        local is_list_item = line:match("^%s*[%*%-%+]%s+")
+            or line:match("^%s*%d+[%.%]%)]%s+")
+            or line:match("^%s*%([%a%d]+%)%s+")
+            or line:match("^%s*[%a][%.)]%s+")
+        if is_list_item then
+          in_list = true
+        elseif not line:match("^%s*$") then
+          in_list = false
+        end
         prose[#prose+1] = line
       end
     end
@@ -1397,7 +1426,12 @@ local function space_fences(text)
         fence = mark
       else
         local is_hr = line:match("^%s*%-%-%-+%s*$") or line:match("^%s*%*%*%*+%s*$") or line:match("^%s*___+%s*$")
-        if is_hr then
+        local is_div = line:match("^%s*:::+")
+        local env_begin = line:match("^%s*\\begin%s*{([%a*]+)}")
+        local is_env_begin = env_begin and (REGISTRY.DIV_ENVS[env_begin] or env_begin == "tcolorbox" or env_begin == "marginbox")
+        local env_end = line:match("^%s*\\end%s*{([%a*]+)}")
+        local is_env_end = env_end and (REGISTRY.DIV_ENVS[env_end] or env_end == "tcolorbox" or env_end == "marginbox")
+        if is_hr or is_div or is_env_begin or is_env_end then
           if #out > 0 and out[#out]:match("%S") then
             out[#out + 1] = ""
           end
@@ -1447,10 +1481,76 @@ local function normalize_fence_attributes(text)
   return table.concat(out, "\n")
 end
 
+-- Converts ```marginbox ... ``` and ```vbox ... ``` fences into Pandoc fenced Divs
+-- (::: {.marginbox ...} and ::: {.vbox ...})
+-- Supports nesting of boxes and leaves inner non-box code fences untouched.
+local function pass_box_fences(text)
+  local out = {}
+  local box_stack = {}
+  local code_fence = nil
+
+  local function normalize_box_attrs(a)
+    if not a or not a:match("%S") then return "" end
+    a = a:match("^%s*(.-)%s*$")
+    if a:match("=") then return " " .. a end
+    local q = a:match('^"([^"]+)"$') or a:match("^'([^']+)'$")
+    if q then return string.format(' title="%s"', q) end
+    local col, q2 = a:match('^(%a+)%s+"([^"]+)"$') or a:match("^(%a+)%s+'([^']+)'$")
+    if col and q2 then return string.format(' color=%s title="%s"', col, q2) end
+    return " " .. a
+  end
+
+  for line in each_line(text) do
+    local indent, ticks, rest = line:match("^(%s*)([`~]+)%s*(.*)$")
+    if ticks and #ticks >= 3 then
+      local box_kind, attrs = nil, nil
+      if rest:match("^marginbox%f[%A]") then
+        box_kind = "marginbox"
+        attrs = rest:match("^marginbox%s*(.*)$")
+      elseif rest:match("^{%.marginbox") then
+        box_kind = "marginbox"
+        attrs = rest:match("^{%.marginbox%s*(.-)}%s*$")
+      elseif rest:match("^vbox%f[%A]") then
+        box_kind = "vbox"
+        attrs = rest:match("^vbox%s*(.*)$")
+      elseif rest:match("^{%.vbox") then
+        box_kind = "vbox"
+        attrs = rest:match("^{%.vbox%s*(.-)}%s*$")
+      elseif rest:match("^tcolorbox%f[%A]") then
+        box_kind = "vbox"
+        attrs = rest:match("^tcolorbox%s*(.*)$")
+      elseif rest:match("^{%.tcolorbox") then
+        box_kind = "vbox"
+        attrs = rest:match("^{%.tcolorbox%s*(.-)}%s*$")
+      end
+      if not code_fence and box_kind then
+        box_stack[#box_stack + 1] = { len = #ticks }
+        local attr_str = normalize_box_attrs(attrs)
+        out[#out + 1] = indent .. "::: {." .. box_kind .. attr_str .. "}"
+      elseif not code_fence and #box_stack > 0 and rest:match("^%s*$") and #ticks >= box_stack[#box_stack].len then
+        box_stack[#box_stack] = nil
+        out[#out + 1] = indent .. ":::"
+      elseif not code_fence and rest:match("%S") then
+        code_fence = { len = #ticks }
+        out[#out + 1] = line
+      elseif code_fence and rest:match("^%s*$") and #ticks >= code_fence.len then
+        code_fence = nil
+        out[#out + 1] = line
+      else
+        out[#out + 1] = line
+      end
+    else
+      out[#out + 1] = line
+    end
+  end
+  return table.concat(out, "\n")
+end
+
 local function clean(text)
   text = text:gsub("^" .. U(0xFEFF), ""):gsub("\r\n?", "\n")
   local file_meta
   text, file_meta = extract_yaml_fences(text)
+  text = pass_box_fences(text)
   text = space_fences(text)
   text = normalize_fence_attributes(text)
   for nm in text:gmatch("\\newtheorem%*?%s*{([^}]*)}") do
@@ -1902,6 +2002,30 @@ end
 
 local function link_fix(el)
   if not CONFIG.keep_links then return el.content end
+  local target = el.target or ""
+  if target:match("^https?://") or target:match("^ftp://") or target:match("^mailto:") or target:match("^#") then
+    return nil
+  end
+
+  local is_file_proto = target:match("^file:") ~= nil
+  local clean = target:gsub("^file:///*", "")
+  clean = clean:gsub("^localhost/", "")
+  clean = clean:gsub("\\", "/")
+  clean = clean:gsub("%%(%x%x)", function(hex)
+    return string.char(tonumber(hex, 16))
+  end)
+
+  local is_drive = clean:match("^%a:[/\\]") ~= nil
+  local is_local = is_file_proto or is_drive or file_exists(clean)
+
+  if is_local then
+    local inlines = { pandoc.RawInline("latex", "\\href{run:" .. clean .. "}{") }
+    for _, c in ipairs(el.content) do
+      inlines[#inlines + 1] = c
+    end
+    inlines[#inlines + 1] = pandoc.RawInline("latex", "}")
+    return inlines
+  end
   return nil
 end
 
@@ -2001,12 +2125,212 @@ local function table_fix(t)
   return t
 end
 
--- Inverse of envs_to_divs: turn the marker Div back into \begin{env}[opt] .. \end{env}.
+local BOX_CLASSES = word_set("tcolorbox vbox marginbox box callout note warning tip important danger info")
+local BOX_PALETTE = { "blue", "teal", "orange", "purple", "green", "red", "magenta", "olive", "cyan", "violet" }
+if not pcall(math.randomseed) then
+  math.randomseed(os.time() + math.floor((os.clock() or 0) * 1000000))
+end
+
+local function pick_random_color(parent_color)
+  local candidates = {}
+  for _, c in ipairs(BOX_PALETTE) do
+    if c ~= parent_color then
+      candidates[#candidates + 1] = c
+    end
+  end
+  return candidates[math.random(#candidates)]
+end
+
+local function is_box_div(el)
+  if el.tag ~= "Div" then return false end
+  if el.attributes["lenv"] == "tcolorbox" or el.attributes["lenv"] == "marginbox" then return true end
+  for cls in pairs(BOX_CLASSES) do
+    if el.classes:includes(cls) then return true end
+  end
+  return false
+end
+
+local function assign_box_colors(blocks, parent_color)
+  if not blocks then return end
+  for _, b in ipairs(blocks) do
+    if is_box_div(b) then
+      local col = b.attributes["color"]
+      if not col or col == "" then
+        for _, cls in ipairs(b.classes) do
+          if cls == "note" or cls == "info" or cls == "blue" then col = "blue"; break
+          elseif cls == "warning" or cls == "amber" or cls == "orange" then col = "amber"; break
+          elseif cls == "tip" or cls == "success" or cls == "green" then col = "green"; break
+          elseif cls == "danger" or cls == "important" or cls == "red" then col = "red"; break
+          elseif cls == "purple" or cls == "deep" then col = "purple"; break
+          elseif cls == "gray" or cls == "neutral" then col = "gray"; break
+          end
+        end
+      end
+      if not col or col == "" then
+        col = pick_random_color(parent_color)
+        b.attributes["color"] = col
+      end
+      assign_box_colors(b.content, col)
+    elseif b.content then
+      assign_box_colors(b.content, parent_color)
+    end
+  end
+end
+
+-- Inverse of envs_to_divs: turn the marker Div back into \begin{env}[opt]{title} .. \end{env}.
+-- Also supports Markdown fenced divs ::: {.marginbox ...}, ::: {.vbox ...}, ::: {.box ...}, etc.
 local function div_fix(el)
+  if el.classes:includes("pagebreak") then
+    return { pandoc.HorizontalRule() }
+  end
   local env = el.attributes["lenv"]
-  if not env then return nil end
-  local opt = State.env_opts[tonumber(el.attributes["lopt"] or "")] or ""
-  local out = { pandoc.RawBlock("latex", "\\begin{" .. env .. "}" .. opt) }
+  local opt = ""
+  local title_arg = ""
+  if env then
+    opt = State.env_opts[tonumber(el.attributes["lopt"] or "")] or ""
+    if env == "marginbox" then
+      local t = el.attributes["ltitle"] or ""
+      if t ~= "" then
+        title_arg = "{" .. t .. "}"
+      end
+    end
+  elseif el.classes:includes("vbox") or el.classes:includes("tcolorbox") then
+    env = "tcolorbox"
+    local opts = {}
+    if el.attributes["title"] then
+      opts[#opts + 1] = "title={" .. el.attributes["title"] .. "}"
+    end
+    local color = el.attributes["color"] or el.classes[2]
+    if not color then
+      for _, cls in ipairs(el.classes) do
+        if cls == "note" or cls == "info" or cls == "blue" then color = "blue"; break
+        elseif cls == "warning" or cls == "amber" or cls == "orange" then color = "amber"; break
+        elseif cls == "tip" or cls == "success" or cls == "green" then color = "green"; break
+        elseif cls == "danger" or cls == "important" or cls == "red" then color = "red"; break
+        elseif cls == "purple" or cls == "deep" then color = "purple"; break
+        elseif cls == "gray" or cls == "neutral" then color = "gray"; break
+        end
+      end
+    end
+    if color then
+      if color == "blue" or color == "info" or color == "note" then
+        opts[#opts + 1] = "colback=blue!5!white,colframe=blue!75!black"
+      elseif color == "red" or color == "danger" or color == "important" then
+        opts[#opts + 1] = "colback=red!5!white,colframe=red!75!black"
+      elseif color == "green" or color == "success" or color == "tip" then
+        opts[#opts + 1] = "colback=green!5!white,colframe=green!60!black"
+      elseif color == "amber" or color == "warning" or color == "orange" then
+        opts[#opts + 1] = "colback=orange!10!white,colframe=orange!80!black"
+      elseif color == "purple" or color == "deep" then
+        opts[#opts + 1] = "colback=purple!5!white,colframe=purple!75!black"
+      elseif color == "gray" or color == "neutral" then
+        opts[#opts + 1] = "colback=gray!5!white,colframe=gray!60!black"
+      elseif color == "teal" then
+        opts[#opts + 1] = "colback=teal!5!white,colframe=teal!75!black"
+      elseif color == "magenta" then
+        opts[#opts + 1] = "colback=magenta!5!white,colframe=magenta!75!black"
+      elseif color == "olive" then
+        opts[#opts + 1] = "colback=olive!5!white,colframe=olive!75!black"
+      elseif color == "cyan" then
+        opts[#opts + 1] = "colback=cyan!5!white,colframe=cyan!75!black"
+      elseif color == "violet" then
+        opts[#opts + 1] = "colback=violet!5!white,colframe=violet!75!black"
+      else
+        opts[#opts + 1] = "colback=" .. color .. "!5!white,colframe=" .. color .. "!75!black"
+      end
+    end
+    if el.attributes["colback"] then
+      opts[#opts + 1] = "colback=" .. el.attributes["colback"]
+    elseif el.attributes["bg"] then
+      opts[#opts + 1] = "colback=" .. el.attributes["bg"]
+    end
+    if el.attributes["colframe"] then
+      opts[#opts + 1] = "colframe=" .. el.attributes["colframe"]
+    end
+    if el.attributes["options"] then
+      opts[#opts + 1] = el.attributes["options"]
+    end
+    if #opts > 0 then
+      opt = "[" .. table.concat(opts, ",") .. "]"
+    end
+  elseif el.classes:includes("marginbox") or el.classes:includes("box") or el.classes:includes("callout")
+      or el.classes:includes("note") or el.classes:includes("warning") or el.classes:includes("tip")
+      or el.classes:includes("important") or el.classes:includes("danger") or el.classes:includes("info") then
+    env = "marginbox"
+    local opts = {}
+    if el.attributes["title"] then
+      title_arg = "{" .. el.attributes["title"] .. "}"
+    end
+    local color = el.attributes["color"] or el.classes[2]
+    if not color then
+      for _, cls in ipairs(el.classes) do
+        if cls == "note" or cls == "info" or cls == "blue" then color = "blue"; break
+        elseif cls == "warning" or cls == "amber" or cls == "orange" then color = "amber"; break
+        elseif cls == "tip" or cls == "success" or cls == "green" then color = "green"; break
+        elseif cls == "danger" or cls == "important" or cls == "red" then color = "red"; break
+        elseif cls == "purple" or cls == "deep" then color = "purple"; break
+        elseif cls == "gray" or cls == "neutral" then color = "gray"; break
+        end
+      end
+    end
+    if color then
+      if color == "blue" or color == "info" or color == "note" then
+        opts[#opts + 1] = "color=NavyBlue"
+      elseif color == "red" or color == "danger" or color == "important" then
+        opts[#opts + 1] = "color=RubineRed"
+      elseif color == "green" or color == "success" or color == "tip" then
+        opts[#opts + 1] = "color=ForestGreen"
+      elseif color == "amber" or color == "warning" or color == "orange" then
+        opts[#opts + 1] = "color=BurntOrange"
+      elseif color == "purple" or color == "deep" then
+        opts[#opts + 1] = "color=RoyalPurple"
+      elseif color == "gray" or color == "neutral" then
+        opts[#opts + 1] = "color=Gray"
+      elseif color == "teal" then
+        opts[#opts + 1] = "color=TealBlue"
+      elseif color == "magenta" then
+        opts[#opts + 1] = "color=Magenta"
+      elseif color == "olive" then
+        opts[#opts + 1] = "color=OliveGreen"
+      elseif color == "cyan" then
+        opts[#opts + 1] = "color=ProcessBlue"
+      elseif color == "violet" then
+        opts[#opts + 1] = "color=RoyalPurple"
+      else
+        opts[#opts + 1] = "color=" .. color
+      end
+    end
+    if el.attributes["bg"] then
+      opts[#opts + 1] = "bg=" .. el.attributes["bg"]
+    end
+    if el.attributes["radius"] then
+      opts[#opts + 1] = "radius=" .. el.attributes["radius"]
+    end
+    if el.attributes["bar"] then
+      opts[#opts + 1] = "bar=" .. el.attributes["bar"]
+    end
+    if el.attributes["shadow"] then
+      opts[#opts + 1] = "shadow=" .. el.attributes["shadow"]
+    end
+    if el.attributes["options"] then
+      opts[#opts + 1] = el.attributes["options"]
+    end
+    if #opts > 0 then
+      opt = "[" .. table.concat(opts, ",") .. "]"
+    end
+  else
+    return nil
+  end
+  local safe_opt = (opt or ""):gsub("([^\\])&", "%1\\&"):gsub("^&", "\\&")
+  local begin_str = "\\begin{" .. env .. "}" .. safe_opt
+  if env == "marginbox" then
+    if title_arg ~= "" then
+      begin_str = begin_str .. title_arg
+    else
+      begin_str = begin_str .. "{}"
+    end
+  end
+  local out = { pandoc.RawBlock("latex", begin_str) }
   for _, b in ipairs(el.content) do out[#out + 1] = b end
   out[#out + 1] = pandoc.RawBlock("latex", "\\end{" .. env .. "}")
   return out
@@ -2079,6 +2403,139 @@ local function apply_extra_meta(doc)
   end
 end
 
+local function parse_dimension_in_inches(val)
+  if not val then return nil end
+  local str = pandoc.utils.stringify(val)
+  local num, unit = str:match("^%s*([%d%.]+)%s*([%a]*)%s*$")
+  num = tonumber(num)
+  if not num then return nil end
+  unit = (unit or ""):lower()
+  if unit == "in" or unit == "inch" or unit == "inches" or unit == "" then
+    return num
+  elseif unit == "cm" then
+    return num / 2.54
+  elseif unit == "mm" then
+    return num / 25.4
+  elseif unit == "pt" then
+    return num / 72.27
+  end
+  return nil
+end
+
+local function calculate_whiteboard_width(doc)
+  local floor_width = 11.0 -- minimum floor (little less than presentation's 13.33in)
+  local user_width = parse_dimension_in_inches(doc.meta["whiteboard-width"] or doc.meta["page-width"])
+  local max_needed = floor_width
+  if user_width and user_width > max_needed then
+    max_needed = user_width
+  end
+
+  local max_cols = 0
+  local max_depth = 0
+  local table_expanded = false
+
+  local function scan_blocks(blocks, depth)
+    if not blocks then return end
+    for _, b in ipairs(blocks) do
+      if b.tag == "RawBlock" and b.format == "latex" then
+        if b.text:match("\\begin%s*{tcolorbox") or b.text:match("\\begin%s*{marginbox") or b.text:match("\\begin%s*{quote") then
+          depth = depth + 1
+        elseif b.text:match("\\end%s*{tcolorbox") or b.text:match("\\end%s*{marginbox") or b.text:match("\\end%s*{quote") then
+          depth = math.max(0, depth - 1)
+        end
+      elseif is_box_div(b) then
+        scan_blocks(b.content, depth + 1)
+      elseif b.tag == "Div" then
+        scan_blocks(b.content, depth)
+      elseif b.tag == "BlockQuote" then
+        scan_blocks(b.content, depth + 1)
+      elseif b.tag == "Table" then
+        local num_cols = #(b.colspecs or {})
+        if num_cols == 0 and b.head and b.head.rows and #b.head.rows > 0 then
+          num_cols = #(b.head.rows[1].cells or {})
+        end
+        if num_cols > 0 then
+          local col_max_len = {}
+          for c = 1, num_cols do col_max_len[c] = 0 end
+
+          local function inspect_row(row)
+            if not row or not row.cells then return end
+            for c, cell in ipairs(row.cells) do
+              if c <= num_cols then
+                local txt = pandoc.utils.stringify(cell.contents or {})
+                local len = #txt
+                if len > col_max_len[c] then col_max_len[c] = len end
+              end
+            end
+          end
+
+          if b.head and b.head.rows then
+            for _, r in ipairs(b.head.rows) do inspect_row(r) end
+          end
+          if b.bodies then
+            for _, body in ipairs(b.bodies) do
+              if body.body then
+                for _, r in ipairs(body.body) do inspect_row(r) end
+              end
+              if body.head then
+                for _, r in ipairs(body.head) do inspect_row(r) end
+              end
+            end
+          end
+          if b.foot and b.foot.rows then
+            for _, r in ipairs(b.foot.rows) do inspect_row(r) end
+          end
+
+          local col_total = 0
+          for c = 1, num_cols do
+            local l = col_max_len[c] or 0
+            local cw = 1.6
+            if l > 40 then cw = 3.2
+            elseif l > 25 then cw = 2.5
+            elseif l > 12 then cw = 2.0
+            elseif l > 5 then cw = 1.6
+            else cw = 1.3
+            end
+            col_total = col_total + cw
+          end
+
+          -- tabcolsep: 2 per col = 12pt ≈ 0.17in
+          local cell_padding = num_cols * 0.17
+          -- nesting indent: ~0.60in per level (padding + frame rules)
+          local nesting_indent = depth * 0.60
+          -- page margins: 0.5in * 2 = 1.0in
+          local page_margins = 1.0
+
+          local needed = page_margins + nesting_indent + cell_padding + col_total
+          if needed > max_needed then
+            max_needed = needed
+            max_cols = num_cols
+            max_depth = depth
+            table_expanded = true
+          end
+        end
+      end
+    end
+  end
+
+  scan_blocks(doc.blocks, 0)
+
+  -- Round up to nearest 0.25in for clean paper geometry
+  local final_width = math.ceil(max_needed * 4) / 4
+  if final_width < floor_width then final_width = floor_width end
+  local ceiling_width = 100.0 -- safe upper ceiling matching height limit (8.33 ft wide)
+  if final_width >= ceiling_width then
+    final_width = ceiling_width
+    doc.meta.whiteboard_width_max = pandoc.MetaBool(true)
+    warn("whiteboard width reached 100in ceiling; clamped to 100in")
+  end
+
+  doc.meta.whiteboard_width = pandoc.MetaString(string.format("%.2fin", final_width))
+  if table_expanded then
+    warn(string.format("whiteboard width expanded to %.2fin to accommodate %d-column table at box nesting depth %d", final_width, max_cols, max_depth))
+  end
+end
+
 -- Map only the supported YAML preset to the template flag; invalid values warn and keep A4.
 local function apply_page_layout(doc)
   local value = doc.meta["page-layout"]
@@ -2086,8 +2543,11 @@ local function apply_page_layout(doc)
   local layout = pandoc.utils.stringify(value):match("^%s*(.-)%s*$"):lower()
   if layout == "presentation" then
     doc.meta.presentation_layout = pandoc.MetaBool(true)
+  elseif layout == "whiteboard" then
+    doc.meta.whiteboard_layout = pandoc.MetaBool(true)
+    calculate_whiteboard_width(doc)
   else
-    warn("unsupported page-layout '" .. layout .. "'; using A4 (supported value: presentation)")
+    warn("unsupported page-layout '" .. layout .. "'; using A4 (supported values: presentation, whiteboard)")
   end
 end
 
@@ -2208,6 +2668,7 @@ end
 
 function Pandoc(doc)
   doc = load_cleaned_input(doc)                                  -- Stage A
+  assign_box_colors(doc.blocks, nil)                             -- Stage B box color hierarchy
   for _, pass in ipairs(AST_PASSES) do doc = doc:walk(pass.filter) end   -- Stage B
   for _, step in ipairs(FINALIZE_STEPS) do step.apply(doc) end   -- Stage C
   if doc.meta.bibliography or doc.meta.references then

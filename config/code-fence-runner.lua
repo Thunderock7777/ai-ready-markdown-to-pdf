@@ -657,6 +657,26 @@ register{
   end,
 }
 
+-- ---- Mermaid (rendered diagram) --------------------------------------------
+local function mermaid_template(code)
+  return code
+end
+
+local function mermaid_command(exe, script, out, err, prefix, text)
+  local fig = prefix .. "_1.pdf"
+  return quote_executable(exe) .. ' -i ' .. quote_executable(script) .. ' -o "' .. to_os_path(fig) .. '" -b transparent' ..
+         ' < ' .. NULL_DEV .. ' > "' .. to_os_path(out) .. '" 2> "' .. to_os_path(err) .. '"'
+end
+
+register{
+  id = "mermaid", label = "Mermaid", names = { "mermaid", "mmd" },
+  exe_env = "MERMAID_CLI", exe_default = IS_WIN and "mmdc.cmd" or "mmdc", ext = "mmd",
+  template = mermaid_template,
+  fp_source = "mermaid_template_v1",
+  is_diagram = true,
+  command = mermaid_command,
+}
+
 -- ---- latex / tex (rendered, not executed) --------------------------------------
 -- Preamble command definitions that survive the preamble deletion (see USER GUIDE).
 local DEF_NAMES = {
@@ -670,20 +690,36 @@ local SKIP_PACKAGE_NAMES = [[
   tikz pgf pgfplots booktabs longtable array float caption fvextra xurl soul etoolbox
   newunicodechar unicode-math bm cancel mhchem placeins multirow calc footnotehyper
   textcomp mathrsfs bookmark color siunitx circuitikz tcolorbox algorithm algpseudocode
-  chemfig subcaption listings enumitem adjustbox pgfplotstable tikz-cd footnote
+  chemfig subcaption listings enumitem adjustbox pgfplotstable tikz-cd footnote zref xparse
 ]]
 for name in SKIP_PACKAGE_NAMES:gmatch("%S+") do SKIP_PACKAGES[name] = true end
 local TEMPLATE_THEOREMS = { theorem = true, lemma = true, proposition = true, corollary = true,
   definition = true, example = true, remark = true }
 local SIMPLE_PREAMBLE = {
-  usetikzlibrary = true, usepgfplotslibrary = true, usepgflibrary = true,
+  usetikzlibrary = true, usepgfplotslibrary = true, usepgflibrary = true, usegdlibrary = true,
   pgfplotsset = true, tikzset = true, sisetup = true, theoremstyle = true,
   newunicodechar = true, hypersetup = true, mathtoolsset = true,
+  tcbset = true, lstset = true, captionsetup = true, setlist = true,
+  setchemfig = true, definesubmol = true, swapnumbers = true,
+  DeclareUnicodeCharacter = true,
 }
 local PAIR_DELIM = {
   DeclarePairedDelimiter = 2, DeclarePairedDelimiterX = 3, DeclarePairedDelimiterXPP = 5,
+  DeclareMathSymbol = 3, DeclareMathDelimiter = 5, DeclareMathAccent = 3,
+  DeclareMathAlphabet = 4, SetMathAlphabet = 5,
+  DeclareSymbolFont = 4, SetSymbolFont = 5,
+  DeclareSymbolFontAlphabet = 1, DeclareMathVersion = 0,
+  DeclareMathSizes = 3, numberwithin = 1,
+  definecolor = 2, colorlet = 1, providecolor = 2,
+  newlength = 0, setlength = 1, addtolength = 1,
+  newcounter = 0, setcounter = 1, addtocounter = 1,
+  PassOptionsToPackage = 1,
 }
-local THREE_ARG_PREAMBLE = { NewDocumentCommand = true, DeclareDocumentCommand = true }
+local THREE_ARG_PREAMBLE = {
+  NewDocumentCommand = true, DeclareDocumentCommand = true,
+  ProvideDocumentCommand = true, RenewDocumentCommand = true,
+  NewExpandableDocumentCommand = true,
+}
 -- Fontspec font family/face definition commands that survive preamble deletion (kept in local_cmds).
 local FONT_FAMILY_COMMANDS = {
   newfontfamily = true, renewfontfamily = true,
@@ -862,20 +898,23 @@ local function extract_commands(pre)
           end
         end
       elseif not in_comment(pre, a)
-          and (name == "usepackage" or SIMPLE_PREAMBLE[name] or name == "DeclareMathOperator"
+          and (name == "usepackage" or name == "RequirePackage" or SIMPLE_PREAMBLE[name] or name == "DeclareMathOperator"
             or name == "newtheorem" or PAIR_DELIM[name] or name == "newenvironment"
             or THREE_ARG_PREAMBLE[name]) then
         local optional = ""
         if (name == "DeclareMathOperator" or name == "newtheorem")
             and pre:sub(cursor, cursor) == "*" then cursor = cursor + 1 end
         cursor = skip_space(pre, cursor)
-        if name == "usepackage" and pre:sub(cursor, cursor) == "[" then
+        if (name == "usepackage" or name == "RequirePackage") and pre:sub(cursor, cursor) == "[" then
           local e = match_group(pre, cursor, "[", "]")
           if e then optional = pre:sub(cursor, e); cursor = e + 1 end
         end
         cursor = skip_space(pre, cursor)
         local first_end
-        if pre:sub(cursor, cursor) == "{" then
+        if name == "swapnumbers" then
+          first_end = cursor - 1
+          finish = first_end
+        elseif pre:sub(cursor, cursor) == "{" then
           first_end = match_group(pre, cursor, "{", "}")
         elseif pre:sub(cursor, cursor) == "\\" and (name == "DeclareMathOperator" or PAIR_DELIM[name] or THREE_ARG_PREAMBLE[name]) then
           local token = pre:sub(cursor):match("^\\[%a@]+")
@@ -883,18 +922,43 @@ local function extract_commands(pre)
         end
         if first_end then
           if PAIR_DELIM[name] then
-            local next_arg = skip_space(pre, first_end + 1)
-            if pre:sub(next_arg, next_arg) == "[" then
-              local optional_end = match_group(pre, next_arg, "[", "]")
-              next_arg = optional_end and optional_end + 1 or next_arg
-            end
-            for k = 1, PAIR_DELIM[name] do
-              next_arg = skip_space(pre, next_arg)
-              if pre:sub(next_arg, next_arg) == "{" then
-                finish = match_group(pre, next_arg, "{", "}")
-                next_arg = finish and finish + 1 or next_arg
-              else
-                finish = nil; break
+            if PAIR_DELIM[name] == 0 then
+              finish = first_end
+              local next_arg = skip_space(pre, first_end + 1)
+              if pre:sub(next_arg, next_arg) == "[" then
+                local optional_end = match_group(pre, next_arg, "[", "]")
+                finish = optional_end or first_end
+              end
+            else
+              local next_arg = skip_space(pre, first_end + 1)
+              for k = 1, PAIR_DELIM[name] do
+                next_arg = skip_space(pre, next_arg)
+                if pre:sub(next_arg, next_arg) == "[" then
+                  local optional_end = match_group(pre, next_arg, "[", "]")
+                  next_arg = optional_end and (optional_end + 1) or next_arg
+                  next_arg = skip_space(pre, next_arg)
+                end
+                if pre:sub(next_arg, next_arg) == "{" then
+                  finish = match_group(pre, next_arg, "{", "}")
+                  next_arg = finish and finish + 1 or next_arg
+                elseif pre:sub(next_arg, next_arg) == "\\" then
+                  local token = pre:sub(next_arg):match("^\\[%a@]+")
+                  finish = token and (next_arg + #token - 1) or nil
+                  next_arg = finish and finish + 1 or next_arg
+                elseif pre:sub(next_arg, next_arg):match('^[%w"%-\']') then
+                  local token = pre:sub(next_arg):match('^"[^"]*"') or pre:sub(next_arg):match("^'[^']*'") or pre:sub(next_arg):match("^[%w%-%.]+")
+                  finish = token and (next_arg + #token - 1) or nil
+                  next_arg = finish and finish + 1 or next_arg
+                else
+                  finish = nil; break
+                end
+              end
+              if finish then
+                local next_arg = skip_space(pre, finish + 1)
+                if pre:sub(next_arg, next_arg) == "[" then
+                  local optional_end = match_group(pre, next_arg, "[", "]")
+                  if optional_end then finish = optional_end end
+                end
               end
             end
           elseif name == "DeclareMathOperator" or name == "newtheorem"
@@ -934,7 +998,7 @@ local function extract_commands(pre)
           end
             if finish then
               local first = pre:sub(cursor + 1, first_end - 1):match("^%s*(.-)%s*$")
-              if name == "usepackage" then
+              if name == "usepackage" or name == "RequirePackage" then
                 local keep = {}
                 for package in first:gmatch("[^,%s]+") do
                   if not SKIP_PACKAGES[package] then keep[#keep+1] = package end
@@ -1007,6 +1071,29 @@ local function get_global_command_target(cmd)
     if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$") end
     if sym then return "\\newunicodechar{" .. sym .. "}" end
   end
+  if cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccent]+") then
+    local sym = cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccent]+%s*(%b{})")
+    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
+    else sym = cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccent]+%s*(\\[%a@]+)") end
+    if sym and not sym:match("^\\") then sym = "\\" .. sym end
+    return sym
+  end
+  if cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccentAlphabet]+")
+      or cmd:match("^%s*\\DeclareSymbolFontAlphabet")
+      or cmd:match("^%s*\\SetMathAlphabet") then
+    local sym = cmd:match("^%s*\\[%a@]+%s*(%b{})")
+    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
+    else sym = cmd:match("^%s*\\[%a@]+%s*(\\[%a@]+)") end
+    if sym and not sym:match("^\\") then sym = "\\" .. sym end
+    return sym
+  end
+  if cmd:match("^%s*\\newlength") then
+    local sym = cmd:match("^%s*\\newlength%s*(%b{})")
+    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
+    else sym = cmd:match("^%s*\\newlength%s*(\\[%a@]+)") end
+    if sym and not sym:match("^\\") then sym = "\\" .. sym end
+    return sym
+  end
   if cmd:match("^%s*\\newtheorem") then
     local sym = cmd:match("^%s*\\newtheorem%*?%s*(%b{})")
     if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$") end
@@ -1030,24 +1117,63 @@ local function render_latex(el, class, preamble, global_defs)
     else
       warn("latex block has \\begin{document} but no \\end{document}: using everything after it")
     end
-    -- Scope-isolated: packages, libraries, and preamble-only commands go to the preamble; macros stay local
+    -- Scope-isolated: packages, libraries, and preamble-only commands go to the preamble; macros stay local.
+    -- Co-occurrence rule: If a command token (e.g. \Tr) is targeted/used in a universal hoisted permeable
+    -- AND is also used in a local macro inside the same fence, hoist each of them universally in relative order.
     local commands = extract_commands(el.text:sub(1, bs - 1))
+    local is_universal_cmd = function(cmd)
+      local cmd_name = cmd:match("^%s*\\(%a+)")
+      return cmd_name and (cmd_name == "usepackage" or cmd_name == "RequirePackage"
+          or SIMPLE_PREAMBLE[cmd_name] or cmd_name == "DeclareMathOperator"
+          or PAIR_DELIM[cmd_name] or cmd_name == "newtheorem")
+    end
+
+    local universal_symbols = {}
+    for _, cmd in ipairs(commands) do
+      if is_universal_cmd(cmd) then
+        local target = get_global_command_target(cmd)
+        if target and target:match("^\\[%a@]+") then
+          universal_symbols[target] = true
+        end
+        local macro_target = cmd:match("^%s*\\[%a@]+%*?%s*(%b{})")
+        if macro_target then
+          local inner = macro_target:sub(2, -2):match("^%s*(.-)%s*$")
+          if inner and inner:match("^\\[%a@]+") then
+            universal_symbols[inner] = true
+          end
+        else
+          local unbraced_target = cmd:match("^%s*\\[%a@]+%*?%s*(\\[%a@]+)")
+          if unbraced_target then
+            universal_symbols[unbraced_target] = true
+          end
+        end
+      end
+    end
+
     local hoisted_cmds = {}
     local local_cmds = {}
     for _, cmd in ipairs(commands) do
-      local cmd_name = cmd:match("^%s*\\(%a+)")
-      if cmd_name and (cmd_name == "usepackage" or SIMPLE_PREAMBLE[cmd_name]
-          or cmd_name == "DeclareMathOperator" or PAIR_DELIM[cmd_name]
-          or cmd_name == "newtheorem") then
+      if is_universal_cmd(cmd) then
         hoisted_cmds[#hoisted_cmds + 1] = cmd
       else
-        local_cmds[#local_cmds + 1] = cmd
+        local promoted = false
+        for sym in pairs(universal_symbols) do
+          local pat = sym:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1") .. "%f[%A]"
+          if cmd:match(pat) then
+            promoted = true
+            break
+          end
+        end
+        if promoted then
+          hoisted_cmds[#hoisted_cmds + 1] = cmd
+        else
+          local_cmds[#local_cmds + 1] = cmd
+        end
       end
     end
 
     -- Disallow defining or redefining in subsequent fences commands that cause global/document-level conflicts
     -- (DeclareMathOperator, DeclarePairedDelimiter, newunicodechar, newtheorem, and conflicting usepackage options)
-    local block_targets = {}
     local all_cmds_to_check = {}
     for _, cmd in ipairs(hoisted_cmds) do all_cmds_to_check[#all_cmds_to_check + 1] = cmd end
     for _, cmd in ipairs(local_cmds) do
@@ -1055,9 +1181,9 @@ local function render_latex(el, class, preamble, global_defs)
     end
 
     for _, cmd in ipairs(all_cmds_to_check) do
-      if cmd:match("^%s*\\usepackage") then
-        local opt = cmd:match("^%s*\\usepackage%s*(%b[])") or ""
-        local pkgs = cmd:match("^%s*\\usepackage%s*%b[]%s*(%b{})") or cmd:match("^%s*\\usepackage%s*(%b{})")
+      if cmd:match("^%s*\\usepackage") or cmd:match("^%s*\\RequirePackage") then
+        local opt = cmd:match("^%s*\\[%a@]+%s*(%b[])") or ""
+        local pkgs = cmd:match("^%s*\\[%a@]+%s*%b[]%s*(%b{})") or cmd:match("^%s*\\[%a@]+%s*(%b{})")
         if pkgs then
           for pkg in pkgs:sub(2, -2):gmatch("[^,%s]+") do
             local target = "\\usepackage{" .. pkg .. "}"
@@ -1071,11 +1197,10 @@ local function render_latex(el, class, preamble, global_defs)
       else
         local target = get_global_command_target(cmd)
         if target then
-          if (global_defs and global_defs[target]) or block_targets[target] then
+          if global_defs and global_defs[target] then
             warn(string.format("latex block redefines global command '%s'; rendering as code listing (run=false)", target))
             return nil
           end
-          block_targets[target] = true
         end
       end
     end
@@ -1089,7 +1214,10 @@ local function render_latex(el, class, preamble, global_defs)
 
     for _, cmd in ipairs(hoisted_cmds) do
       -- Make operator and delimiter declarations safe against pre-existing package or template definitions
-      if cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\DeclarePairedDelimiter") then
+      if cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\DeclarePairedDelimiter")
+          or cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccentAlphabet]+")
+          or cmd:match("^%s*\\DeclareSymbolFontAlphabet") or cmd:match("^%s*\\SetMathAlphabet")
+          or cmd:match("^%s*\\newlength") then
         local target = get_global_command_target(cmd)
         if target and target:match("^\\[%a@]+") then
           cmd = "\\let" .. target .. "\\relax " .. cmd
@@ -1127,6 +1255,13 @@ end
 local function executable(spec)
   local e = os.getenv(spec.exe_env)
   if not e or e == "" then e = spec.exe_default end
+  if IS_WIN and spec.id == "mermaid" and (e == "mmdc.cmd" or e == "mmdc") then
+    local appdata = os.getenv("APPDATA")
+    if appdata then
+      local candidate = appdata .. "\\npm\\mmdc.cmd"
+      if file_exists(candidate) then e = candidate end
+    end
+  end
   return e
 end
 
@@ -1157,6 +1292,15 @@ local function runtime_fingerprint(spec, exe)
   elseif spec.id == "java" then
     local command = exe:match('^"(.*)"$') or exe
     local ok, result = pcall(pandoc.pipe, command, { "-version" }, "")
+    if ok and result and result ~= "" then
+      local first_line = result:match("^[^\r\n]+") or result
+      COMPILER_FINGERPRINTS[cache_key] = first_line
+      return first_line
+    end
+    return "default"
+  elseif spec.id == "mermaid" then
+    local command = exe:match('^"(.*)"$') or exe
+    local ok, result = pcall(pandoc.pipe, command, { "--version" }, "")
     if ok and result and result ~= "" then
       local first_line = result:match("^[^\r\n]+") or result
       COMPILER_FINGERPRINTS[cache_key] = first_line
@@ -1275,7 +1419,8 @@ local function run_exec(el, spec)
       return { ok = true, out = read_file(prefix .. ".out") or "", err = "", figs = figs }
     end
   end
-  local confirm_env = os.getenv("MD2PDF_CONFIRM_EXEC") or os.getenv("MD2PDF_CONFIRM_" .. spec.id:upper()) or "1"
+  local confirm_env = os.getenv("MD2PDF_CONFIRM_" .. spec.id:upper())
+      or (spec.is_diagram and "0" or (os.getenv("MD2PDF_CONFIRM_EXEC") or "1"))
   if confirm_env ~= "0" and (force_run or a["trusted"] ~= "true") then
     local lang_label = spec.label or spec.id
     io.write(string.format("\n%s code needs to run", lang_label))
@@ -1297,11 +1442,13 @@ end
 local function render(el, spec, res)
   local a, blocks = el.attributes, {}
 
-  if a["show"] ~= "false" then
+  local show_code = a["show"] == "true" or (not spec.is_diagram and a["show"] ~= "false")
+  if show_code then
     blocks[#blocks + 1] = pandoc.CodeBlock(el.text, pandoc.Attr("", { spec.id }))
   end
 
-  if a["output"] ~= "false" then
+  local show_output = a["output"] == "true" or (not spec.is_diagram and a["output"] ~= "false")
+  if show_output then
     local txt = first_lines(trim_end(res.out), a["maxlines"])
     if txt ~= "" then
       if OUTPUT_LABEL ~= "" then
@@ -1320,7 +1467,15 @@ local function render(el, spec, res)
   if #figs == 0 and a["figures"] ~= "false" and a["img"] and file_exists(a["img"]) then figs = { a["img"] } end
   for _, p in ipairs(figs) do
     if file_exists(p) then
-      blocks[#blocks + 1] = pandoc.Para({ pandoc.Image({}, p) })
+      local img_attr = pandoc.Attr("", {}, {})
+      if a["width"] then img_attr.attributes["width"] = a["width"] end
+      local img = pandoc.Image({}, p, "", img_attr)
+      if a["caption"] and pandoc.Figure then
+        local cap = pandoc.read(a["caption"]).blocks
+        blocks[#blocks + 1] = pandoc.Figure(pandoc.Plain({ img }), cap)
+      else
+        blocks[#blocks + 1] = pandoc.Para({ img })
+      end
     else
       warn("expected image not found: " .. p)
     end

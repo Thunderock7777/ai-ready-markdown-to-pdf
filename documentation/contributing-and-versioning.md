@@ -305,6 +305,44 @@ Version 1.3.7 cycle
 Change ledger
   2026-11-10 | Automated environment installer setup.bat for Pandoc, LaTeX, and package configuration with optional runtime checks | source +264 / -0 | 264 / 500
   2026-11-10 | Multilingual script router for Bengali, Hindi, and CJK with str_fix repair | source +55 / -2 | 321 / 500
+  2026-11-10 | List-continuation and indented math/environment literal unmasking in mask_literals | source +23 / -0 | 344 / 500
+  2026-11-16 | Local file link normalization (file URI stripping, %20 decoding, and run: OS launch emission) | source +24 / -0 | 368 / 500
+  2026-11-24 | Breakable colorful nested boxes (tcolorbox) and callout div support | source +64 / -11 | 443 / 500
+  2026-11-24 | ```color code fence syntax, true-random color selection, and parent-child color divergence | source +94 / -0 | 537 / 500
+  2026-11-24 | Versioned colorful boxes, ```color fences, and dynamic color divergence as 1.3.8 (PATCH)
+
+Version 1.3.8 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-24 | Space boundary protection for fenced divs, callout boxes, and tcolorbox | source +6 / -1 | 7 / 500
+  2026-11-24 | Whiteboard single-page layout with dynamic canvas height and strict pagebreak prohibition | source +65 / -6 | 72 / 500
+  2026-11-24 | Flexible whiteboard width with 11in minimum floor, table column protection, and unbreakable box overflow fix | source +135 / -6 | 207 / 500
+  2026-11-24 | Whiteboard multi-page height limit ceiling (100in) and breakable box page overflow handling | source +21 / -10 | 228 / 500
+  2026-11-24 | Documented nested child box tcolorbox pagebreak limitation across features and limitations | source +0 / -0 | 228 / 500
+  2026-11-24 | Whiteboard maximum width ceiling clamp (100in) matching height limit | source +5 / -0 | 233 / 500
+  2026-11-24 | Pure TeX marginbox architecture replacing rigid vbox/tcolorbox with 100% nested child box pagebreakability | source +258 / -28 | 463 / 500
+  2026-11-24 | Bold marginbox design with solid header band, accent bar, and drop shadow | source +93 / -34 | 522 / 500
+  2026-11-24 | Versioned pure TeX breakable marginbox with bold header band and drop shadow as 1.3.9 (PATCH)
+
+Version 1.3.9 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-24 | Dual-box ecosystem: side-by-side marginbox and vbox/tcolorbox, fence mapping, and shared random color divergence | source +124 / -31 | 155 / 500
+  2026-11-24 | Stabilized marginbox 3-pass TikZ overlay rendering and protected whiteboard preamble aux loading | source +18 / -3 | 176 / 500
+  2026-11-24 | Declarative Mermaid vector PDF diagram rendering, SHA-1 caching, and mmdc CLI auto-detection | source +77 / -4 | 257 / 500
+  2026-11-24 | Whiteboard maximum width ceiling notification in compile.bat and LaTeX warning | source +25 / -1 | 283 / 500
+  2026-11-24 | Hoist and guard DeclareMathSymbol, DeclareMathDelimiter, and DeclareMathAccent in LaTeX fences | source +18 / -1 | 302 / 500
+  2026-11-24 | Universal preamble hoisting for colors, math alphabets, setters, counters, lengths, and symbols | source +84 / -31 | 417 / 500
+  2026-11-24 | Allow sequential operator redeclaration in same fence while preserving cross-fence conflict protection | source +0 / -3 | 420 / 500
+  2026-11-24 | Co-occurrence hoisting for local macros sharing tokens with universal permeables in same fence | source +46 / -6 | 472 / 500
+  2026-11-24 | Versioned pure TeX marginbox, dual-box ecosystem, Mermaid diagrams, whiteboard canvas, expanded preamble hoisting, and co-occurrence hoisting as 1.4.0 (MINOR)
+
+Version 1.4.0 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 For each later accepted change, append one entry in this format:
 

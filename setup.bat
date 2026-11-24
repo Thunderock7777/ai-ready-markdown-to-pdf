@@ -141,7 +141,7 @@ if not errorlevel 1 (
     echo   [OK] Automatic package installation is enabled. MiKTeX will not block on missing packages!
     
     echo   [INFO] Pre-installing packages used by Reference Notes template...
-    set "MIKTEX_PKGS=geometry fancyhdr mathtools amsmath amscls amsfonts bm cancel mhchem physics mathrsfs fontspec xcolor etoolbox microtype parskip babel babel-bengali babel-hindi babel-chinese soul newunicodechar graphics float placeins pgf pgfplots tools booktabs multirow calc caption fvextra circuitikz siunitx algorithms algorithmicx chemfig listings enumitem tcolorbox adjustbox pgfplotstable tikz-cd hyperref bookmark xurl"
+    set "MIKTEX_PKGS=geometry fancyhdr mathtools amsmath amscls amsfonts bm cancel mhchem physics mathrsfs fontspec xcolor etoolbox microtype parskip babel babel-bengali babel-hindi babel-chinese soul newunicodechar graphics float placeins pgf pgfplots tools booktabs multirow calc caption fvextra circuitikz siunitx algorithms algorithmicx chemfig listings enumitem tcolorbox adjustbox pgfplotstable tikz-cd hyperref bookmark xurl zref xparse"
     for %%p in (!MIKTEX_PKGS!) do (
         mpm --install=%%p >nul 2>&1
     )
@@ -248,6 +248,24 @@ if not errorlevel 1 (
 ) else (
     echo   [OPTIONAL] Java is NOT installed.
     echo              Only needed if you execute ```java code fences in Markdown.
+)
+
+REM --- Mermaid CLI Check ---
+where mmdc >nul 2>&1
+if errorlevel 1 (
+    if exist "%APPDATA%\npm\mmdc.cmd" set "PATH=!PATH!;%APPDATA%\npm"
+)
+where mmdc >nul 2>&1
+if not errorlevel 1 (
+    set "MMDC_VER="
+    for /f "tokens=*" %%v in ('mmdc --version 2^>nul') do (
+        if not defined MMDC_VER set "MMDC_VER=%%v"
+    )
+    echo   [INSTALLED] Mermaid CLI [mmdc]: !MMDC_VER!
+) else (
+    echo   [OPTIONAL] Mermaid CLI [mmdc] is NOT installed.
+    echo              Only needed if you execute ```mermaid code fences in Markdown.
+    echo              To install if desired: npm install -g @mermaid-js/mermaid-cli
 )
 echo.
 

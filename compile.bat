@@ -37,6 +37,7 @@ if not defined C_COMPILER set "C_COMPILER=gcc"
 if not defined CPP_COMPILER set "CPP_COMPILER=g++"
 if not defined JAVA_RUNNER set "JAVA_RUNNER=java"
 if not defined JAVAC_COMPILER set "JAVAC_COMPILER=javac"
+if not defined MERMAID_CLI set "MERMAID_CLI=mmdc"
 
 REM If pandoc is not on PATH directly, check standard Quarto tools directory
 where pandoc >nul 2>&1
@@ -52,6 +53,13 @@ if errorlevel 1 (
     )
     if exist "%ProgramFiles%\Pandoc\pandoc.exe" (
         set "PATH=%PATH%;%ProgramFiles%\Pandoc"
+    )
+)
+
+where mmdc >nul 2>&1
+if errorlevel 1 (
+    if exist "%APPDATA%\npm\mmdc.cmd" (
+        set "PATH=%PATH%;%APPDATA%\npm"
     )
 )
 
@@ -162,6 +170,10 @@ if errorlevel 1 (
     goto CLEANUP_FAIL
 )
 
+set "WB_WIDTH_MAX="
+findstr /C:"WHITEBOARD_WIDTH_MAX_REACHED" "%TEX_OUTPUT%" >nul 2>&1
+if not errorlevel 1 set "WB_WIDTH_MAX=1"
+
 REM =========================================================
 REM XELATEX  (all build files go to the temp folder)
 REM =========================================================
@@ -182,10 +194,19 @@ xelatex -cnf-line=max_print_line=1000 -output-directory="%WORK%" -interaction=no
 if not exist "%WORK_PDF%" goto ATTEMPT_RECOVERY
 
 if %PASS% GEQ 3 goto CHECK_POST_PASS_RECOVERY
-findstr /C:"Rerun to get" /C:"Label(s) may have changed" "%LOG_FILE%" >nul 2>&1
-if errorlevel 1 goto CHECK_POST_PASS_RECOVERY
-set /a PASS+=1
-goto RUN_XELATEX
+findstr /C:"Rerun to get" /C:"Label(s) may have changed" /C:"rerun LaTeX" /C:"Rerun LaTeX" "%LOG_FILE%" >nul 2>&1
+if not errorlevel 1 (
+    set /a PASS+=1
+    goto RUN_XELATEX
+)
+findstr /C:"\begin{marginbox}" "%TEX_OUTPUT%" >nul 2>&1
+if not errorlevel 1 (
+    if %PASS% LSS 3 (
+        set /a PASS+=1
+        goto RUN_XELATEX
+    )
+)
+goto CHECK_POST_PASS_RECOVERY
 
 :CHECK_POST_PASS_RECOVERY
 if "%RECOVERY_ATTEMPTED%"=="1" goto REPORT
@@ -250,6 +271,18 @@ if not errorlevel 1 (
     echo ------------------------------------------
 )
 
+if not defined WB_WIDTH_MAX (
+    findstr /C:"Whiteboard width reached maximum" "%LOG_FILE%" >nul 2>&1
+    if not errorlevel 1 set "WB_WIDTH_MAX=1"
+)
+if "%WB_WIDTH_MAX%"=="1" (
+    color 0E
+    echo ------------------------------------------
+    echo  WARNING: Whiteboard width reached maximum ceiling ^(100in^).
+    echo  Width was clamped to 100in.
+    echo ------------------------------------------
+)
+
 REM =========================================================
 REM DELIVER PDF + CLEAN UP EVERYTHING ELSE
 REM =========================================================
@@ -271,6 +304,9 @@ echo           CONVERSION COMPLETED
 echo ==========================================
 echo.
 echo PDF: "%PDF_OUTPUT%"
+if "%WB_WIDTH_MAX%"=="1" (
+    echo Note: Whiteboard width reached maximum ceiling ^(100in^).
+)
 echo.
 pause
 endlocal

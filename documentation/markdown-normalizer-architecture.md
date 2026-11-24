@@ -98,7 +98,7 @@ Exact name-set contents in the current source
   THEOREMS:
     theorem lemma proposition corollary definition example remark
   DIV_ENVS:
-    proof abstract quote, plus every name in THEOREMS.
+    proof abstract quote tcolorbox, plus every name in THEOREMS.
   BODY_HOIST:
     Emptied under strict code fence isolation and disabled raw_tex (-raw_tex).
     Unfenced LaTeX commands in the Markdown body are treated as literal text and
@@ -239,10 +239,17 @@ Detailed Stage A call path
   environments.
   envs_to_divs writes Div markers into text; pandoc.read parses them; later
   div_fix replaces those marker Divs with RawBlock begin/end wrappers.
+  pass_color_fences translates ```color ... ``` fences into Pandoc fenced Divs
+  (::: {.box ...}) before Pandoc parses, preserving inner code fences.
 
 STAGE B: AST passes
 -------------------
 AST_PASSES is also ordered:
+
+assign_box_colors
+  Traverses document blocks top-down, dynamically assigning true-random colors
+  from a curated palette to uncolored boxes while guaranteeing child boxes
+  never share their parent's color. Runs before AST walk passes.
 
 tables
   table_fix walks Strong nodes in each Table. strong_fix moves complex math
@@ -256,7 +263,7 @@ inlines
   superscript/subscript conversion.
   image_fix validates local image scheme, extension, and file existence;
   invalid images are dropped with a warning.
-  link_fix preserves links or unwraps them according to CONFIG.keep_links.
+  link_fix normalizes local file links (stripping file:/// schemes, decoding percent-encoded paths, and emitting \href{run:...} for Windows drive and local file targets to ensure reliable OS-level file opening) and respects CONFIG.keep_links.
   RawInline maps HTML <br> tags to native LineBreak elements, strips unsupported HTML tags, and checks raw TeX math environments.
   str_fix converts supported superscript letters in ordinary text and emits unescaped RawInline("latex", ...) nodes for \textsubscript{...}, \textsuperscript{...}, \nobreakspace{}, \ref{...}, \ref*{...}, \eqref{...}, \autoref{...}, \pageref{...}, \nameref{...}, \cite{...}, \cite[...]{...}, \url{...}, \href{...}{...}, \footnote{...}, \label{...}, page/spacing commands (\newpage, \clearpage, \pagebreak, \bigskip, \medskip, \smallskip, \vspace, \hspace), typographic primitives (\hfill, \noindent), and routes non-Latin Unicode scripts (Bengali, Hindi, CJK) through \foreignlanguage with Babel font mapping so they render without \textbackslash escaping under -raw_tex.
   note_code_super records characters in Code and CodeBlock nodes for later
@@ -452,7 +459,9 @@ Preamble collection and structural text
   pass_unwrap_document(text) -> text
     Detects a pasted full document only when documentclass precedes
     begin{document} and a later end{document} exists. Calls process_lines on
-    the preamble, warns about non-whitespace tail text, and keeps the body.
+    the preamble slice (from \documentclass up to \begin{document}), preserving
+    any pre-documentclass Markdown text and post-end{document} tail text in
+    the body.
   pass_drop_maketitle(text) -> text
     Removes body occurrences of \maketitle.
   pass_hoist_body_commands(text) -> text
@@ -469,9 +478,10 @@ Preamble collection and structural text
     the block from body text. Traditional `--- ... ---` blocks are deliberately
     ignored as metadata. Preserves verbatim YAML code listings marked with run=false.
   space_fences(text) -> spaced source
-    Ensures an empty line precedes and follows every opening/closing code fence
-    and every standalone horizontal rule (---, ***, ___), guaranteeing universal
-    block boundary separation and preventing table, heading, or code fence misparsing.
+    Ensures an empty line precedes and follows every opening/closing code fence,
+    every standalone horizontal rule (---, ***, ___), fenced Divs (:::), and
+    LaTeX box/theorem environments (\begin{tcolorbox}, \end{tcolorbox}), guaranteeing
+    universal block boundary separation and preventing paragraph misparsing.
   normalize_fence_attributes(text) -> normalized source
     Scans code fence openers and normalizes space-separated attributes lacking
     braces (e.g., ```c run=false or ```java trusted=true) to standard Pandoc
@@ -540,9 +550,11 @@ Images, tables, links, environments
     Walks the Figure for a surviving Image and removes an empty Figure.
   raw_html_fix(RawBlock/RawInline) -> empty sequence or nil
     Removes raw HTML nodes; leaves non-HTML raw formats unchanged.
-  link_fix(Link) -> content or nil
-    Returns Link content when CONFIG.keep_links is false; otherwise leaves the
-    Link unchanged.
+  link_fix(Link) -> content, inlines, or nil
+    Returns Link content when CONFIG.keep_links is false. For local file paths
+    (file:// URIs, Windows drive paths, or local files), decodes URL percent-escapes,
+    normalizes slashes, and wraps in \href{run:...} to generate OS file-launch
+    actions (/S/Launch) without invalid drive slashes. Leaves web URLs and anchors unchanged.
   bad_math(math_text) -> boolean
     Detects alignment/environment constructs that must not remain nested in a
     formatting wrapper in a table cell.
@@ -561,7 +573,10 @@ Images, tables, links, environments
     Applies strong_fix to table descendants and restores the original caption.
   div_fix(Div) -> blocks or nil
     Rebuilds begin/end LaTeX blocks for a Div bearing this filter's lenv marker,
-    restoring the saved optional argument referenced by lopt.
+    restoring the saved optional argument referenced by lopt. Also transforms
+    Markdown fenced Divs (.box, .callout, .note, .warning, .tip, .danger, .info)
+    into styled, breakable \begin{tcolorbox}[...] environments with color presets,
+    automatically sanitizing unescaped ampersands (& -> \&) in box titles and options.
 
 Document-level processing and finalization
   define_code_superscripts()
@@ -573,8 +588,8 @@ Document-level processing and finalization
     Writes citation and emoji removal summaries when their counters are
     nonzero.
   apply_page_layout(doc)
-    Maps the supported `page-layout: presentation` YAML value to the template
-    flag; other supplied values warn and leave the default A4 layout active.
+    Maps the supported `page-layout: presentation` and `page-layout: whiteboard`
+    YAML values to template flags; other supplied values warn and leave default A4 active.
   apply_title_rule(doc)
     Maps YAML boolean `title-rule` to the template flag, defaulting to true;
     non-boolean values warn and retain the visible title rule.

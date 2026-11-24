@@ -2,25 +2,30 @@
 
 A Windows workflow for turning Markdown or plain-text notes into a PDF with
 Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
-and Java can run during the build with universal caching and approval controls,
+Java, and Mermaid can run during the build with universal caching and approval controls,
 while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.3.7**.
+**Current project version: 1.4.0**.
 
 > **Paste an AI chat response and compile it directly.** A copied response from
 > ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses
 > supported Markdown and code fences. Code execution requires standard language
-> fences (e.g. ```` ```python ````, ```` ```c ````, ```` ```cpp ````, ```` ```java ````).
+> fences (e.g. ```` ```python ````, ```` ```c ````, ```` ```cpp ````, ```` ```java ````, ```` ```mermaid ````).
 
 ## Features
 
 - **Direct AI Chat Compilation**: Compile copied responses from ChatGPT, Gemini, or NotebookLM with zero manual editing for supported content.
 - **Automated Environment Setup**: One-click `setup.bat` script automatically verifies or installs Pandoc, MiKTeX/XeLaTeX, enables automatic package installation, pre-installs required LaTeX packages, and checks (never installs) optional language compilers.
 - **Multilingual Typesetting**: Full native support for Bengali (Bangla ligatures and conjuncts via Kalpurush/Nirmala UI), Hindi (Devanagari script via Nirmala UI), CJK (Chinese, Japanese, Korean), and Latin scripts via XeLaTeX and Babel.
+- **Declarative Mermaid Vector Diagrams**: Direct support for ```` ```mermaid ```` and ```` ```mmd ```` code fences, compiled to transparent vector PDF figures via `mmdc` (Mermaid CLI), integrated into the SHA-1 persistent cache, with optional `caption="..."` and `width="..."` attributes.
+- **Dual-Box Ecosystem (Pure TeX ```marginbox``` & Classic ```vbox``` / ```tcolorbox```)**: Side-by-side support for two box architectures:
+  - **`marginbox` (Pure TeX List Streams)**: Available via ```` ```marginbox ```` code fences, Markdown fenced divs (`::: {.box title="..."}`, `::: {.marginbox}`, `.note`, `.warning`, `.tip`, `.danger`, `.important`, `.info`), or native LaTeX `\begin{marginbox}[...]{title}`. Engineered with pure LaTeX list streams and TikZ background overlays via `zref-savepos` and page-shipout hooks, completely eliminating rigid TeX `\vbox` registers. Both top-level parent boxes and deeply nested child boxes break cleanly across page boundaries at any line or paragraph without clipping, overflow, or unbreakable box errors. Features bold solid header bands, vertical accent bars, and drop shadows.
+  - **`vbox` (Classic `tcolorbox`)**: Available via ```` ```vbox ```` code fences, Markdown fenced divs (`::: {.vbox}`, `::: {.tcolorbox}`), or native LaTeX `\begin{tcolorbox}[...]` powered by `tcolorbox.sty`.
+  - **Shared Dynamic Color Engine**: Both box systems share automatic true-random color selection across compilations with guaranteed parent-child color divergence (child frames never share a parent's color), preset color styles (`blue`, `green`, `red`, `amber`, `purple`, `gray`, `teal`, `magenta`, `olive`, `cyan`, `violet`), and arbitrary nesting.
 - **Multi-File Concatenation**: Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order into a single unified PDF.
 - **Universal Executable Code Fences**: Python, C, C++, and Java blocks execute with persistent SHA-1 caching, interactive confirmation prompts (`trusted=true` bypass), output capture, and compiler/runtime error reporting.
 - **Uniform Fence Syntax**: Standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````) across all languages; raw delimiters like `---` are reserved for horizontal rules and never treated as metadata.
-- **Block Boundary Spacing & Clean Tables**: Standalone horizontal rules (`---`) and fences are automatically padded with empty lines. Non-standard `simple_tables` are disabled to prevent narrow column collapses, ensuring pipe tables (`| col | col |`) render reliably.
+- **Block Boundary Spacing & Clean Tables**: Standalone horizontal rules (`---`), code fences, callout divs (`::: {.box}`), and LaTeX environments (`\begin{marginbox}`, `\begin{tcolorbox}`) are automatically padded with empty boundary lines. Non-standard `simple_tables` are disabled to prevent narrow column collapses, ensuring pipe tables (`| col | col |`) render reliably.
 - **Code Fence Isolation & Stray TeX Protection**: LaTeX fences are locally scoped (`{\begingroup...\par\endgroup}`), isolating definitions, low-level TeX primitives (`\def`, `\let`), font families, and environments. Cross-fence global command collisions and incomplete preamble fences (lacking `\begin{document}`) automatically demote to syntax-highlighted code listings (`run=false`). Unfenced LaTeX commands in prose are treated as literal text (`-raw_tex`).
 - **Universal Preamble Hoisting & Delimiters**: Rescues braced or unbraced control sequences (`\DeclareMathOperator\argmax{...}`, `\DeclarePairedDelimiter\ceil{...}`, `\DeclarePairedDelimiterX`, `\DeclarePairedDelimiterXPP`), `\hypersetup`, `\mathtoolsset`, `\theoremstyle`, and subordinate theorem counters (`\newtheorem{lem}{Lemma}[section]`) from LaTeX fences, universally hoisting them with `\let\cmd\relax` collision guards.
 - **Bare Math Environment Wrapping & Dynamic Theorems**: Automatically wraps bare AMS math environments (`\begin{align}`, `equation`, `gather`, `multline`) in Markdown prose in display math (`$$...$$`) to prevent `-raw_tex` backslash escaping, and dynamically registers custom `\newtheorem` environments for native Markdown Div parsing.

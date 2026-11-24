@@ -302,6 +302,23 @@ For a checklist, include the list marker before the checkbox:
 Writing `[ ] First task` without the leading `-` is just paragraph text, not a
 list.
 
+Colorful frames and nested callout boxes:
+Use ```` ```color ```` code fences, Markdown fenced divs (`::: {.box title="..."} ... :::`),
+or native LaTeX `\begin{tcolorbox}[...] ... \end{tcolorbox}`. If no color is specified, the pipeline
+automatically assigns a random color and guarantees nested child boxes never share their parent's color:
+
+    ```color title="Outer Dynamic Box"
+    Energy-momentum relation: $E^2 = (pc)^2 + (m_0 c^2)^2$.
+
+    ```color title="Inner Child Box"
+    Child box automatically receives a DIFFERENT random color!
+    ```
+    ```
+
+    ::: {.box color="blue" title="Explicit Blue Box"}
+    Explicit colors like `blue`, `orange`, `green`, `red`, `teal`, `purple`, `cyan`, `magenta`, `yellow`, `gray`, `olive`, and `violet` are respected, and child boxes avoid that parent color.
+    :::
+
 LaTeX — use a LaTeX fence to render a snippet (not execute it):
 
     ```{.latex}

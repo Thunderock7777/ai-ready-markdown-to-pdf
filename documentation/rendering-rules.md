@@ -55,7 +55,7 @@ Final Output PDF (Delivered beside first input file)
 
 ## 2. Master Language Index & Classification
 
-The pipeline recognizes **7 distinct language categories**, each with its own execution model, isolation guarantees, and output formatting:
+The pipeline recognizes **8 distinct language categories**, each with its own execution model, isolation guarantees, and output formatting:
 
 | Language Identifier | Aliases | Classification | Execution Engine | Primary Output in PDF |
 |---|---|---|---|---|
@@ -66,6 +66,7 @@ The pipeline recognizes **7 distinct language categories**, each with its own ex
 | **C** | `c` | Compiled Native Binary | `gcc -O2` + Auto-Wrapper + Cache | Console stdout + Compiler errors |
 | **C++** | `cpp`, `c++`, `cxx`, `cc` | Compiled Native Binary | `g++ -O2 -std=c++17` + Auto-Wrapper + Cache | Console stdout + Compiler errors |
 | **Java** | `java` | JVM Compiled / Script Execution | `javac` / `java` + Auto-Wrapper + Cache | Console stdout + JVM diagnostics |
+| **Mermaid** | `mermaid`, `mmd` | Declarative Vector Diagram | `mmdc` (Mermaid CLI) + Vector PDF + Cache | Standalone vector diagram with optional `caption` and `width` |
 | **Raw / Gibberish Text** | `text`, `txt`, *(no tag)* | 100% Crash-Proof Verbatim | LaTeX `fvextra` Verbatim Engine | Verbatim text box with automatic line-wrapping |
 
 ---
@@ -420,7 +421,62 @@ public class MatrixMultiplier {
 
 ---
 
-### 3.8. Raw / Gibberish Text (`text`, `txt`, Verbatim Mode)
+### 3.8. Mermaid (`mermaid`, `mmd`)
+
+#### How It Renders Under the Hood
+* **Vector Diagram Engine (`mmdc`):** Mermaid blocks are compiled directly to tight, transparent vector PDF figures using Mermaid CLI (`mmdc -i <script> -o <prefix>_1.pdf -b transparent`).
+* **Zero Machine-Specific Path Requirements:** Automatically discovers `mmdc` on the system `PATH` or resolves Windows npm global installations (`%APPDATA%\npm\mmdc.cmd`).
+* **Declarative Diagram Isolation:** Because Mermaid is a declarative diagram format rather than an arbitrary script runner, interactive confirmation prompts default to disabled (`MD2PDF_CONFIRM_MERMAID="0"`).
+* **Clean PDF Output:** Diagram-generation CLI log output (such as "Generating single mermaid chart") and source code listings are suppressed from the PDF by default so only the standalone visual diagram renders. Source code can be included by passing `show=true`, and CLI output by passing `output=true`.
+* **Persistent SHA-1 Cache:** Diagram runs are keyed and cached in `md2pdf_cache/`. Unmodified Mermaid code blocks compile instantly on subsequent passes without invoking Puppeteer or Chromium.
+* **Captions & Width Scaling:** Supports optional fence attributes:
+  * `caption="..."`: Wraps the diagram in a floating, centered `figure` environment with an official numbered caption.
+  * `width="..."`: Scales the vector diagram (e.g. `width="75%"` or `width="12cm"`).
+
+#### Examples
+
+**Standard Flowchart:**
+````markdown
+```mermaid
+graph TD
+    A[Start] --> B{Valid?}
+    B -- Yes --> C[Process Data]
+    B -- No --> D[Error Alert]
+    C --> E[Complete]
+```
+````
+
+**Diagram with Custom Caption and Width:**
+````markdown
+```mermaid caption="Pipeline Architecture" width="80%"
+sequenceDiagram
+    participant User
+    participant Runner as code-fence-runner.lua
+    participant CLI as mmdc
+    participant TeX as XeLaTeX
+
+    User->>Runner: Markdown source
+    Runner->>CLI: Compile diagram
+    CLI-->>Runner: Vector PDF
+    Runner->>TeX: Embed figure
+    TeX-->>User: Final PDF
+```
+````
+
+**Show Source Code AND Render Diagram (`show=true`):**
+````markdown
+```mermaid show=true caption="State Diagram"
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Processing : Submit
+    Processing --> Done : Success
+    Done --> [*]
+```
+````
+
+---
+
+### 3.9. Raw / Gibberish Text (`text`, `txt`, Verbatim Mode)
 
 #### How It Renders Under the Hood
 * **100% Crash-Proof Verbatim Engine:** Rendered through LaTeX's **`fvextra`** package (`Highlighting` verbatim block).

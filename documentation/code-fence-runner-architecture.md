@@ -33,6 +33,7 @@ build exists.
    - C: c (selected via C_COMPILER or default "gcc")
    - C++: cpp, c++, cxx, cc (selected via CPP_COMPILER or default "g++")
    - Java: java (selected via JAVA_RUNNER or default "java"; compiler via JAVAC_COMPILER or "javac")
+   - Mermaid: mermaid, mmd (selected via MERMAID_CLI or default "mmdc"; renders vector PDF diagrams)
    The runner fingerprints the runtime/compiler, builds a cache key, restores a valid
    result when possible, and otherwise asks before execution unless trusted=true.
    run=new and cache=false always require a fresh confirmation.

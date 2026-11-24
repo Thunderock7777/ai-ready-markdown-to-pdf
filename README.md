@@ -2,21 +2,22 @@
 
 A Windows workflow for turning Markdown or plain-text notes into a PDF with
 Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
-and Java can run during the build with universal caching and approval controls,
+Java, and Mermaid can run during the build with universal caching and approval controls,
 while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.3.8**.
+**Current project version: 1.3.9**.
 
 > **Paste an AI chat response and compile it directly.** A copied response from
 > ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses
 > supported Markdown and code fences. Code execution requires standard language
-> fences (e.g. ```` ```python ````, ```` ```c ````, ```` ```cpp ````, ```` ```java ````).
+> fences (e.g. ```` ```python ````, ```` ```c ````, ```` ```cpp ````, ```` ```java ````, ```` ```mermaid ````).
 
 ## Features
 
 - **Direct AI Chat Compilation**: Compile copied responses from ChatGPT, Gemini, or NotebookLM with zero manual editing for supported content.
 - **Automated Environment Setup**: One-click `setup.bat` script automatically verifies or installs Pandoc, MiKTeX/XeLaTeX, enables automatic package installation, pre-installs required LaTeX packages, and checks (never installs) optional language compilers.
 - **Multilingual Typesetting**: Full native support for Bengali (Bangla ligatures and conjuncts via Kalpurush/Nirmala UI), Hindi (Devanagari script via Nirmala UI), CJK (Chinese, Japanese, Korean), and Latin scripts via XeLaTeX and Babel.
+- **Declarative Mermaid Vector Diagrams**: Direct support for ```` ```mermaid ```` and ```` ```mmd ```` code fences, compiled to transparent vector PDF figures via `mmdc` (Mermaid CLI), integrated into the SHA-1 persistent cache, with optional `caption="..."` and `width="..."` attributes.
 - **Dual-Box Ecosystem (Pure TeX ```marginbox``` & Classic ```vbox``` / ```tcolorbox```)**: Side-by-side support for two box architectures:
   - **`marginbox` (Pure TeX List Streams)**: Available via ```` ```marginbox ```` code fences, Markdown fenced divs (`::: {.box title="..."}`, `::: {.marginbox}`, `.note`, `.warning`, `.tip`, `.danger`, `.important`, `.info`), or native LaTeX `\begin{marginbox}[...]{title}`. Engineered with pure LaTeX list streams and TikZ background overlays via `zref-savepos` and page-shipout hooks, completely eliminating rigid TeX `\vbox` registers. Both top-level parent boxes and deeply nested child boxes break cleanly across page boundaries at any line or paragraph without clipping, overflow, or unbreakable box errors. Features bold solid header bands, vertical accent bars, and drop shadows.
   - **`vbox` (Classic `tcolorbox`)**: Available via ```` ```vbox ```` code fences, Markdown fenced divs (`::: {.vbox}`, `::: {.tcolorbox}`), or native LaTeX `\begin{tcolorbox}[...]` powered by `tcolorbox.sty`.

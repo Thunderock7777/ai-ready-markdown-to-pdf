@@ -37,6 +37,7 @@ if not defined C_COMPILER set "C_COMPILER=gcc"
 if not defined CPP_COMPILER set "CPP_COMPILER=g++"
 if not defined JAVA_RUNNER set "JAVA_RUNNER=java"
 if not defined JAVAC_COMPILER set "JAVAC_COMPILER=javac"
+if not defined MERMAID_CLI set "MERMAID_CLI=mmdc"
 
 REM If pandoc is not on PATH directly, check standard Quarto tools directory
 where pandoc >nul 2>&1
@@ -52,6 +53,13 @@ if errorlevel 1 (
     )
     if exist "%ProgramFiles%\Pandoc\pandoc.exe" (
         set "PATH=%PATH%;%ProgramFiles%\Pandoc"
+    )
+)
+
+where mmdc >nul 2>&1
+if errorlevel 1 (
+    if exist "%APPDATA%\npm\mmdc.cmd" (
+        set "PATH=%PATH%;%APPDATA%\npm"
     )
 )
 

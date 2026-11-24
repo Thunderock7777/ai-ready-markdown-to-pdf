@@ -657,6 +657,26 @@ register{
   end,
 }
 
+-- ---- Mermaid (rendered diagram) --------------------------------------------
+local function mermaid_template(code)
+  return code
+end
+
+local function mermaid_command(exe, script, out, err, prefix, text)
+  local fig = prefix .. "_1.pdf"
+  return quote_executable(exe) .. ' -i ' .. quote_executable(script) .. ' -o "' .. to_os_path(fig) .. '" -b transparent' ..
+         ' < ' .. NULL_DEV .. ' > "' .. to_os_path(out) .. '" 2> "' .. to_os_path(err) .. '"'
+end
+
+register{
+  id = "mermaid", label = "Mermaid", names = { "mermaid", "mmd" },
+  exe_env = "MERMAID_CLI", exe_default = IS_WIN and "mmdc.cmd" or "mmdc", ext = "mmd",
+  template = mermaid_template,
+  fp_source = "mermaid_template_v1",
+  is_diagram = true,
+  command = mermaid_command,
+}
+
 -- ---- latex / tex (rendered, not executed) --------------------------------------
 -- Preamble command definitions that survive the preamble deletion (see USER GUIDE).
 local DEF_NAMES = {
@@ -1127,6 +1147,13 @@ end
 local function executable(spec)
   local e = os.getenv(spec.exe_env)
   if not e or e == "" then e = spec.exe_default end
+  if IS_WIN and spec.id == "mermaid" and (e == "mmdc.cmd" or e == "mmdc") then
+    local appdata = os.getenv("APPDATA")
+    if appdata then
+      local candidate = appdata .. "\\npm\\mmdc.cmd"
+      if file_exists(candidate) then e = candidate end
+    end
+  end
   return e
 end
 
@@ -1157,6 +1184,15 @@ local function runtime_fingerprint(spec, exe)
   elseif spec.id == "java" then
     local command = exe:match('^"(.*)"$') or exe
     local ok, result = pcall(pandoc.pipe, command, { "-version" }, "")
+    if ok and result and result ~= "" then
+      local first_line = result:match("^[^\r\n]+") or result
+      COMPILER_FINGERPRINTS[cache_key] = first_line
+      return first_line
+    end
+    return "default"
+  elseif spec.id == "mermaid" then
+    local command = exe:match('^"(.*)"$') or exe
+    local ok, result = pcall(pandoc.pipe, command, { "--version" }, "")
     if ok and result and result ~= "" then
       local first_line = result:match("^[^\r\n]+") or result
       COMPILER_FINGERPRINTS[cache_key] = first_line
@@ -1275,7 +1311,8 @@ local function run_exec(el, spec)
       return { ok = true, out = read_file(prefix .. ".out") or "", err = "", figs = figs }
     end
   end
-  local confirm_env = os.getenv("MD2PDF_CONFIRM_EXEC") or os.getenv("MD2PDF_CONFIRM_" .. spec.id:upper()) or "1"
+  local confirm_env = os.getenv("MD2PDF_CONFIRM_" .. spec.id:upper())
+      or (spec.is_diagram and "0" or (os.getenv("MD2PDF_CONFIRM_EXEC") or "1"))
   if confirm_env ~= "0" and (force_run or a["trusted"] ~= "true") then
     local lang_label = spec.label or spec.id
     io.write(string.format("\n%s code needs to run", lang_label))
@@ -1297,11 +1334,13 @@ end
 local function render(el, spec, res)
   local a, blocks = el.attributes, {}
 
-  if a["show"] ~= "false" then
+  local show_code = a["show"] == "true" or (not spec.is_diagram and a["show"] ~= "false")
+  if show_code then
     blocks[#blocks + 1] = pandoc.CodeBlock(el.text, pandoc.Attr("", { spec.id }))
   end
 
-  if a["output"] ~= "false" then
+  local show_output = a["output"] == "true" or (not spec.is_diagram and a["output"] ~= "false")
+  if show_output then
     local txt = first_lines(trim_end(res.out), a["maxlines"])
     if txt ~= "" then
       if OUTPUT_LABEL ~= "" then
@@ -1320,7 +1359,15 @@ local function render(el, spec, res)
   if #figs == 0 and a["figures"] ~= "false" and a["img"] and file_exists(a["img"]) then figs = { a["img"] } end
   for _, p in ipairs(figs) do
     if file_exists(p) then
-      blocks[#blocks + 1] = pandoc.Para({ pandoc.Image({}, p) })
+      local img_attr = pandoc.Attr("", {}, {})
+      if a["width"] then img_attr.attributes["width"] = a["width"] end
+      local img = pandoc.Image({}, p, "", img_attr)
+      if a["caption"] and pandoc.Figure then
+        local cap = pandoc.read(a["caption"]).blocks
+        blocks[#blocks + 1] = pandoc.Figure(pandoc.Plain({ img }), cap)
+      else
+        blocks[#blocks + 1] = pandoc.Para({ img })
+      end
     else
       warn("expected image not found: " .. p)
     end

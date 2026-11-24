@@ -670,7 +670,7 @@ local SKIP_PACKAGE_NAMES = [[
   tikz pgf pgfplots booktabs longtable array float caption fvextra xurl soul etoolbox
   newunicodechar unicode-math bm cancel mhchem placeins multirow calc footnotehyper
   textcomp mathrsfs bookmark color siunitx circuitikz tcolorbox algorithm algpseudocode
-  chemfig subcaption listings enumitem adjustbox pgfplotstable tikz-cd footnote
+  chemfig subcaption listings enumitem adjustbox pgfplotstable tikz-cd footnote zref xparse
 ]]
 for name in SKIP_PACKAGE_NAMES:gmatch("%S+") do SKIP_PACKAGES[name] = true end
 local TEMPLATE_THEOREMS = { theorem = true, lemma = true, proposition = true, corollary = true,

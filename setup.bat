@@ -141,7 +141,7 @@ if not errorlevel 1 (
     echo   [OK] Automatic package installation is enabled. MiKTeX will not block on missing packages!
     
     echo   [INFO] Pre-installing packages used by Reference Notes template...
-    set "MIKTEX_PKGS=geometry fancyhdr mathtools amsmath amscls amsfonts bm cancel mhchem physics mathrsfs fontspec xcolor etoolbox microtype parskip babel babel-bengali babel-hindi babel-chinese soul newunicodechar graphics float placeins pgf pgfplots tools booktabs multirow calc caption fvextra circuitikz siunitx algorithms algorithmicx chemfig listings enumitem tcolorbox adjustbox pgfplotstable tikz-cd hyperref bookmark xurl"
+    set "MIKTEX_PKGS=geometry fancyhdr mathtools amsmath amscls amsfonts bm cancel mhchem physics mathrsfs fontspec xcolor etoolbox microtype parskip babel babel-bengali babel-hindi babel-chinese soul newunicodechar graphics float placeins pgf pgfplots tools booktabs multirow calc caption fvextra circuitikz siunitx algorithms algorithmicx chemfig listings enumitem tcolorbox adjustbox pgfplotstable tikz-cd hyperref bookmark xurl zref xparse"
     for %%p in (!MIKTEX_PKGS!) do (
         mpm --install=%%p >nul 2>&1
     )

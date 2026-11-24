@@ -145,7 +145,7 @@ REGISTRY.SKIP_PACKAGES = word_set([[
   tikz pgf pgfplots booktabs longtable array float caption fvextra xurl soul etoolbox
   newunicodechar unicode-math bm cancel mhchem placeins multirow calc footnotehyper
   textcomp mathrsfs bookmark color siunitx circuitikz tcolorbox algorithm algpseudocode
-  chemfig subcaption listings enumitem adjustbox pgfplotstable tikz-cd footnote
+  chemfig subcaption listings enumitem adjustbox pgfplotstable tikz-cd footnote zref xparse
 ]])
 
 -- Theorem-like environments (defined by the template, so \newtheorem of them is dropped).
@@ -153,7 +153,7 @@ REGISTRY.THEOREMS = word_set("theorem lemma proposition corollary definition exa
 
 -- Environments whose body should still be parsed as Markdown (**bold**, lists, $math$ ...).
 -- A bare \begin{theorem}..\end{theorem} is otherwise passed through as one raw LaTeX block.
-REGISTRY.DIV_ENVS = word_set("proof abstract quote tcolorbox")
+REGISTRY.DIV_ENVS = word_set("proof abstract quote tcolorbox marginbox")
 for name in pairs(REGISTRY.THEOREMS) do REGISTRY.DIV_ENVS[name] = true end
 
 -- Commands that are moved to the LaTeX preamble when found in the BODY.
@@ -1423,9 +1423,9 @@ local function space_fences(text)
         local is_hr = line:match("^%s*%-%-%-+%s*$") or line:match("^%s*%*%*%*+%s*$") or line:match("^%s*___+%s*$")
         local is_div = line:match("^%s*:::+")
         local env_begin = line:match("^%s*\\begin%s*{([%a*]+)}")
-        local is_env_begin = env_begin and (REGISTRY.DIV_ENVS[env_begin] or env_begin == "tcolorbox")
+        local is_env_begin = env_begin and (REGISTRY.DIV_ENVS[env_begin] or env_begin == "tcolorbox" or env_begin == "marginbox")
         local env_end = line:match("^%s*\\end%s*{([%a*]+)}")
-        local is_env_end = env_end and (REGISTRY.DIV_ENVS[env_end] or env_end == "tcolorbox")
+        local is_env_end = env_end and (REGISTRY.DIV_ENVS[env_end] or env_end == "tcolorbox" or env_end == "marginbox")
         if is_hr or is_div or is_env_begin or is_env_end then
           if #out > 0 and out[#out]:match("%S") then
             out[#out + 1] = ""
@@ -2095,7 +2095,7 @@ local function table_fix(t)
   return t
 end
 
-local BOX_CLASSES = word_set("tcolorbox box callout note warning tip important danger info")
+local BOX_CLASSES = word_set("tcolorbox box callout note warning tip important danger info marginbox")
 local BOX_PALETTE = { "blue", "teal", "orange", "purple", "green", "red", "magenta", "olive", "cyan", "violet" }
 if not pcall(math.randomseed) then
   math.randomseed(os.time() + math.floor((os.clock() or 0) * 1000000))
@@ -2113,7 +2113,7 @@ end
 
 local function is_box_div(el)
   if el.tag ~= "Div" then return false end
-  if el.attributes["lenv"] == "tcolorbox" then return true end
+  if el.attributes["lenv"] == "tcolorbox" or el.attributes["lenv"] == "marginbox" then return true end
   for cls in pairs(BOX_CLASSES) do
     if el.classes:includes(cls) then return true end
   end
@@ -2147,23 +2147,28 @@ local function assign_box_colors(blocks, parent_color)
   end
 end
 
--- Inverse of envs_to_divs: turn the marker Div back into \begin{env}[opt] .. \end{env}.
--- Also supports Markdown fenced divs ::: {.tcolorbox ...}, ::: {.box ...}, ::: {.callout ...}
+-- Inverse of envs_to_divs: turn the marker Div back into \begin{env}[opt]{title} .. \end{env}.
+-- Also supports Markdown fenced divs ::: {.marginbox ...}, ::: {.box ...}, ::: {.callout ...}
 local function div_fix(el)
   if el.classes:includes("pagebreak") then
     return { pandoc.HorizontalRule() }
   end
   local env = el.attributes["lenv"]
   local opt = ""
+  local title_arg = ""
   if env then
     opt = State.env_opts[tonumber(el.attributes["lopt"] or "")] or ""
+    if env == "tcolorbox" then
+      env = "marginbox"
+    end
   elseif el.classes:includes("tcolorbox") or el.classes:includes("box") or el.classes:includes("callout")
+      or el.classes:includes("marginbox")
       or el.classes:includes("note") or el.classes:includes("warning") or el.classes:includes("tip")
       or el.classes:includes("important") or el.classes:includes("danger") or el.classes:includes("info") then
-    env = "tcolorbox"
+    env = "marginbox"
     local opts = {}
     if el.attributes["title"] then
-      opts[#opts + 1] = "title={" .. el.attributes["title"] .. "}"
+      title_arg = "{" .. el.attributes["title"] .. "}"
     end
     local color = el.attributes["color"] or el.classes[2]
     if not color then
@@ -2179,20 +2184,31 @@ local function div_fix(el)
     end
     if color then
       if color == "blue" or color == "info" or color == "note" then
-        opts[#opts + 1] = "colback=blue!5!white,colframe=blue!75!black"
+        opts[#opts + 1] = "color=NavyBlue,bg=NavyBlue!4"
       elseif color == "red" or color == "danger" or color == "important" then
-        opts[#opts + 1] = "colback=red!5!white,colframe=red!75!black"
+        opts[#opts + 1] = "color=RubineRed,bg=red!5"
       elseif color == "green" or color == "success" or color == "tip" then
-        opts[#opts + 1] = "colback=green!5!white,colframe=green!60!black"
+        opts[#opts + 1] = "color=ForestGreen,bg=green!5"
       elseif color == "amber" or color == "warning" or color == "orange" then
-        opts[#opts + 1] = "colback=orange!10!white,colframe=orange!80!black"
+        opts[#opts + 1] = "color=BurntOrange,bg=orange!7"
       elseif color == "purple" or color == "deep" then
-        opts[#opts + 1] = "colback=purple!5!white,colframe=purple!75!black"
+        opts[#opts + 1] = "color=RoyalPurple,bg=purple!5"
       elseif color == "gray" or color == "neutral" then
-        opts[#opts + 1] = "colback=gray!5!white,colframe=gray!60!black"
+        opts[#opts + 1] = "color=Gray,bg=gray!6"
+      elseif color == "teal" then
+        opts[#opts + 1] = "color=TealBlue,bg=teal!5"
+      elseif color == "magenta" then
+        opts[#opts + 1] = "color=Magenta,bg=magenta!5"
+      elseif color == "olive" then
+        opts[#opts + 1] = "color=OliveGreen,bg=olive!5"
+      elseif color == "cyan" then
+        opts[#opts + 1] = "color=ProcessBlue,bg=cyan!5"
       else
-        opts[#opts + 1] = "colback=" .. color .. "!5!white,colframe=" .. color .. "!75!black"
+        opts[#opts + 1] = "color=" .. color .. ",bg=" .. color .. "!5"
       end
+    end
+    if el.attributes["radius"] then
+      opts[#opts + 1] = "radius=" .. el.attributes["radius"]
     end
     if el.attributes["options"] then
       opts[#opts + 1] = el.attributes["options"]
@@ -2204,7 +2220,15 @@ local function div_fix(el)
     return nil
   end
   local safe_opt = (opt or ""):gsub("([^\\])&", "%1\\&"):gsub("^&", "\\&")
-  local out = { pandoc.RawBlock("latex", "\\begin{" .. env .. "}" .. safe_opt) }
+  local begin_str = "\\begin{" .. env .. "}" .. safe_opt
+  if env == "marginbox" then
+    if title_arg ~= "" then
+      begin_str = begin_str .. title_arg
+    else
+      begin_str = begin_str .. "{}"
+    end
+  end
+  local out = { pandoc.RawBlock("latex", begin_str) }
   for _, b in ipairs(el.content) do out[#out + 1] = b end
   out[#out + 1] = pandoc.RawBlock("latex", "\\end{" .. env .. "}")
   return out
@@ -2312,9 +2336,9 @@ local function calculate_whiteboard_width(doc)
     if not blocks then return end
     for _, b in ipairs(blocks) do
       if b.tag == "RawBlock" and b.format == "latex" then
-        if b.text:match("\\begin%s*{tcolorbox") or b.text:match("\\begin%s*{quote") then
+        if b.text:match("\\begin%s*{tcolorbox") or b.text:match("\\begin%s*{marginbox") or b.text:match("\\begin%s*{quote") then
           depth = depth + 1
-        elseif b.text:match("\\end%s*{tcolorbox") or b.text:match("\\end%s*{quote") then
+        elseif b.text:match("\\end%s*{tcolorbox") or b.text:match("\\end%s*{marginbox") or b.text:match("\\end%s*{quote") then
           depth = math.max(0, depth - 1)
         end
       elseif is_box_div(b) then

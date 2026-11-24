@@ -321,6 +321,7 @@ Change ledger
   2026-11-24 | Whiteboard multi-page height limit ceiling (100in) and breakable box page overflow handling | source +21 / -10 | 228 / 500
   2026-11-24 | Documented nested child box tcolorbox pagebreak limitation across features and limitations | source +0 / -0 | 228 / 500
   2026-11-24 | Whiteboard maximum width ceiling clamp (100in) matching height limit | source +5 / -0 | 233 / 500
+  2026-11-24 | Pure TeX marginbox architecture replacing rigid vbox/tcolorbox with 100% nested child box pagebreakability | source +258 / -28 | 463 / 500
 
 For each later accepted change, append one entry in this format:
 

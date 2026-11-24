@@ -458,43 +458,41 @@ The outer 4 backticks prevent the inner 3 backticks from closing the box!
 
 ---
 
-### 3.9. Colorful Frames, Nested Callouts & ```` ```color ```` Fences (`tcolorbox`, `::: {.box}`, ```` ```color ````)
+### 3.9. Colorful Frames, Nested Callouts & ```` ```color ```` Fences (`marginbox`, `::: {.box}`, ```` ```color ````)
 
 #### How It Renders Under the Hood
-* **Engine & Multi-Page Breaking:** Colorful frames are rendered via LaTeX's **`tcolorbox`** package with `[most]`, configured globally with `enhanced jigsaw, breakable, arc=1.5mm, boxrule=0.8pt`. This guarantees that boxes break cleanly across page boundaries without clipping borders or orphan overflows.
+* **Engine & Multi-Page Breaking:** Colorful frames are rendered via the custom **`marginbox`** LaTeX system. Unlike legacy box packages (`tcolorbox`, `mdframed`, `framed`) that encapsulate body text inside rigid TeX `\vbox` registers (preventing inner boxes from breaking across pages), `marginbox` keeps all content directly in TeX's main vertical list using LaTeX list primitives (`\list{} ... \endlist`) with decremented list depth (`\@listdepth`) to allow infinite list nesting.
+* **Non-Invasive TikZ Geometry Overlays:** Boundary coordinates and absolute page numbers are tracked via `zref-savepos` (`mb-top` and `mb-bot`). The 4-sided borders and optional background tint fills are drawn asynchronously during `\AddToHook{shipout/background}` via TikZ `overlay, remember picture`. When a box (or a nested child box) spans across page boundaries, the hook automatically detects multi-page splits and renders seamless open borders (open at bottom on the first page, open at top on the final page, open at top and bottom on intermediate pages).
 * **Triple Syntax Support:**
   * **Code Fence Syntax (```` ```color ````):** Standard code block syntax ```` ```color title="..." ````, ```` ```color color="..." ````, or ```` ```{color ...} ````. Pre-processed in Stage A into structural box blocks, enabling rich Markdown, math, and inner code fences to run inside.
-  * **Markdown Fenced Divs (`::: {.box}`):** Pandoc fenced divs (`::: {.box ...}` or `::: {.callout ...}`) are automatically mapped to styled `tcolorbox` environments. Standard semantic callout classes (`::: {.note}`, `::: {.warning}`, `::: {.tip}`, `::: {.danger}`, `::: {.info}`) are also supported.
-  * **LaTeX Syntax:** Direct `\begin{tcolorbox}[colback=..., colframe=..., title=...] ... \end{tcolorbox}` environments are recognized in Markdown prose, converted into AST Div structures during normalization, and restored to native XeLaTeX environments.
+  * **Markdown Fenced Divs (`::: {.box}`):** Pandoc fenced divs (`::: {.box ...}` or `::: {.callout ...}`) are automatically mapped to styled `marginbox` environments. Standard semantic callout classes (`::: {.note}`, `::: {.warning}`, `::: {.tip}`, `::: {.danger}`, `::: {.info}`) are also supported.
+  * **LaTeX Syntax:** Direct `\begin{marginbox}[options]{title}` environments are supported natively. Direct calls to `\begin{tcolorbox}[...]` are automatically redirected to `marginbox` via a transparent compatibility environment with option key mapping (`colframe`, `colback`, `title`), ensuring 100% legacy compatibility with zero rigid `\vbox` registers.
 * **True-Random Color Assignment & Parent-Child Divergence:**
   * When `color="..."` is omitted on a box or ```` ```color ```` fence, the normalizer dynamically picks a random color from a rich palette of standard colors (`blue`, `teal`, `orange`, `purple`, `green`, `red`, `magenta`, `olive`, `cyan`, `violet`) using system randomness (`math.random`).
   * **Parent-Child Color Collision Prevention:** For nested child boxes, the candidate color pool automatically excludes the parent's color ($\text{Candidates} = \text{PALETTE} \setminus \{\text{parent\_color}\}$). This mathematically guarantees that no child box ever renders with the same color as its parent container.
   * If an explicit color is provided (e.g. `color="red"`), that color is preserved, and any child boxes inside it will automatically avoid `red`.
 * **Color Presets:** Specifying `color="<preset>"` on a fenced div automatically sets complementary background and frame colors:
-  * `blue`: light blue background (`blue!5!white`) with vibrant blue frame (`blue!75!black`).
-  * `green`: subtle green background (`green!5!white`) with dark green frame (`green!60!black`).
-  * `red`: light red background (`red!5!white`) with crimson frame (`red!75!black`).
-  * `orange`: warm peach background (`orange!10!white`) with deep orange frame (`orange!80!black`).
-  * `purple`: lavender background (`purple!5!white`) with rich purple frame (`purple!75!black`).
-  * `yellow`: pale yellow background (`yellow!10!white`) with amber frame (`yellow!60!black`).
-  * `gray` / `grey`: neutral light gray background (`gray!5!white`) with slate gray frame (`gray!60!black`).
-  * `cyan`: light cyan background (`cyan!5!white`) with deep cyan frame (`cyan!75!black`).
-  * `magenta`: soft magenta background (`magenta!5!white`) with dark magenta frame (`magenta!75!black`).
-  * `teal`: mint background (`teal!5!white`) with deep teal frame (`teal!75!black`).
-  * `olive`: soft olive background (`olive!5!white`) with deep olive frame (`olive!75!black`).
-  * `violet`: soft violet background (`violet!5!white`) with deep violet frame (`violet!75!black`).
+  * `blue`: subtle blue background (`NavyBlue!4`) with vibrant frame (`NavyBlue`).
+  * `green`: subtle green background (`green!5`) with forest green frame (`ForestGreen`).
+  * `red`: subtle red background (`red!5`) with ruby red frame (`RubineRed`).
+  * `orange`: warm orange background (`orange!7`) with burnt orange frame (`BurntOrange`).
+  * `purple`: subtle purple background (`purple!5`) with royal purple frame (`RoyalPurple`).
+  * `gray` / `grey`: neutral light gray background (`gray!6`) with slate gray frame (`Gray`).
+  * `cyan`: subtle cyan background (`cyan!5`) with process blue frame (`ProcessBlue`).
+  * `magenta`: soft magenta background (`magenta!5`) with vivid magenta frame (`Magenta`).
+  * `teal`: mint background (`teal!5`) with deep teal frame (`TealBlue`).
+  * `olive`: soft olive background (`olive!5`) with olive green frame (`OliveGreen`).
   * *Unspecified*: randomly selected from `PALETTE` excluding parent color.
-* **Arbitrary Nesting & Child Box Pagebreak Limitation:** Fenced boxes can be nested within one another to any depth (e.g. an outer container enclosing an inner warning box enclosing an inner tip box). The LIFO environment stack in `markdown-normalizer.lua` and bottom-up AST processing in Pandoc guarantee that inner boxes are fully resolved before outer containers close.
-  * **Nested Child Box Pagebreak Limitation:** Top-level (outer) boxes break across page boundaries cleanly. However, per `tcolorbox`'s fundamental engine invariant (*"A breakable box cannot contain breakable boxes"*), child boxes nested inside an outer box cannot internally split across a page break. On standard A4, child boxes must fit on one page (~35–40 lines). On the whiteboard layout, child boxes enjoy up to 100 inches (~8.5 A4 pages or 600–700 lines) of continuous vertical headroom before reaching a page boundary. If an inner block exceeds this limit, it should be structured as adjacent/consecutive boxes rather than an excessively deep single child box.
-* **Universal Space & Boundary Protection:** In Stage A cleaning, `space_fences` automatically injects blank line boundaries before and after `\begin{tcolorbox}`, `\end{tcolorbox}`, `::: {.box}`, and `:::`. Even if AI responses or pasted notes directly touch paragraph text without empty lines, boxes are never merged into adjacent paragraphs.
+* **Arbitrary Nesting & Complete Child Box Pagebreakability:** Fenced boxes can be nested within one another to any depth (e.g. an outer container enclosing an inner warning box enclosing an inner tip box). Because content resides in TeX's unboxed vertical list, **both top-level parent boxes and inner child boxes break cleanly across page boundaries at any line or paragraph**.
+* **Universal Space & Boundary Protection:** In Stage A cleaning, `space_fences` automatically injects blank line boundaries before and after `\begin{marginbox}`, `\begin{tcolorbox}`, `::: {.box}`, and `:::`. Even if AI responses or pasted notes directly touch paragraph text without empty lines, boxes are never merged into adjacent paragraphs.
 * **Full Pipeline Compatibility Inside Boxes:** All pipeline features function inside nested boxes without degradation:
   * Display math and AMS environments (`align`, `equation`, `gather`) render with full equation numbering and formatting.
   * Executable code fences (Python, C, C++, Java) compile, run, cache, and capture stdout/figures directly within the box frame.
   * Markdown tables, blockquotes, lists, and task lists render cleanly.
   * Multilingual text (Bengali, Hindi, CJK) routes through Babel fonts without glyph corruption.
   * Local file hyperlinks (`file:///...`) resolve to launchable native links.
-* **Special Character Sanitization (`&` in Titles):** In LaTeX `tcolorbox`, an unescaped ampersand (`&`) in `title={...}` triggers a `Misplaced alignment tab character &` compilation crash. The normalizer's `div_fix` automatically escapes unescaped ampersands (`&` $\to$ `\&`) in box options and titles.
-* **Universal Hoist Deduplication:** If user notes or pasted documents include `\usepackage{tcolorbox}` or `\usepackage{xcolor}`, the normalizer's `SKIP_PACKAGES` list prevents duplicate package loading, avoiding LaTeX option clashes.
+* **Special Character Sanitization (`&` in Titles):** Unescaped ampersands (`&`) in titles and options are automatically escaped (`&` $\to$ `\&`) during AST normalization to prevent compilation issues.
+* **Universal Hoist Deduplication:** If user notes or pasted documents include `\usepackage{tcolorbox}`, `\usepackage{zref}`, `\usepackage{xparse}`, or `\usepackage{xcolor}`, the normalizer's `SKIP_PACKAGES` list prevents duplicate package loading, avoiding LaTeX option clashes.
 
 #### Examples
 

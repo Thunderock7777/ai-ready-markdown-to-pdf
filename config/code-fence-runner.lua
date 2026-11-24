@@ -696,15 +696,30 @@ for name in SKIP_PACKAGE_NAMES:gmatch("%S+") do SKIP_PACKAGES[name] = true end
 local TEMPLATE_THEOREMS = { theorem = true, lemma = true, proposition = true, corollary = true,
   definition = true, example = true, remark = true }
 local SIMPLE_PREAMBLE = {
-  usetikzlibrary = true, usepgfplotslibrary = true, usepgflibrary = true,
+  usetikzlibrary = true, usepgfplotslibrary = true, usepgflibrary = true, usegdlibrary = true,
   pgfplotsset = true, tikzset = true, sisetup = true, theoremstyle = true,
   newunicodechar = true, hypersetup = true, mathtoolsset = true,
+  tcbset = true, lstset = true, captionsetup = true, setlist = true,
+  setchemfig = true, definesubmol = true, swapnumbers = true,
+  DeclareUnicodeCharacter = true,
 }
 local PAIR_DELIM = {
   DeclarePairedDelimiter = 2, DeclarePairedDelimiterX = 3, DeclarePairedDelimiterXPP = 5,
   DeclareMathSymbol = 3, DeclareMathDelimiter = 5, DeclareMathAccent = 3,
+  DeclareMathAlphabet = 4, SetMathAlphabet = 5,
+  DeclareSymbolFont = 4, SetSymbolFont = 5,
+  DeclareSymbolFontAlphabet = 1, DeclareMathVersion = 0,
+  DeclareMathSizes = 3, numberwithin = 1,
+  definecolor = 2, colorlet = 1, providecolor = 2,
+  newlength = 0, setlength = 1, addtolength = 1,
+  newcounter = 0, setcounter = 1, addtocounter = 1,
+  PassOptionsToPackage = 1,
 }
-local THREE_ARG_PREAMBLE = { NewDocumentCommand = true, DeclareDocumentCommand = true }
+local THREE_ARG_PREAMBLE = {
+  NewDocumentCommand = true, DeclareDocumentCommand = true,
+  ProvideDocumentCommand = true, RenewDocumentCommand = true,
+  NewExpandableDocumentCommand = true,
+}
 -- Fontspec font family/face definition commands that survive preamble deletion (kept in local_cmds).
 local FONT_FAMILY_COMMANDS = {
   newfontfamily = true, renewfontfamily = true,
@@ -883,20 +898,23 @@ local function extract_commands(pre)
           end
         end
       elseif not in_comment(pre, a)
-          and (name == "usepackage" or SIMPLE_PREAMBLE[name] or name == "DeclareMathOperator"
+          and (name == "usepackage" or name == "RequirePackage" or SIMPLE_PREAMBLE[name] or name == "DeclareMathOperator"
             or name == "newtheorem" or PAIR_DELIM[name] or name == "newenvironment"
             or THREE_ARG_PREAMBLE[name]) then
         local optional = ""
         if (name == "DeclareMathOperator" or name == "newtheorem")
             and pre:sub(cursor, cursor) == "*" then cursor = cursor + 1 end
         cursor = skip_space(pre, cursor)
-        if name == "usepackage" and pre:sub(cursor, cursor) == "[" then
+        if (name == "usepackage" or name == "RequirePackage") and pre:sub(cursor, cursor) == "[" then
           local e = match_group(pre, cursor, "[", "]")
           if e then optional = pre:sub(cursor, e); cursor = e + 1 end
         end
         cursor = skip_space(pre, cursor)
         local first_end
-        if pre:sub(cursor, cursor) == "{" then
+        if name == "swapnumbers" then
+          first_end = cursor - 1
+          finish = first_end
+        elseif pre:sub(cursor, cursor) == "{" then
           first_end = match_group(pre, cursor, "{", "}")
         elseif pre:sub(cursor, cursor) == "\\" and (name == "DeclareMathOperator" or PAIR_DELIM[name] or THREE_ARG_PREAMBLE[name]) then
           local token = pre:sub(cursor):match("^\\[%a@]+")
@@ -904,26 +922,43 @@ local function extract_commands(pre)
         end
         if first_end then
           if PAIR_DELIM[name] then
-            local next_arg = skip_space(pre, first_end + 1)
-            if pre:sub(next_arg, next_arg) == "[" then
-              local optional_end = match_group(pre, next_arg, "[", "]")
-              next_arg = optional_end and optional_end + 1 or next_arg
-            end
-            for k = 1, PAIR_DELIM[name] do
-              next_arg = skip_space(pre, next_arg)
-              if pre:sub(next_arg, next_arg) == "{" then
-                finish = match_group(pre, next_arg, "{", "}")
-                next_arg = finish and finish + 1 or next_arg
-              elseif pre:sub(next_arg, next_arg) == "\\" then
-                local token = pre:sub(next_arg):match("^\\[%a@]+")
-                finish = token and (next_arg + #token - 1) or nil
-                next_arg = finish and finish + 1 or next_arg
-              elseif pre:sub(next_arg, next_arg):match('^[%w"%-\']') then
-                local token = pre:sub(next_arg):match('^"[^"]*"') or pre:sub(next_arg):match("^'[^']*'") or pre:sub(next_arg):match("^[%w%-]+")
-                finish = token and (next_arg + #token - 1) or nil
-                next_arg = finish and finish + 1 or next_arg
-              else
-                finish = nil; break
+            if PAIR_DELIM[name] == 0 then
+              finish = first_end
+              local next_arg = skip_space(pre, first_end + 1)
+              if pre:sub(next_arg, next_arg) == "[" then
+                local optional_end = match_group(pre, next_arg, "[", "]")
+                finish = optional_end or first_end
+              end
+            else
+              local next_arg = skip_space(pre, first_end + 1)
+              for k = 1, PAIR_DELIM[name] do
+                next_arg = skip_space(pre, next_arg)
+                if pre:sub(next_arg, next_arg) == "[" then
+                  local optional_end = match_group(pre, next_arg, "[", "]")
+                  next_arg = optional_end and (optional_end + 1) or next_arg
+                  next_arg = skip_space(pre, next_arg)
+                end
+                if pre:sub(next_arg, next_arg) == "{" then
+                  finish = match_group(pre, next_arg, "{", "}")
+                  next_arg = finish and finish + 1 or next_arg
+                elseif pre:sub(next_arg, next_arg) == "\\" then
+                  local token = pre:sub(next_arg):match("^\\[%a@]+")
+                  finish = token and (next_arg + #token - 1) or nil
+                  next_arg = finish and finish + 1 or next_arg
+                elseif pre:sub(next_arg, next_arg):match('^[%w"%-\']') then
+                  local token = pre:sub(next_arg):match('^"[^"]*"') or pre:sub(next_arg):match("^'[^']*'") or pre:sub(next_arg):match("^[%w%-%.]+")
+                  finish = token and (next_arg + #token - 1) or nil
+                  next_arg = finish and finish + 1 or next_arg
+                else
+                  finish = nil; break
+                end
+              end
+              if finish then
+                local next_arg = skip_space(pre, finish + 1)
+                if pre:sub(next_arg, next_arg) == "[" then
+                  local optional_end = match_group(pre, next_arg, "[", "]")
+                  if optional_end then finish = optional_end end
+                end
               end
             end
           elseif name == "DeclareMathOperator" or name == "newtheorem"
@@ -963,7 +998,7 @@ local function extract_commands(pre)
           end
             if finish then
               local first = pre:sub(cursor + 1, first_end - 1):match("^%s*(.-)%s*$")
-              if name == "usepackage" then
+              if name == "usepackage" or name == "RequirePackage" then
                 local keep = {}
                 for package in first:gmatch("[^,%s]+") do
                   if not SKIP_PACKAGES[package] then keep[#keep+1] = package end
@@ -1043,6 +1078,22 @@ local function get_global_command_target(cmd)
     if sym and not sym:match("^\\") then sym = "\\" .. sym end
     return sym
   end
+  if cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccentAlphabet]+")
+      or cmd:match("^%s*\\DeclareSymbolFontAlphabet")
+      or cmd:match("^%s*\\SetMathAlphabet") then
+    local sym = cmd:match("^%s*\\[%a@]+%s*(%b{})")
+    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
+    else sym = cmd:match("^%s*\\[%a@]+%s*(\\[%a@]+)") end
+    if sym and not sym:match("^\\") then sym = "\\" .. sym end
+    return sym
+  end
+  if cmd:match("^%s*\\newlength") then
+    local sym = cmd:match("^%s*\\newlength%s*(%b{})")
+    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
+    else sym = cmd:match("^%s*\\newlength%s*(\\[%a@]+)") end
+    if sym and not sym:match("^\\") then sym = "\\" .. sym end
+    return sym
+  end
   if cmd:match("^%s*\\newtheorem") then
     local sym = cmd:match("^%s*\\newtheorem%*?%s*(%b{})")
     if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$") end
@@ -1072,7 +1123,7 @@ local function render_latex(el, class, preamble, global_defs)
     local local_cmds = {}
     for _, cmd in ipairs(commands) do
       local cmd_name = cmd:match("^%s*\\(%a+)")
-      if cmd_name and (cmd_name == "usepackage" or SIMPLE_PREAMBLE[cmd_name]
+      if cmd_name and (cmd_name == "usepackage" or cmd_name == "RequirePackage" or SIMPLE_PREAMBLE[cmd_name]
           or cmd_name == "DeclareMathOperator" or PAIR_DELIM[cmd_name]
           or cmd_name == "newtheorem") then
         hoisted_cmds[#hoisted_cmds + 1] = cmd
@@ -1091,9 +1142,9 @@ local function render_latex(el, class, preamble, global_defs)
     end
 
     for _, cmd in ipairs(all_cmds_to_check) do
-      if cmd:match("^%s*\\usepackage") then
-        local opt = cmd:match("^%s*\\usepackage%s*(%b[])") or ""
-        local pkgs = cmd:match("^%s*\\usepackage%s*%b[]%s*(%b{})") or cmd:match("^%s*\\usepackage%s*(%b{})")
+      if cmd:match("^%s*\\usepackage") or cmd:match("^%s*\\RequirePackage") then
+        local opt = cmd:match("^%s*\\[%a@]+%s*(%b[])") or ""
+        local pkgs = cmd:match("^%s*\\[%a@]+%s*%b[]%s*(%b{})") or cmd:match("^%s*\\[%a@]+%s*(%b{})")
         if pkgs then
           for pkg in pkgs:sub(2, -2):gmatch("[^,%s]+") do
             local target = "\\usepackage{" .. pkg .. "}"
@@ -1126,7 +1177,9 @@ local function render_latex(el, class, preamble, global_defs)
     for _, cmd in ipairs(hoisted_cmds) do
       -- Make operator and delimiter declarations safe against pre-existing package or template definitions
       if cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\DeclarePairedDelimiter")
-          or cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccent]+") then
+          or cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccentAlphabet]+")
+          or cmd:match("^%s*\\DeclareSymbolFontAlphabet") or cmd:match("^%s*\\SetMathAlphabet")
+          or cmd:match("^%s*\\newlength") then
         local target = get_global_command_target(cmd)
         if target and target:match("^\\[%a@]+") then
           cmd = "\\let" .. target .. "\\relax " .. cmd

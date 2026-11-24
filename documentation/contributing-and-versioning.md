@@ -330,6 +330,7 @@ Version 1.3.9 cycle
 
 Change ledger
   2026-11-24 | Dual-box ecosystem: side-by-side marginbox and vbox/tcolorbox, fence mapping, and shared random color divergence | source +124 / -31 | 155 / 500
+  2026-11-24 | Stabilized marginbox 3-pass TikZ overlay rendering and protected whiteboard preamble aux loading | source +18 / -3 | 176 / 500
 
 For each later accepted change, append one entry in this format:
 

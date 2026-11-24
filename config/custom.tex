@@ -93,6 +93,12 @@ $if(whiteboard_layout)$
 \IfFileExists{\jobname.aux}{%
   \begingroup
     \def\relax{}%
+    \providecommand\pgfsyspdfmark[3]{}%
+    \providecommand\zref@newlabel[2]{}%
+    \providecommand\babel@aux[2]{}%
+    \providecommand\hyper@newdestlabel[2]{}%
+    \providecommand\HyPL@Entry[1]{}%
+    \providecommand\oddpage@label[2]{}%
     \makeatletter
     \input{\jobname.aux}%
   \endgroup

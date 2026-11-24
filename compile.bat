@@ -182,10 +182,19 @@ xelatex -cnf-line=max_print_line=1000 -output-directory="%WORK%" -interaction=no
 if not exist "%WORK_PDF%" goto ATTEMPT_RECOVERY
 
 if %PASS% GEQ 3 goto CHECK_POST_PASS_RECOVERY
-findstr /C:"Rerun to get" /C:"Label(s) may have changed" "%LOG_FILE%" >nul 2>&1
-if errorlevel 1 goto CHECK_POST_PASS_RECOVERY
-set /a PASS+=1
-goto RUN_XELATEX
+findstr /C:"Rerun to get" /C:"Label(s) may have changed" /C:"rerun LaTeX" /C:"Rerun LaTeX" "%LOG_FILE%" >nul 2>&1
+if not errorlevel 1 (
+    set /a PASS+=1
+    goto RUN_XELATEX
+)
+findstr /C:"\begin{marginbox}" "%TEX_OUTPUT%" >nul 2>&1
+if not errorlevel 1 (
+    if %PASS% LSS 3 (
+        set /a PASS+=1
+        goto RUN_XELATEX
+    )
+)
+goto CHECK_POST_PASS_RECOVERY
 
 :CHECK_POST_PASS_RECOVERY
 if "%RECOVERY_ATTEMPTED%"=="1" goto REPORT

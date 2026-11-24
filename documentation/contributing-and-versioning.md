@@ -329,6 +329,7 @@ Version 1.3.9 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-24 | Dual-box ecosystem: side-by-side marginbox and vbox/tcolorbox, fence mapping, and shared random color divergence | source +124 / -31 | 155 / 500
 
 For each later accepted change, append one entry in this format:
 

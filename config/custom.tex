@@ -49,7 +49,7 @@
 %   Code      fvextra: long lines WRAP in highlighted code and in plain (language-less) fences.
 %   Refs      pandoc --citeproc bibliographies work (reference list with hanging indent).
 %   Extras    loaded only if installed: circuitikz, siunitx, algorithm + algpseudocode, chemfig,
-%             subcaption, listings, enumitem, marginbox (pure TeX breakable boxes), adjustbox, pgfplotstable, tikz-cd.
+%             subcaption, listings, enumitem, tcolorbox [most], marginbox (pure TeX breakable boxes), adjustbox, pgfplotstable, tikz-cd.
 %   Links     hyperref (blue links, breakable), bookmark (headings with symbols are fine), xurl.
 %   Pandoc    variables used: title, author(s), date, abstract, header-left, fontsize,
 %             presentation_layout (derived from page-layout), title_rule (derived from title-rule),
@@ -74,7 +74,7 @@
 %             or "whiteboard" (single continuous page with flexible height and width: 11in min floor,
 %             auto-expanding for wide tables/boxes, up to 100in ceiling before page break). Other layout values fall back to A4 with a warning.
 %             Header position is fixed; font size is 10/11/12pt only; other layout variables are ignored; English hyphenation only.
-%             Boxes: marginbox uses pure TeX list primitives and shipout background overlays, allowing both parent and nested child boxes to break across page boundaries without rigid \vbox limits.
+%             Boxes: marginbox uses pure TeX list primitives and shipout background overlays, allowing both parent and nested child boxes to break across page boundaries without rigid \vbox limits. tcolorbox provides classic LaTeX \vbox-based boxes.
 %   \qty      physics' own \qty does not accept  \qty\{..\}  (it prints (){..}); use \qty{..}.
 %   Unicode   an unmapped symbol prints blank with a "Missing character" warning in the log.
 %             Typed TeX double scripts (x^2² or x_1₂) are real errors and still fail.
@@ -567,6 +567,10 @@ $endif$
 \IfFileExists{subcaption.sty}{\usepackage{subcaption}}{}
 \IfFileExists{listings.sty}{\usepackage{listings}}{}
 \IfFileExists{enumitem.sty}{\usepackage{enumitem}}{}
+\IfFileExists{tcolorbox.sty}{%
+  \usepackage[most]{tcolorbox}%
+  \tcbset{enhanced jigsaw, breakable, arc=1.5mm, boxrule=0.8pt}%
+}{}
 \IfFileExists{zref.sty}{\usepackage[savepos,abspage,user]{zref}}{}
 \IfFileExists{xparse.sty}{\usepackage{xparse}}{}
 % --------------------------------------------- marginbox (pure TeX breakable boxes with bold header band & shadow)
@@ -823,10 +827,6 @@ $endif$
       { \__marginbox_draw_one:n { #1 } }
   }
 \ExplSyntaxOff
-% Compatibility alias: redirect tcolorbox to marginbox so all boxes avoid rigid \vbox
-\NewDocumentEnvironment{tcolorbox}{ O{} G{} }
-  {\begin{marginbox}[#1]{#2}}
-  {\end{marginbox}}
 \IfFileExists{adjustbox.sty}{\usepackage{adjustbox}}{}
 \IfFileExists{pgfplotstable.sty}{\usepackage{pgfplotstable}}{}
 \IfFileExists{tikz-cd.sty}{\usepackage{tikz-cd}}{}

@@ -1136,10 +1136,15 @@ local function envs_to_divs(text)
       if env and REGISTRY.DIV_ENVS[env] and not rest:match("\\end%s*{" .. env:gsub("%*", "%%*") .. "}") then
         local opt, tail = rest:match("^%s*(%b[])(.*)$")
         if not opt then tail = rest end
+        local title_group = nil
+        if env == "marginbox" then
+          title_group, tail = tail:match("^%s*(%b{})(.*)$")
+        end
         State.env_opts[#State.env_opts + 1] = opt or ""
         env_stack[#env_stack + 1] = env
         out[#out+1] = ""
-        out[#out+1] = string.format('::: {.latexenv lenv="%s" lopt="%d"}', env, #State.env_opts)
+        local title_attr = title_group and string.format(' ltitle="%s"', title_group:sub(2, -2):gsub('"', '\\"')) or ""
+        out[#out+1] = string.format('::: {.latexenv lenv="%s" lopt="%d"%s}', env, #State.env_opts, title_attr)
         if tail:match("%S") then out[#out+1] = (tail:gsub("^%s+", "")) end
       else
         local before, e, after = line:match("^(.-)\\end%s*{([%a*]+)}(.*)$")
@@ -1476,29 +1481,54 @@ local function normalize_fence_attributes(text)
   return table.concat(out, "\n")
 end
 
--- Converts ```color ... ``` fences into Pandoc fenced Divs (::: {.box ...})
--- Supports nesting of color boxes and leaves inner non-color code fences untouched.
-local function pass_color_fences(text)
+-- Converts ```marginbox ... ``` and ```vbox ... ``` fences into Pandoc fenced Divs
+-- (::: {.marginbox ...} and ::: {.vbox ...})
+-- Supports nesting of boxes and leaves inner non-box code fences untouched.
+local function pass_box_fences(text)
   local out = {}
-  local color_stack = {}
+  local box_stack = {}
   local code_fence = nil
+
+  local function normalize_box_attrs(a)
+    if not a or not a:match("%S") then return "" end
+    a = a:match("^%s*(.-)%s*$")
+    if a:match("=") then return " " .. a end
+    local q = a:match('^"([^"]+)"$') or a:match("^'([^']+)'$")
+    if q then return string.format(' title="%s"', q) end
+    local col, q2 = a:match('^(%a+)%s+"([^"]+)"$') or a:match("^(%a+)%s+'([^']+)'$")
+    if col and q2 then return string.format(' color=%s title="%s"', col, q2) end
+    return " " .. a
+  end
+
   for line in each_line(text) do
     local indent, ticks, rest = line:match("^(%s*)([`~]+)%s*(.*)$")
     if ticks and #ticks >= 3 then
-      local is_color, attrs = nil, nil
-      if rest:match("^color%f[%A]") then
-        is_color = true
-        attrs = rest:match("^color%s*(.*)$")
-      elseif rest:match("^{%.color") then
-        is_color = true
-        attrs = rest:match("^{%.color%s*(.-)}%s*$")
+      local box_kind, attrs = nil, nil
+      if rest:match("^marginbox%f[%A]") then
+        box_kind = "marginbox"
+        attrs = rest:match("^marginbox%s*(.*)$")
+      elseif rest:match("^{%.marginbox") then
+        box_kind = "marginbox"
+        attrs = rest:match("^{%.marginbox%s*(.-)}%s*$")
+      elseif rest:match("^vbox%f[%A]") then
+        box_kind = "vbox"
+        attrs = rest:match("^vbox%s*(.*)$")
+      elseif rest:match("^{%.vbox") then
+        box_kind = "vbox"
+        attrs = rest:match("^{%.vbox%s*(.-)}%s*$")
+      elseif rest:match("^tcolorbox%f[%A]") then
+        box_kind = "vbox"
+        attrs = rest:match("^tcolorbox%s*(.*)$")
+      elseif rest:match("^{%.tcolorbox") then
+        box_kind = "vbox"
+        attrs = rest:match("^{%.tcolorbox%s*(.-)}%s*$")
       end
-      if not code_fence and is_color then
-        color_stack[#color_stack + 1] = { len = #ticks }
-        local attr_str = (attrs and attrs:match("%S")) and (" " .. attrs) or ""
-        out[#out + 1] = indent .. "::: {.box" .. attr_str .. "}"
-      elseif not code_fence and #color_stack > 0 and rest:match("^%s*$") and #ticks >= color_stack[#color_stack].len then
-        color_stack[#color_stack] = nil
+      if not code_fence and box_kind then
+        box_stack[#box_stack + 1] = { len = #ticks }
+        local attr_str = normalize_box_attrs(attrs)
+        out[#out + 1] = indent .. "::: {." .. box_kind .. attr_str .. "}"
+      elseif not code_fence and #box_stack > 0 and rest:match("^%s*$") and #ticks >= box_stack[#box_stack].len then
+        box_stack[#box_stack] = nil
         out[#out + 1] = indent .. ":::"
       elseif not code_fence and rest:match("%S") then
         code_fence = { len = #ticks }
@@ -1520,7 +1550,7 @@ local function clean(text)
   text = text:gsub("^" .. U(0xFEFF), ""):gsub("\r\n?", "\n")
   local file_meta
   text, file_meta = extract_yaml_fences(text)
-  text = pass_color_fences(text)
+  text = pass_box_fences(text)
   text = space_fences(text)
   text = normalize_fence_attributes(text)
   for nm in text:gmatch("\\newtheorem%*?%s*{([^}]*)}") do
@@ -2095,7 +2125,7 @@ local function table_fix(t)
   return t
 end
 
-local BOX_CLASSES = word_set("tcolorbox box callout note warning tip important danger info marginbox")
+local BOX_CLASSES = word_set("tcolorbox vbox marginbox box callout note warning tip important danger info")
 local BOX_PALETTE = { "blue", "teal", "orange", "purple", "green", "red", "magenta", "olive", "cyan", "violet" }
 if not pcall(math.randomseed) then
   math.randomseed(os.time() + math.floor((os.clock() or 0) * 1000000))
@@ -2148,7 +2178,7 @@ local function assign_box_colors(blocks, parent_color)
 end
 
 -- Inverse of envs_to_divs: turn the marker Div back into \begin{env}[opt]{title} .. \end{env}.
--- Also supports Markdown fenced divs ::: {.marginbox ...}, ::: {.box ...}, ::: {.callout ...}
+-- Also supports Markdown fenced divs ::: {.marginbox ...}, ::: {.vbox ...}, ::: {.box ...}, etc.
 local function div_fix(el)
   if el.classes:includes("pagebreak") then
     return { pandoc.HorizontalRule() }
@@ -2158,11 +2188,72 @@ local function div_fix(el)
   local title_arg = ""
   if env then
     opt = State.env_opts[tonumber(el.attributes["lopt"] or "")] or ""
-    if env == "tcolorbox" then
-      env = "marginbox"
+    if env == "marginbox" then
+      local t = el.attributes["ltitle"] or ""
+      if t ~= "" then
+        title_arg = "{" .. t .. "}"
+      end
     end
-  elseif el.classes:includes("tcolorbox") or el.classes:includes("box") or el.classes:includes("callout")
-      or el.classes:includes("marginbox")
+  elseif el.classes:includes("vbox") or el.classes:includes("tcolorbox") then
+    env = "tcolorbox"
+    local opts = {}
+    if el.attributes["title"] then
+      opts[#opts + 1] = "title={" .. el.attributes["title"] .. "}"
+    end
+    local color = el.attributes["color"] or el.classes[2]
+    if not color then
+      for _, cls in ipairs(el.classes) do
+        if cls == "note" or cls == "info" or cls == "blue" then color = "blue"; break
+        elseif cls == "warning" or cls == "amber" or cls == "orange" then color = "amber"; break
+        elseif cls == "tip" or cls == "success" or cls == "green" then color = "green"; break
+        elseif cls == "danger" or cls == "important" or cls == "red" then color = "red"; break
+        elseif cls == "purple" or cls == "deep" then color = "purple"; break
+        elseif cls == "gray" or cls == "neutral" then color = "gray"; break
+        end
+      end
+    end
+    if color then
+      if color == "blue" or color == "info" or color == "note" then
+        opts[#opts + 1] = "colback=blue!5!white,colframe=blue!75!black"
+      elseif color == "red" or color == "danger" or color == "important" then
+        opts[#opts + 1] = "colback=red!5!white,colframe=red!75!black"
+      elseif color == "green" or color == "success" or color == "tip" then
+        opts[#opts + 1] = "colback=green!5!white,colframe=green!60!black"
+      elseif color == "amber" or color == "warning" or color == "orange" then
+        opts[#opts + 1] = "colback=orange!10!white,colframe=orange!80!black"
+      elseif color == "purple" or color == "deep" then
+        opts[#opts + 1] = "colback=purple!5!white,colframe=purple!75!black"
+      elseif color == "gray" or color == "neutral" then
+        opts[#opts + 1] = "colback=gray!5!white,colframe=gray!60!black"
+      elseif color == "teal" then
+        opts[#opts + 1] = "colback=teal!5!white,colframe=teal!75!black"
+      elseif color == "magenta" then
+        opts[#opts + 1] = "colback=magenta!5!white,colframe=magenta!75!black"
+      elseif color == "olive" then
+        opts[#opts + 1] = "colback=olive!5!white,colframe=olive!75!black"
+      elseif color == "cyan" then
+        opts[#opts + 1] = "colback=cyan!5!white,colframe=cyan!75!black"
+      elseif color == "violet" then
+        opts[#opts + 1] = "colback=violet!5!white,colframe=violet!75!black"
+      else
+        opts[#opts + 1] = "colback=" .. color .. "!5!white,colframe=" .. color .. "!75!black"
+      end
+    end
+    if el.attributes["colback"] then
+      opts[#opts + 1] = "colback=" .. el.attributes["colback"]
+    elseif el.attributes["bg"] then
+      opts[#opts + 1] = "colback=" .. el.attributes["bg"]
+    end
+    if el.attributes["colframe"] then
+      opts[#opts + 1] = "colframe=" .. el.attributes["colframe"]
+    end
+    if el.attributes["options"] then
+      opts[#opts + 1] = el.attributes["options"]
+    end
+    if #opts > 0 then
+      opt = "[" .. table.concat(opts, ",") .. "]"
+    end
+  elseif el.classes:includes("marginbox") or el.classes:includes("box") or el.classes:includes("callout")
       or el.classes:includes("note") or el.classes:includes("warning") or el.classes:includes("tip")
       or el.classes:includes("important") or el.classes:includes("danger") or el.classes:includes("info") then
     env = "marginbox"
@@ -2203,6 +2294,8 @@ local function div_fix(el)
         opts[#opts + 1] = "color=OliveGreen"
       elseif color == "cyan" then
         opts[#opts + 1] = "color=ProcessBlue"
+      elseif color == "violet" then
+        opts[#opts + 1] = "color=RoyalPurple"
       else
         opts[#opts + 1] = "color=" .. color
       end

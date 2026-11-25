@@ -2330,6 +2330,7 @@ local function div_fix(el)
   local env = el.attributes["lenv"]
   local opt = ""
   local title_arg = ""
+  local box_color = el.attributes["color"]
   if env then
     opt = State.env_opts[tonumber(el.attributes["lopt"] or "")] or ""
     if env == "marginbox" then
@@ -2473,6 +2474,9 @@ local function div_fix(el)
     else
       begin_str = begin_str .. "{}"
     end
+  end
+  if box_color and box_color ~= "" then
+    begin_str = begin_str .. "\\hypertarget{boxcol:" .. box_color .. "}{}"
   end
   local out = { pandoc.RawBlock("latex", begin_str) }
   for _, b in ipairs(el.content) do out[#out + 1] = b end

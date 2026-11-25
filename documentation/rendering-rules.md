@@ -203,7 +203,6 @@ Here is text inside the body of the pasted document: $\sinc(x) = \frac{\sin x}{x
 * **The `\use...` and `\Require...` Library Import Exception for AI Chat Pastes:** When pasted documents or snippets (e.g. from ChatGPT, Claude, or Gemini) contain library and package import lines starting with `\use` or `\Require` (`\usepackage`, `\RequirePackage`, `\usetikzlibrary`, `\usepgfplotslibrary`, etc.) before `\begin{document}`, the runner extracts and hoists them to the document preamble (deduplicating to avoid clashes) and strips `\documentclass` and `\begin{document}...\end{document}` so local diagrams and body content render seamlessly.
 * **Strict Preamble & Scaffolding Prohibition:** 
   * If **anything else** appears before `\begin{document}` in standard `latex` (e.g. `\newcommand`, `\def`, custom setup), **the fence will NOT run (`run=false`)**.
-  * If any preamble-only command (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\newtheorem`, `\newunicodechar`, etc.) appears in standard `latex`, **the fence will NOT run (`run=false`)**.
   * Custom global definitions and preambles strictly require the single `latex_unv` fence.
 * **Scaffolding Macro Protection:** If user LaTeX code attempts to redefine critical document scaffolding macros (`\maketitle`, `\tableofcontents`, `\title`, `\author`, `\date`), the runner automatically demotes the block to `run=false` (syntax-highlighted code listing).
 

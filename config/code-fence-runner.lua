@@ -769,21 +769,6 @@ local function strip_documentclass(text)
   return text
 end
 
--- Preamble-only commands that cannot execute in the document body and require latex_unv
-local function has_preamble_only_command(text)
-  if text:match("\\DeclareMathOperator")
-      or text:match("\\DeclarePairedDelimiter")
-      or text:match("\\newtheorem")
-      or text:match("\\newunicodechar")
-      or text:match("\\DeclareMath[SymbolDelimiterAccentAlphabet]+")
-      or text:match("\\DeclareSymbolFont")
-      or text:match("\\SetSymbolFont")
-      or text:match("\\newlength") then
-    return true
-  end
-  return false
-end
-
 local function render_latex_unv(el, class, preamble, doc_state)
   local out = {}
   if el.attributes["show"] == "true" then
@@ -849,12 +834,6 @@ local function render_latex(el, class, preamble, doc_state)
     -- Hoist extracted imports
     add_imports_to_preamble(imports, preamble, doc_state)
 
-    -- Check if body contains preamble-only commands
-    if has_preamble_only_command(body_content) then
-      warn("latex block contains preamble-only command in document body; universal permeables require latex_unv; rendering as code listing (run=false)")
-      return nil
-    end
-
     -- Render local body
     if body_content:match("%S") then
       local isolated_body = "{\\begingroup\n" .. body_content:match("^%s*(.-)%s*$") .. "\n\\par\\endgroup}"
@@ -871,12 +850,6 @@ local function render_latex(el, class, preamble, doc_state)
     -- Check if there are \use... or \Require... lines: extract and hoist them as the allowed exception
     local imports, remaining = extract_imports(el.text)
     add_imports_to_preamble(imports, preamble, doc_state)
-
-    -- Check if remaining snippet contains preamble-only commands
-    if has_preamble_only_command(remaining) then
-      warn("latex block contains preamble-only command; universal permeables require latex_unv; rendering as code listing (run=false)")
-      return nil
-    end
 
     if remaining:match("%S") then
       local isolated_body = "{\\begingroup\n" .. remaining:match("^%s*(.-)%s*$") .. "\n\\par\\endgroup}"

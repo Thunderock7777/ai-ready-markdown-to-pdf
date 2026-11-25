@@ -351,6 +351,7 @@ Version 1.4.1 cycle
 
 Change ledger
   2026-11-25 | Generalize library import detection (\use and \Require prefix) covering usetikzlibrary and usepgfplotslibrary | source +12 / -10 | 22 / 500
+  2026-11-25 | Remove hardcoded has_preamble_only_command, enforcing pure boundary and fence rules | source +0 / -27 | 49 / 500
 
 For each later accepted change, append one entry in this format:
 

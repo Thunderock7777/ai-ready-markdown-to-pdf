@@ -560,7 +560,7 @@ The outer 4 backticks prevent the inner 3 backticks from closing the box!
   * `magenta`: soft magenta background (`magenta!5`) with vivid magenta frame (`Magenta` / `magenta!75!black`).
   * `teal`: mint background (`teal!5`) with deep teal frame (`TealBlue` / `teal!75!black`).
   * `olive`: soft olive background (`olive!5`) with olive green frame (`OliveGreen` / `olive!75!black`).
-  * *Unspecified*: randomly selected from `PALETTE` excluding parent color.
+  * *Unspecified*: selected via generational color engine (uniform per generation, strictly diverged across all ancestor and descendant generations in the tree).
 * **Arbitrary Nesting & Complete Child Box Pagebreakability:** Fenced boxes can be nested within one another to any depth (e.g. a `marginbox` enclosing a `vbox`, or a `vbox` enclosing a `marginbox`). When using `marginbox`, content resides in TeX's unboxed vertical list, so **both top-level parent boxes and inner child boxes break cleanly across page boundaries at any line or paragraph**.
 * **Universal Space & Boundary Protection:** In Stage A cleaning, `space_fences` automatically injects blank line boundaries before and after `\begin{marginbox}`, `\begin{tcolorbox}`, `::: {.box}`, `::: {.vbox}`, `::: {.marginbox}`, and `:::`. Even if AI responses or pasted notes directly touch paragraph text without empty lines, boxes are never merged into adjacent paragraphs.
 * **Full Pipeline Compatibility Inside Boxes:** All pipeline features function inside nested boxes without degradation:

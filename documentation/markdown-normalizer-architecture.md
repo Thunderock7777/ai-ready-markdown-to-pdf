@@ -247,9 +247,10 @@ STAGE B: AST passes
 AST_PASSES is also ordered:
 
 assign_box_colors
-  Traverses document blocks top-down, dynamically assigning true-random colors
-  from a curated palette to uncolored boxes while guaranteeing child boxes
-  never share their parent's color. Runs before AST walk passes.
+  Traverses document blocks top-down, assigning generational colors from a
+  curated palette to uncolored boxes: all boxes of the same generation within
+  a tree share the same color, and no two generations in the same box tree
+  share a color (strict tree-wide ancestor divergence). Runs before AST walk passes.
 
 tables
   table_fix walks Strong nodes in each Table. strong_fix moves complex math

@@ -2194,9 +2194,28 @@ local function table_fix(t)
 end
 
 local BOX_CLASSES = word_set("tcolorbox vbox marginbox box callout note warning tip important danger info")
-local BOX_PALETTE = { "blue", "teal", "orange", "purple", "green", "red", "magenta", "olive", "cyan", "violet" }
 if not pcall(math.randomseed) then
   math.randomseed(os.time() + math.floor((os.clock() or 0) * 1000000))
+end
+
+local tree_counter = 0
+
+-- Converts HSL (H in [0, 1), S in [0, 1], L in [0, 1]) to a 6-digit uppercase Hex RGB string
+local function hsl_to_hex(h, s, l)
+  local function hue2rgb(p, q, t)
+    if t < 0 then t = t + 1 end
+    if t > 1 then t = t - 1 end
+    if t < 1/6 then return p + (q - p) * 6 * t end
+    if t < 1/2 then return q end
+    if t < 2/3 then return p + (q - p) * (2/3 - t) * 6 end
+    return p
+  end
+  local q = l < 0.5 and l * (1 + s) or l + s - l * s
+  local p = 2 * l - q
+  local r = hue2rgb(p, q, h + 1/3)
+  local g = hue2rgb(p, q, h)
+  local b = hue2rgb(p, q, h - 1/3)
+  return string.format("%02X%02X%02X", math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
 end
 
 local function is_box_div(el)
@@ -2208,9 +2227,11 @@ local function is_box_div(el)
   return false
 end
 
--- Generational box color assignment:
+-- Generational box color assignment via dynamic random color code generation:
 -- 1. Members of the same generation (depth) in a box tree share the exact same color.
--- 2. No two generations in the same tree can share a color (child, parent, and grandfather never collide).
+-- 2. Strict tree-wide ancestor divergence: when generating a color for a generation,
+--    it checks if any parent or grandfather contains the same or similar seed/hue;
+--    if it does, it regenerates until a distinct color is produced.
 local function assign_box_colors(blocks, tree_state, depth)
   if not blocks then return end
   for _, b in ipairs(blocks) do
@@ -2218,7 +2239,12 @@ local function assign_box_colors(blocks, tree_state, depth)
       local current_tree = tree_state
       local current_depth = depth or 1
       if not current_tree then
-        current_tree = { gen_colors = {}, used_colors = {} }
+        tree_counter = tree_counter + 1
+        current_tree = {
+          id = tree_counter,
+          gen_colors = {},
+          ancestor_hues = {},
+        }
         current_depth = 1
       end
 
@@ -2240,28 +2266,55 @@ local function assign_box_colors(blocks, tree_state, depth)
         b.attributes["color"] = col
       elseif col and col ~= "" then
         current_tree.gen_colors[current_depth] = col
-        current_tree.used_colors[col] = true
         b.attributes["color"] = col
       else
-        local candidates = {}
-        for _, c in ipairs(BOX_PALETTE) do
-          if not current_tree.used_colors[c] then
-            candidates[#candidates + 1] = c
+        -- Algorithmic random color generation with ancestor collision check:
+        -- Minimum angular distance on the color wheel between child and any ancestor
+        local min_dist = math.max(25, math.floor(360 / math.max(current_depth + 1, 6)))
+        local chosen_hue = nil
+        for attempt = 1, 200 do
+          local candidate_hue = math.random(0, 359)
+          local collision = false
+          for anc_d = 1, current_depth - 1 do
+            local anc_hue = current_tree.ancestor_hues[anc_d]
+            if anc_hue then
+              local diff = math.abs(candidate_hue - anc_hue)
+              local circ = math.min(diff, 360 - diff)
+              if circ < min_dist then
+                collision = true
+                break
+              end
+            end
+          end
+          if not collision then
+            chosen_hue = candidate_hue
+            break
           end
         end
-        if #candidates == 0 then
-          local parent_col = current_tree.gen_colors[current_depth - 1]
-          for _, c in ipairs(BOX_PALETTE) do
-            if c ~= parent_col then candidates[#candidates + 1] = c end
-          end
+
+        if not chosen_hue then
+          local parent_hue = current_tree.ancestor_hues[current_depth - 1] or 0
+          chosen_hue = math.floor((parent_hue + 137.5) % 360)
         end
-        col = candidates[math.random(#candidates)]
-        current_tree.gen_colors[current_depth] = col
-        current_tree.used_colors[col] = true
-        b.attributes["color"] = col
+
+        current_tree.ancestor_hues[current_depth] = chosen_hue
+        local hex = hsl_to_hex(chosen_hue / 360, 0.72, 0.36)
+        local col_name = string.format("genboxT%dD%d", current_tree.id, current_depth)
+
+        State.hoisted[#State.hoisted + 1] = string.format("\\definecolor{%s}{HTML}{%s}", col_name, hex)
+        current_tree.gen_colors[current_depth] = col_name
+        b.attributes["color"] = col_name
       end
 
-      assign_box_colors(b.content, current_tree, current_depth + 1)
+      local child_tree = {
+        id = current_tree.id,
+        gen_colors = current_tree.gen_colors,
+        ancestor_hues = {},
+      }
+      for d = 1, current_depth do
+        child_tree.ancestor_hues[d] = current_tree.ancestor_hues[d]
+      end
+      assign_box_colors(b.content, child_tree, current_depth + 1)
     elseif b.content then
       assign_box_colors(b.content, tree_state, depth)
     end
@@ -2758,6 +2811,7 @@ local function load_cleaned_input(doc)
 end
 
 function Pandoc(doc)
+  tree_counter = 0
   doc = load_cleaned_input(doc)                                  -- Stage A
   assign_box_colors(doc.blocks, nil)                             -- Stage B box color hierarchy
   for _, pass in ipairs(AST_PASSES) do doc = doc:walk(pass.filter) end   -- Stage B

@@ -2690,8 +2690,12 @@ local function apply_page_layout(doc)
   elseif layout == "whiteboard" then
     doc.meta.whiteboard_layout = pandoc.MetaBool(true)
     calculate_whiteboard_width(doc)
+  elseif layout == "whiteboard_html" then
+    doc.meta.whiteboard_layout = pandoc.MetaBool(true)
+    doc.meta.whiteboard_html = pandoc.MetaBool(true)
+    calculate_whiteboard_width(doc)
   else
-    warn("unsupported page-layout '" .. layout .. "'; using A4 (supported values: presentation, whiteboard)")
+    warn("unsupported page-layout '" .. layout .. "'; using A4 (supported values: presentation, whiteboard, whiteboard_html)")
   end
 end
 

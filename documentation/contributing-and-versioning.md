@@ -363,6 +363,7 @@ Change ledger
   2026-11-25 | Map marginbox violet preset to distinct LaTeX Violet preventing RoyalPurple collision | source +1 / -1 | 86 / 500
   2026-11-26 | Replace fence census with inside-out center-to-surface reduction logic in pass_box_fences | source +81 / -82 | 249 / 500
   2026-11-26 | Algorithmic random color generation with ancestor collision check and regeneration | source +73 / -19 | 341 / 500
+  2026-11-26 | Add whiteboard_html layout preset with final-step LaTeX-to-HTML conversion, LaTeX.css styling, and hierarchical collapsible nested details boxes | source +134 / -1 | 476 / 500
 
 For each later accepted change, append one entry in this format:
 

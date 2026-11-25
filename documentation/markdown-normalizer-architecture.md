@@ -589,7 +589,7 @@ Document-level processing and finalization
     Writes citation and emoji removal summaries when their counters are
     nonzero.
   apply_page_layout(doc)
-    Maps the supported `page-layout: presentation` and `page-layout: whiteboard`
+    Maps the supported `page-layout: presentation`, `page-layout: whiteboard`, and `page-layout: whiteboard_html`
     YAML values to template flags; other supplied values warn and leave default A4 active.
   apply_title_rule(doc)
     Maps YAML boolean `title-rule` to the template flag, defaulting to true;

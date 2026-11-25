@@ -27,10 +27,13 @@ set "SCRIPT_DIR=%~dp0"
 set "CONFIG_DIR=%SCRIPT_DIR%config"
 set "BASENAME=%~dp1%~n1"
 set "PDF_OUTPUT=%BASENAME%.pdf"
+set "HTML_OUTPUT=%BASENAME%.html"
 set "PANDOC_INPUTS="
 set "TEMPLATE=%CONFIG_DIR%\custom.tex"
 set "NORMALIZER_FILTER=%CONFIG_DIR%\markdown-normalizer.lua"
 set "CODE_FENCE_FILTER=%CONFIG_DIR%\code-fence-runner.lua"
+set "HTML_BOX_FILTER=%CONFIG_DIR%\html-collapsible-boxes.lua"
+set "LATEX_CSS=%CONFIG_DIR%\latex.css"
 set "ANNOTATOR_SCRIPT=%CONFIG_DIR%\error-annotator.lua"
 if not defined PYTHON set "PYTHON=py"
 if not defined C_COMPILER set "C_COMPILER=gcc"
@@ -174,6 +177,10 @@ set "WB_WIDTH_MAX="
 findstr /C:"WHITEBOARD_WIDTH_MAX_REACHED" "%TEX_OUTPUT%" >nul 2>&1
 if not errorlevel 1 set "WB_WIDTH_MAX=1"
 
+set "WB_HTML_LAYOUT="
+findstr /C:"WHITEBOARD_HTML_LAYOUT" "%TEX_OUTPUT%" >nul 2>&1
+if not errorlevel 1 set "WB_HTML_LAYOUT=1"
+
 REM =========================================================
 REM XELATEX  (all build files go to the temp folder)
 REM =========================================================
@@ -296,6 +303,14 @@ if errorlevel 1 (
     echo Close it in any PDF viewer and check that the folder is writable.
     goto CLEANUP_FAIL
 )
+if "%WB_HTML_LAYOUT%"=="1" (
+    echo.
+    echo ==========================================
+    echo              CREATING HTML
+    echo ==========================================
+    pandoc "%TEX_OUTPUT%" -f latex -t html5 --mathjax --embed-resources --standalone --css="%LATEX_CSS%" --lua-filter="%HTML_BOX_FILTER%" -o "%HTML_OUTPUT%" >nul 2>&1
+)
+
 rmdir /s /q "%WORK%" >nul 2>&1
 
 echo.
@@ -304,6 +319,9 @@ echo           CONVERSION COMPLETED
 echo ==========================================
 echo.
 echo PDF: "%PDF_OUTPUT%"
+if "%WB_HTML_LAYOUT%"=="1" if exist "%HTML_OUTPUT%" (
+    echo HTML: "%HTML_OUTPUT%"
+)
 if "%WB_WIDTH_MAX%"=="1" (
     echo Note: Whiteboard width reached maximum ceiling ^(100in^).
 )

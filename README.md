@@ -5,7 +5,7 @@ Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
 Java, and Mermaid can run during the build with universal caching and approval controls,
 while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.4.1**.
+**Current project version: 1.4.2**.
 
 > **Paste an AI chat response and compile it directly.** A copied response from
 > ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses
@@ -21,7 +21,7 @@ while LaTeX fences render source snippets without executing them.
 - **Dual-Box Ecosystem (Pure TeX ```marginbox``` & Classic ```vbox``` / ```tcolorbox```)**: Side-by-side support for two box architectures:
   - **`marginbox` (Pure TeX List Streams)**: Available via ```` ```marginbox ```` code fences, Markdown fenced divs (`::: {.box title="..."}`, `::: {.marginbox}`, `.note`, `.warning`, `.tip`, `.danger`, `.important`, `.info`), or native LaTeX `\begin{marginbox}[...]{title}`. Engineered with pure LaTeX list streams and TikZ background overlays via `zref-savepos` and page-shipout hooks, completely eliminating rigid TeX `\vbox` registers. Both top-level parent boxes and deeply nested child boxes break cleanly across page boundaries at any line or paragraph without clipping, overflow, or unbreakable box errors. Features bold solid header bands, vertical accent bars, and drop shadows.
   - **`vbox` (Classic `tcolorbox`)**: Available via ```` ```vbox ```` code fences, Markdown fenced divs (`::: {.vbox}`, `::: {.tcolorbox}`), or native LaTeX `\begin{tcolorbox}[...]` powered by `tcolorbox.sty`.
-  - **Shared Dynamic Color Engine**: Both box systems share automatic true-random color selection across compilations with guaranteed parent-child color divergence (child frames never share a parent's color), preset color styles (`blue`, `green`, `red`, `amber`, `purple`, `gray`, `teal`, `magenta`, `olive`, `cyan`, `violet`), and arbitrary nesting.
+  - **Shared Dynamic Color Engine**: Both box systems share generational color selection across compilations with guaranteed generational consistency (members of the same generation share identical colors) and strict tree-wide ancestor divergence (no child, parent, or grandfather containers collide), preset color styles (`blue`, `green`, `red`, `amber`, `purple`, `gray`, `teal`, `magenta`, `olive`, `cyan`, `violet`), and arbitrary nesting.
 - **Multi-File Concatenation**: Compile one or several `.md`, `.markdown`, or `.txt` files in a specified order into a single unified PDF.
 - **Universal Executable Code Fences**: Python, C, C++, and Java blocks execute with persistent SHA-1 caching, interactive confirmation prompts (`trusted=true` bypass), output capture, and compiler/runtime error reporting.
 - **Uniform Fence Syntax**: Standard fenced code blocks (```` ```<lang> ... ``` ```` or ```` ```{.<lang> ...} ````) across all languages; raw delimiters like `---` are reserved for horizontal rules and never treated as metadata.

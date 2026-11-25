@@ -200,10 +200,9 @@ Here is text inside the body of the pasted document: $\sinc(x) = \frac{\sin x}{x
   \par\endgroup}
   ```
   Local macros, low-level TeX primitives (`\def`, `\let`), font families, color overrides, or dimension adjustments made inside a standard block **cannot leak** into subsequent sections.
-* **The `\usepackage` Exception for AI Chat Pastes:** When pasted documents (e.g. from ChatGPT, Claude, or Gemini) contain `\usepackage` lines before `\begin{document}` (or in bare snippets), the runner extracts and hoists `\usepackage` to the document preamble (deduplicating to avoid clashes) and strips `\documentclass` and `\begin{document}...\end{document}` so the local body renders seamlessly.
+* **The `\use...` and `\Require...` Library Import Exception for AI Chat Pastes:** When pasted documents or snippets (e.g. from ChatGPT, Claude, or Gemini) contain library and package import lines starting with `\use` or `\Require` (`\usepackage`, `\RequirePackage`, `\usetikzlibrary`, `\usepgfplotslibrary`, etc.) before `\begin{document}`, the runner extracts and hoists them to the document preamble (deduplicating to avoid clashes) and strips `\documentclass` and `\begin{document}...\end{document}` so local diagrams and body content render seamlessly.
 * **Strict Preamble & Scaffolding Prohibition:** 
   * If **anything else** appears before `\begin{document}` in standard `latex` (e.g. `\newcommand`, `\def`, custom setup), **the fence will NOT run (`run=false`)**.
-  * If any preamble-only command (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\newtheorem`, `\newunicodechar`, etc.) appears in standard `latex`, **the fence will NOT run (`run=false`)**.
   * Custom global definitions and preambles strictly require the single `latex_unv` fence.
 * **Scaffolding Macro Protection:** If user LaTeX code attempts to redefine critical document scaffolding macros (`\maketitle`, `\tableofcontents`, `\title`, `\author`, `\date`), the runner automatically demotes the block to `run=false` (syntax-highlighted code listing).
 
@@ -545,10 +544,11 @@ The outer 4 backticks prevent the inner 3 backticks from closing the box!
     * `::: {.vbox}` and `::: {.tcolorbox}` map to styled `tcolorbox` environments.
   * **LaTeX Syntax:**
     * Native `\begin{marginbox}[options]{title} ... \end{marginbox}` and `\begin{tcolorbox}[options] ... \end{tcolorbox}` both exist independently side-by-side with zero collisions.
-* **Shared True-Random Color Assignment & Parent-Child Divergence:**
-  * When `color="..."` is omitted on a box fence or fenced div (both `marginbox` and `vbox`), the normalizer dynamically picks a random color from a rich palette of standard colors (`blue`, `teal`, `orange`, `purple`, `green`, `red`, `magenta`, `olive`, `cyan`, `violet`) using system randomness (`math.random`).
-  * **Parent-Child Color Collision Prevention:** For nested child boxes (whether `marginbox` inside `vbox`, `vbox` inside `marginbox`, or homogeneous nesting), the candidate color pool automatically excludes the parent's color ($\text{Candidates} = \text{PALETTE} \setminus \{\text{parent\_color}\}$). This mathematically guarantees that no child box ever renders with the same color as its parent container.
-  * If an explicit color is provided (e.g. `color="red"`), that color is preserved, and any child boxes inside it will automatically avoid `red`.
+* **Generational True-Random Color Engine & Ancestor Divergence:**
+  * When `color="..."` is omitted on a box fence or fenced div (both `marginbox` and `vbox`), colors are assigned systematically per generation within each box tree:
+  * **Same Generation, Same Color:** All sibling or cousin boxes belonging to the same generation (nesting depth) in a box tree share the exact same color.
+  * **Strict Ancestor & Descendant Divergence:** No two generations in the same box tree can share a color ($\text{Candidates} = \text{PALETTE} \setminus \text{UsedInTree}$). This mathematically guarantees that child, parent, and grandfather containers never collide or repeat colors within the tree.
+  * If an explicit color is provided (e.g. `color="red"`), that color is preserved, and all other generations in that tree will automatically avoid `red`.
 * **Color Presets:** Specifying `color="<preset>"` on a fenced div automatically sets complementary background and frame colors:
   * `blue`: subtle blue background (`NavyBlue!4` / `blue!5`) with vibrant frame (`NavyBlue` / `blue!75!black`).
   * `green`: subtle green background (`green!5`) with forest green frame (`ForestGreen` / `green!60!black`).
@@ -560,7 +560,7 @@ The outer 4 backticks prevent the inner 3 backticks from closing the box!
   * `magenta`: soft magenta background (`magenta!5`) with vivid magenta frame (`Magenta` / `magenta!75!black`).
   * `teal`: mint background (`teal!5`) with deep teal frame (`TealBlue` / `teal!75!black`).
   * `olive`: soft olive background (`olive!5`) with olive green frame (`OliveGreen` / `olive!75!black`).
-  * *Unspecified*: randomly selected from `PALETTE` excluding parent color.
+  * *Unspecified*: selected via generational color engine (uniform per generation, strictly diverged across all ancestor and descendant generations in the tree).
 * **Arbitrary Nesting & Complete Child Box Pagebreakability:** Fenced boxes can be nested within one another to any depth (e.g. a `marginbox` enclosing a `vbox`, or a `vbox` enclosing a `marginbox`). When using `marginbox`, content resides in TeX's unboxed vertical list, so **both top-level parent boxes and inner child boxes break cleanly across page boundaries at any line or paragraph**.
 * **Universal Space & Boundary Protection:** In Stage A cleaning, `space_fences` automatically injects blank line boundaries before and after `\begin{marginbox}`, `\begin{tcolorbox}`, `::: {.box}`, `::: {.vbox}`, `::: {.marginbox}`, and `:::`. Even if AI responses or pasted notes directly touch paragraph text without empty lines, boxes are never merged into adjacent paragraphs.
 * **Full Pipeline Compatibility Inside Boxes:** All pipeline features function inside nested boxes without degradation:

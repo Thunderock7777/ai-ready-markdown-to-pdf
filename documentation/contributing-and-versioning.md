@@ -350,6 +350,15 @@ Version 1.4.1 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-25 | Generalize library import detection (\use and \Require prefix) covering usetikzlibrary and usepgfplotslibrary | source +12 / -10 | 22 / 500
+  2026-11-25 | Remove hardcoded has_preamble_only_command, enforcing pure boundary and fence rules | source +0 / -27 | 49 / 500
+  2026-11-25 | Generational box color assignment: uniform same-generation color and strict tree-wide ancestor divergence | source +38 / -15 | 102 / 500
+  2026-11-25 | Versioned generalized library imports, pure boundary-based fence validation, and generational box coloring as 1.4.2 (PATCH)
+
+Version 1.4.2 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 For each later accepted change, append one entry in this format:
 

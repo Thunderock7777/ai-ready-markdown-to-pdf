@@ -729,33 +729,35 @@ local function strip_latex_comments(text)
   return table.concat(lines, "\n")
 end
 
--- Extracts \usepackage[...] and \RequirePackage[...] lines from text, returning
--- the list of package command lines and the remaining text.
-local function extract_packages(text)
-  local pkgs = {}
+-- Extracts \use... and \Require... library and package import lines from text,
+-- returning the list of import command lines and the remaining text.
+local function extract_imports(text)
+  local imports = {}
   local cleaned = text:gsub("(%s*\\[uR]%a*%s*%b[]%s*%b{})", function(m)
-    if m:match("^%s*\\usepackage") or m:match("^%s*\\RequirePackage") then
-      pkgs[#pkgs + 1] = m:match("^%s*(.-)%s*$")
+    local cmd = m:match("^%s*\\([%a@]+)")
+    if cmd and (cmd:match("^use") or cmd:match("^Require")) then
+      imports[#imports + 1] = m:match("^%s*(.-)%s*$")
       return ""
     end
     return m
   end)
   cleaned = cleaned:gsub("(%s*\\[uR]%a*%s*%b{})", function(m)
-    if m:match("^%s*\\usepackage") or m:match("^%s*\\RequirePackage") then
-      pkgs[#pkgs + 1] = m:match("^%s*(.-)%s*$")
+    local cmd = m:match("^%s*\\([%a@]+)")
+    if cmd and (cmd:match("^use") or cmd:match("^Require")) then
+      imports[#imports + 1] = m:match("^%s*(.-)%s*$")
       return ""
     end
     return m
   end)
-  return pkgs, cleaned
+  return imports, cleaned
 end
 
--- Deduplicate package additions into doc_state.loaded_packages
-local function add_packages_to_preamble(pkgs, preamble, doc_state)
-  for _, pkg_line in ipairs(pkgs) do
-    if not doc_state.loaded_packages[pkg_line] then
-      doc_state.loaded_packages[pkg_line] = true
-      preamble[#preamble + 1] = pkg_line
+-- Deduplicate library/package import additions into doc_state.loaded_packages
+local function add_imports_to_preamble(imports, preamble, doc_state)
+  for _, imp in ipairs(imports) do
+    if not doc_state.loaded_packages[imp] then
+      doc_state.loaded_packages[imp] = true
+      preamble[#preamble + 1] = imp
     end
   end
 end
@@ -765,21 +767,6 @@ local function strip_documentclass(text)
   text = text:gsub("\\documentclass%s*%b[]%s*%b{}", "")
   text = text:gsub("\\documentclass%s*%b{}", "")
   return text
-end
-
--- Preamble-only commands that cannot execute in the document body and require latex_unv
-local function has_preamble_only_command(text)
-  if text:match("\\DeclareMathOperator")
-      or text:match("\\DeclarePairedDelimiter")
-      or text:match("\\newtheorem")
-      or text:match("\\newunicodechar")
-      or text:match("\\DeclareMath[SymbolDelimiterAccentAlphabet]+")
-      or text:match("\\DeclareSymbolFont")
-      or text:match("\\SetSymbolFont")
-      or text:match("\\newlength") then
-    return true
-  end
-  return false
 end
 
 local function render_latex_unv(el, class, preamble, doc_state)
@@ -832,26 +819,20 @@ local function render_latex(el, class, preamble, doc_state)
     local after_begin = el.text:sub(be + 1)
     local body_content = after_begin:match("^(.*)\\end%s*{document}") or after_begin
 
-    -- Strip comments, documentclass, and extract packages
+    -- Strip comments, documentclass, and extract library/package imports
     local no_comments = strip_latex_comments(pre_content)
     local no_docclass = strip_documentclass(no_comments)
-    local pkgs, remaining = extract_packages(no_docclass)
+    local imports, remaining = extract_imports(no_docclass)
 
-    -- Rule: ONLY \usepackage is allowed as an exception before \begin{document}.
+    -- Rule: ONLY library/package imports (\use..., \Require...) are allowed before \begin{document}.
     -- If ANYTHING else remains before \begin{document}, it is a universal permeable violation!
     if remaining:match("%S") then
       warn("latex block contains commands before \\begin{document}; universal permeables require latex_unv; rendering as code listing (run=false)")
       return nil
     end
 
-    -- Hoist extracted packages
-    add_packages_to_preamble(pkgs, preamble, doc_state)
-
-    -- Check if body contains preamble-only commands
-    if has_preamble_only_command(body_content) then
-      warn("latex block contains preamble-only command in document body; universal permeables require latex_unv; rendering as code listing (run=false)")
-      return nil
-    end
+    -- Hoist extracted imports
+    add_imports_to_preamble(imports, preamble, doc_state)
 
     -- Render local body
     if body_content:match("%S") then
@@ -866,15 +847,9 @@ local function render_latex(el, class, preamble, doc_state)
       return nil
     end
 
-    -- Check if there are \usepackage lines: extract and hoist them as the one allowed exception
-    local pkgs, remaining = extract_packages(el.text)
-    add_packages_to_preamble(pkgs, preamble, doc_state)
-
-    -- Check if remaining snippet contains preamble-only commands
-    if has_preamble_only_command(remaining) then
-      warn("latex block contains preamble-only command; universal permeables require latex_unv; rendering as code listing (run=false)")
-      return nil
-    end
+    -- Check if there are \use... or \Require... lines: extract and hoist them as the allowed exception
+    local imports, remaining = extract_imports(el.text)
+    add_imports_to_preamble(imports, preamble, doc_state)
 
     if remaining:match("%S") then
       local isolated_body = "{\\begingroup\n" .. remaining:match("^%s*(.-)%s*$") .. "\n\\par\\endgroup}"

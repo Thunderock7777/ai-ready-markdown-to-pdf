@@ -200,7 +200,7 @@ Here is text inside the body of the pasted document: $\sinc(x) = \frac{\sin x}{x
   \par\endgroup}
   ```
   Local macros, low-level TeX primitives (`\def`, `\let`), font families, color overrides, or dimension adjustments made inside a standard block **cannot leak** into subsequent sections.
-* **The `\usepackage` Exception for AI Chat Pastes:** When pasted documents (e.g. from ChatGPT, Claude, or Gemini) contain `\usepackage` lines before `\begin{document}` (or in bare snippets), the runner extracts and hoists `\usepackage` to the document preamble (deduplicating to avoid clashes) and strips `\documentclass` and `\begin{document}...\end{document}` so the local body renders seamlessly.
+* **The `\use...` and `\Require...` Library Import Exception for AI Chat Pastes:** When pasted documents or snippets (e.g. from ChatGPT, Claude, or Gemini) contain library and package import lines starting with `\use` or `\Require` (`\usepackage`, `\RequirePackage`, `\usetikzlibrary`, `\usepgfplotslibrary`, etc.) before `\begin{document}`, the runner extracts and hoists them to the document preamble (deduplicating to avoid clashes) and strips `\documentclass` and `\begin{document}...\end{document}` so local diagrams and body content render seamlessly.
 * **Strict Preamble & Scaffolding Prohibition:** 
   * If **anything else** appears before `\begin{document}` in standard `latex` (e.g. `\newcommand`, `\def`, custom setup), **the fence will NOT run (`run=false`)**.
   * If any preamble-only command (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\newtheorem`, `\newunicodechar`, etc.) appears in standard `latex`, **the fence will NOT run (`run=false`)**.

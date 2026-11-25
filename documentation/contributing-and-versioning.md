@@ -350,6 +350,7 @@ Version 1.4.1 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-25 | Generalize library import detection (\use and \Require prefix) covering usetikzlibrary and usepgfplotslibrary | source +12 / -10 | 22 / 500
 
 For each later accepted change, append one entry in this format:
 

@@ -544,10 +544,11 @@ The outer 4 backticks prevent the inner 3 backticks from closing the box!
     * `::: {.vbox}` and `::: {.tcolorbox}` map to styled `tcolorbox` environments.
   * **LaTeX Syntax:**
     * Native `\begin{marginbox}[options]{title} ... \end{marginbox}` and `\begin{tcolorbox}[options] ... \end{tcolorbox}` both exist independently side-by-side with zero collisions.
-* **Shared True-Random Color Assignment & Parent-Child Divergence:**
-  * When `color="..."` is omitted on a box fence or fenced div (both `marginbox` and `vbox`), the normalizer dynamically picks a random color from a rich palette of standard colors (`blue`, `teal`, `orange`, `purple`, `green`, `red`, `magenta`, `olive`, `cyan`, `violet`) using system randomness (`math.random`).
-  * **Parent-Child Color Collision Prevention:** For nested child boxes (whether `marginbox` inside `vbox`, `vbox` inside `marginbox`, or homogeneous nesting), the candidate color pool automatically excludes the parent's color ($\text{Candidates} = \text{PALETTE} \setminus \{\text{parent\_color}\}$). This mathematically guarantees that no child box ever renders with the same color as its parent container.
-  * If an explicit color is provided (e.g. `color="red"`), that color is preserved, and any child boxes inside it will automatically avoid `red`.
+* **Generational True-Random Color Engine & Ancestor Divergence:**
+  * When `color="..."` is omitted on a box fence or fenced div (both `marginbox` and `vbox`), colors are assigned systematically per generation within each box tree:
+  * **Same Generation, Same Color:** All sibling or cousin boxes belonging to the same generation (nesting depth) in a box tree share the exact same color.
+  * **Strict Ancestor & Descendant Divergence:** No two generations in the same box tree can share a color ($\text{Candidates} = \text{PALETTE} \setminus \text{UsedInTree}$). This mathematically guarantees that child, parent, and grandfather containers never collide or repeat colors within the tree.
+  * If an explicit color is provided (e.g. `color="red"`), that color is preserved, and all other generations in that tree will automatically avoid `red`.
 * **Color Presets:** Specifying `color="<preset>"` on a fenced div automatically sets complementary background and frame colors:
   * `blue`: subtle blue background (`NavyBlue!4` / `blue!5`) with vibrant frame (`NavyBlue` / `blue!75!black`).
   * `green`: subtle green background (`green!5`) with forest green frame (`ForestGreen` / `green!60!black`).

@@ -2131,16 +2131,6 @@ if not pcall(math.randomseed) then
   math.randomseed(os.time() + math.floor((os.clock() or 0) * 1000000))
 end
 
-local function pick_random_color(parent_color)
-  local candidates = {}
-  for _, c in ipairs(BOX_PALETTE) do
-    if c ~= parent_color then
-      candidates[#candidates + 1] = c
-    end
-  end
-  return candidates[math.random(#candidates)]
-end
-
 local function is_box_div(el)
   if el.tag ~= "Div" then return false end
   if el.attributes["lenv"] == "tcolorbox" or el.attributes["lenv"] == "marginbox" then return true end
@@ -2150,10 +2140,20 @@ local function is_box_div(el)
   return false
 end
 
-local function assign_box_colors(blocks, parent_color)
+-- Generational box color assignment:
+-- 1. Members of the same generation (depth) in a box tree share the exact same color.
+-- 2. No two generations in the same tree can share a color (child, parent, and grandfather never collide).
+local function assign_box_colors(blocks, tree_state, depth)
   if not blocks then return end
   for _, b in ipairs(blocks) do
     if is_box_div(b) then
+      local current_tree = tree_state
+      local current_depth = depth or 1
+      if not current_tree then
+        current_tree = { gen_colors = {}, used_colors = {} }
+        current_depth = 1
+      end
+
       local col = b.attributes["color"]
       if not col or col == "" then
         for _, cls in ipairs(b.classes) do
@@ -2166,13 +2166,36 @@ local function assign_box_colors(blocks, parent_color)
           end
         end
       end
-      if not col or col == "" then
-        col = pick_random_color(parent_color)
+
+      if current_tree.gen_colors[current_depth] then
+        col = current_tree.gen_colors[current_depth]
+        b.attributes["color"] = col
+      elseif col and col ~= "" then
+        current_tree.gen_colors[current_depth] = col
+        current_tree.used_colors[col] = true
+        b.attributes["color"] = col
+      else
+        local candidates = {}
+        for _, c in ipairs(BOX_PALETTE) do
+          if not current_tree.used_colors[c] then
+            candidates[#candidates + 1] = c
+          end
+        end
+        if #candidates == 0 then
+          local parent_col = current_tree.gen_colors[current_depth - 1]
+          for _, c in ipairs(BOX_PALETTE) do
+            if c ~= parent_col then candidates[#candidates + 1] = c end
+          end
+        end
+        col = candidates[math.random(#candidates)]
+        current_tree.gen_colors[current_depth] = col
+        current_tree.used_colors[col] = true
         b.attributes["color"] = col
       end
-      assign_box_colors(b.content, col)
+
+      assign_box_colors(b.content, current_tree, current_depth + 1)
     elseif b.content then
-      assign_box_colors(b.content, parent_color)
+      assign_box_colors(b.content, tree_state, depth)
     end
   end
 end

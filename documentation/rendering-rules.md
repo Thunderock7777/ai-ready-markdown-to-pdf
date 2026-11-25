@@ -156,10 +156,12 @@ database:
 ### 3.3. Universal LaTeX Permeables (`latex_unv`, `tex_unv`)
 
 #### How It Renders Under the Hood
-* **Dedicated Universal Preamble Fence:** Code fences tagged `latex_unv` or `tex_unv` are the exclusive mechanism for declaring universal (document-wide) permeables:
-  * **Pure Preamble Mode (No `\begin{document}`):** All commands written in the fence (`\usepackage`, `\DeclareMathOperator`, `\newcommand`, `\let`, `\definecolor`, `\newlength`, etc.) are accepted as universal permeables and hoisted directly to Pandoc's `$header-includes$` before `\begin{document}`. Nothing is rendered in the body.
-  * **Pasted Document Mode (With `\documentclass` and `\begin{document}`):** The outer `\documentclass{...}`, `\pagestyle{...}`, and `\geometry{...}` boilerplate are silently dropped. All declarations before `\begin{document}` are hoisted universally to `$header-includes$`. Any body text between `\begin{document}` and `\end{document}` is rendered locally inside `{\begingroup...\par\endgroup}`.
-* **Collision Protection & Sequential Redefinitions:** Hoisted math operators, delimiters, symbols, alphabets, and lengths are safely guarded with automatic `\let\cmd\relax` prepending to prevent clashes against template or kernel defaults. Within the same `latex_unv` block, sequential redefinitions (e.g. declaring `\Tr` as `Tr`, relaxing it, and redeclaring it as `Trace`) execute in exact order. Conflicting package options or duplicate global declarations across separate `latex_unv` blocks automatically demote the offending block to `run=false`.
+* **Single Dedicated Universal Preamble Fence:** Code fences tagged `latex_unv` or `tex_unv` are the exclusive mechanism for declaring custom universal (document-wide) permeables. Exactly **one** `latex_unv` block is allowed per document; any subsequent `latex_unv` blocks automatically demote to `run=false` (syntax-highlighted code listing).
+  * **Pure Preamble Mode (No `\begin{document}`):** The entire block is treated as universal preamble. It is hoisted directly to Pandoc's `$header-includes$` as-is, pure and untouched (Overleaf-style pass-through).
+  * **Pasted Document Mode (With `\begin{document}`):** The position relative to `\begin{document}` defines the boundary:
+    * **Before `\begin{document}`:** Strips `\documentclass` boilerplate and hoists all remaining preamble lines raw to `$header-includes$`.
+    * **After `\begin{document}`:** Renders locally in the document body inside an isolated group (`{\begingroup...\par\endgroup}`).
+* **Direct Pass-Through Architecture:** No regex AST parsing or command modifying is performed. Whatever is written in the preamble area of `latex_unv` goes directly to the LaTeX engine.
 
 #### Examples
 
@@ -167,7 +169,7 @@ database:
 ````markdown
 ```latex_unv
 \usepackage{amsmath}
-\DeclareMathOperator{\Tr}{Trace}
+\DeclareMathOperator{\myop}{myop}
 \let\eps\varepsilon
 \newcommand{\darcy}{\mathbf{q} = -\frac{k}{\mu}\nabla p}
 ```
@@ -198,7 +200,11 @@ Here is text inside the body of the pasted document: $\sinc(x) = \frac{\sin x}{x
   \par\endgroup}
   ```
   Local macros, low-level TeX primitives (`\def`, `\let`), font families, color overrides, or dimension adjustments made inside a standard block **cannot leak** into subsequent sections.
-* **Strict Universal Preamble Prohibition:** Standard `latex` and `tex` fences are strictly reserved for local rendering (TikZ diagrams, math formulas, equations, local tables). If a standard `latex` fence contains *any* universal permeable command (`\usepackage`, `\RequirePackage`, `\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\DeclareMathSymbol`, `\DeclareMathAlphabet`, `\newlength`, `\definecolor`, `\newtheorem`, or `\documentclass`/`\begin{document}`), **execution is rejected and the block automatically demotes to `run=false`** (syntax-highlighted code listing). Universal declarations must be placed in ```` ```latex_unv ````.
+* **The `\usepackage` Exception for AI Chat Pastes:** When pasted documents (e.g. from ChatGPT, Claude, or Gemini) contain `\usepackage` lines before `\begin{document}` (or in bare snippets), the runner extracts and hoists `\usepackage` to the document preamble (deduplicating to avoid clashes) and strips `\documentclass` and `\begin{document}...\end{document}` so the local body renders seamlessly.
+* **Strict Preamble & Scaffolding Prohibition:** 
+  * If **anything else** appears before `\begin{document}` in standard `latex` (e.g. `\newcommand`, `\def`, custom setup), **the fence will NOT run (`run=false`)**.
+  * If any preamble-only command (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\newtheorem`, `\newunicodechar`, etc.) appears in standard `latex`, **the fence will NOT run (`run=false`)**.
+  * Custom global definitions and preambles strictly require the single `latex_unv` fence.
 * **Scaffolding Macro Protection:** If user LaTeX code attempts to redefine critical document scaffolding macros (`\maketitle`, `\tableofcontents`, `\title`, `\author`, `\date`), the runner automatically demotes the block to `run=false` (syntax-highlighted code listing).
 
 #### Examples

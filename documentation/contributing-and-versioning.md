@@ -344,6 +344,12 @@ Version 1.4.0 cycle
 
 Change ledger
   2026-11-25 | Explicit universal permeable fence latex_unv / tex_unv and strict local latex fence validation | source +96 / -122 | 218 / 500
+  2026-11-25 | Single latex_unv pass-through, begin-doc boundary, and usepackage exception in standard latex | source +146 / -475 | 839 / 500 (cycle limit exceeded, versioned as 1.4.1 PATCH)
+
+Version 1.4.1 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 For each later accepted change, append one entry in this format:
 

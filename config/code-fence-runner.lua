@@ -678,349 +678,6 @@ register{
 }
 
 -- ---- latex / tex (rendered, not executed) --------------------------------------
--- Preamble command definitions that survive the preamble deletion (see USER GUIDE).
-local DEF_NAMES = {
-  newcommand = true, renewcommand = true, providecommand = true,
-  DeclareRobustCommand = true,
-}
-local SKIP_PACKAGES = {}
-local SKIP_PACKAGE_NAMES = [[
-  inputenc fontenc fontspec geometry hyperref babel polyglossia lmodern microtype
-  fancyhdr parskip graphicx xcolor amsmath amssymb amsfonts amsthm mathtools physics braket
-  tikz pgf pgfplots booktabs longtable array float caption fvextra xurl soul etoolbox
-  newunicodechar unicode-math bm cancel mhchem placeins multirow calc footnotehyper
-  textcomp mathrsfs bookmark color siunitx circuitikz tcolorbox algorithm algpseudocode
-  chemfig subcaption listings enumitem adjustbox pgfplotstable tikz-cd footnote zref xparse
-]]
-for name in SKIP_PACKAGE_NAMES:gmatch("%S+") do SKIP_PACKAGES[name] = true end
-local TEMPLATE_THEOREMS = { theorem = true, lemma = true, proposition = true, corollary = true,
-  definition = true, example = true, remark = true }
-local SIMPLE_PREAMBLE = {
-  usetikzlibrary = true, usepgfplotslibrary = true, usepgflibrary = true, usegdlibrary = true,
-  pgfplotsset = true, tikzset = true, sisetup = true, theoremstyle = true,
-  newunicodechar = true, hypersetup = true, mathtoolsset = true,
-  tcbset = true, lstset = true, captionsetup = true, setlist = true,
-  setchemfig = true, definesubmol = true, swapnumbers = true,
-  DeclareUnicodeCharacter = true,
-}
-local PAIR_DELIM = {
-  DeclarePairedDelimiter = 2, DeclarePairedDelimiterX = 3, DeclarePairedDelimiterXPP = 5,
-  DeclareMathSymbol = 3, DeclareMathDelimiter = 5, DeclareMathAccent = 3,
-  DeclareMathAlphabet = 4, SetMathAlphabet = 5,
-  DeclareSymbolFont = 4, SetSymbolFont = 5,
-  DeclareSymbolFontAlphabet = 1, DeclareMathVersion = 0,
-  DeclareMathSizes = 3, numberwithin = 1,
-  definecolor = 2, colorlet = 1, providecolor = 2,
-  newlength = 0, setlength = 1, addtolength = 1,
-  newcounter = 0, setcounter = 1, addtocounter = 1,
-  PassOptionsToPackage = 1,
-}
-local THREE_ARG_PREAMBLE = {
-  NewDocumentCommand = true, DeclareDocumentCommand = true,
-  ProvideDocumentCommand = true, RenewDocumentCommand = true,
-  NewExpandableDocumentCommand = true,
-}
--- Fontspec font family/face definition commands that survive preamble deletion (kept in local_cmds).
-local FONT_FAMILY_COMMANDS = {
-  newfontfamily = true, renewfontfamily = true,
-  setfontfamily = true, providefontfamily = true,
-  newfontface = true, renewfontface = true,
-  setfontface = true, providefontface = true,
-}
--- Low-level TeX definition primitives that survive preamble deletion (kept in local_cmds).
-local PRIMITIVE_DEFS = { def = true, gdef = true, edef = true }
-
-local function skip_space(s, i) return (s:find("%S", i)) or (#s + 1) end
-
-local function match_group(s, i, open, close)       -- s[i] == open -> index of its matching close
-  local depth = 0
-  while i <= #s do
-    local c = s:sub(i, i)
-    if c == "\\" then
-      i = i + 1                                       -- skip an escaped character such as \{ or \%
-    elseif c == "%" then
-      local slashes, j = 0, i - 1
-      while j >= 1 and s:byte(j) == 92 do slashes = slashes + 1; j = j - 1 end
-      if slashes % 2 == 0 then
-        local nl = s:find("\n", i + 1, true)
-        i = nl or #s
-      end
-    elseif c == open then
-      depth = depth + 1
-    elseif c == close then
-      depth = depth - 1
-      if depth == 0 then return i end
-    end
-    i = i + 1
-  end
-  return nil
-end
-
-local function in_comment(s, pos)                   -- is s[pos] after an unescaped % on its line?
-  local ls = pos
-  while ls > 1 and s:sub(ls - 1, ls - 1) ~= "\n" do ls = ls - 1 end
-  local i = ls
-  while i < pos do
-    if s:byte(i) == 37 then
-      local slashes, j = 0, i - 1
-      while j >= ls and s:byte(j) == 92 do slashes = slashes + 1; j = j - 1 end
-      if slashes % 2 == 0 then return true end
-    end
-    i = i + 1
-  end
-  return false
-end
-
-local function extract_commands(pre)
-  local commands, pos = {}, 1
-  while true do
-    local a = pre:find("\\", pos, true)
-    if not a then break end
-    local name = pre:sub(a + 1):match("^([%a@]+)")
-    if not name then pos = a + 1
-    else
-      local cursor = a + 1 + #name
-      local finish, command
-      if not in_comment(pre, a) and DEF_NAMES[name] then
-        if pre:sub(cursor, cursor) == "*" then cursor = cursor + 1 end
-        cursor = skip_space(pre, cursor)
-        if pre:sub(cursor, cursor) == "{" then
-          cursor = match_group(pre, cursor, "{", "}")
-          cursor = cursor and cursor + 1
-        elseif pre:sub(cursor, cursor) == "\\" then
-          local token = pre:sub(cursor):match("^\\[%a@]+")
-          cursor = token and cursor + #token or cursor + 1
-        else
-          cursor = nil
-        end
-        while cursor do
-          cursor = skip_space(pre, cursor)
-          if pre:sub(cursor, cursor) == "[" then
-            local e = match_group(pre, cursor, "[", "]")
-            cursor = e and e + 1
-          elseif pre:sub(cursor, cursor) == "{" then
-            finish = match_group(pre, cursor, "{", "}")
-            if finish then
-              command = pre:sub(a, finish)
-              if name == "newcommand" then
-                command = command:gsub("^\\newcommand", "\\DeclareRobustCommand", 1)
-              end
-              break
-            end
-            cursor = nil
-          else
-            cursor = nil
-          end
-        end
-      elseif not in_comment(pre, a) and FONT_FAMILY_COMMANDS[name] then
-        if pre:sub(cursor, cursor) == "*" then cursor = cursor + 1 end
-        cursor = skip_space(pre, cursor)
-        if pre:sub(cursor, cursor) == "{" then
-          cursor = match_group(pre, cursor, "{", "}")
-          cursor = cursor and cursor + 1
-        elseif pre:sub(cursor, cursor) == "\\" then
-          local token = pre:sub(cursor):match("^\\[%a@]+")
-          cursor = token and cursor + #token or cursor + 1
-        else
-          cursor = nil
-        end
-        if cursor then
-          cursor = skip_space(pre, cursor)
-          while pre:sub(cursor, cursor) == "[" do
-            local opt_e = match_group(pre, cursor, "[", "]")
-            if not opt_e then cursor = nil; break end
-            cursor = skip_space(pre, opt_e + 1)
-          end
-        end
-        if cursor and pre:sub(cursor, cursor) == "{" then
-          local e = match_group(pre, cursor, "{", "}")
-          if e then
-            finish = e
-            cursor = skip_space(pre, e + 1)
-            while pre:sub(cursor, cursor) == "[" do
-              local opt_e = match_group(pre, cursor, "[", "]")
-              if not opt_e then break end
-              finish = opt_e
-              cursor = skip_space(pre, opt_e + 1)
-            end
-            command = pre:sub(a, finish)
-          end
-        end
-      elseif not in_comment(pre, a) and (PRIMITIVE_DEFS[name] or name == "let") then
-        if PRIMITIVE_DEFS[name] then
-          cursor = skip_space(pre, cursor)
-          if pre:sub(cursor, cursor) == "\\" then
-            local token = pre:sub(cursor):match("^\\[%a@]+") or pre:sub(cursor, cursor + 1)
-            cursor = cursor + #token
-          elseif pre:sub(cursor, cursor) == "{" then
-            local e = match_group(pre, cursor, "{", "}")
-            cursor = e and e + 1
-          else
-            cursor = nil
-          end
-          if cursor then
-            while cursor <= #pre and pre:sub(cursor, cursor) ~= "{" do
-              cursor = cursor + 1
-            end
-            if cursor <= #pre and pre:sub(cursor, cursor) == "{" then
-              finish = match_group(pre, cursor, "{", "}")
-              if finish then
-                command = pre:sub(a, finish)
-              end
-            end
-          end
-        elseif name == "let" then
-          cursor = skip_space(pre, cursor)
-          local first_token
-          if pre:sub(cursor, cursor) == "\\" then
-            first_token = pre:sub(cursor):match("^\\[%a@]+") or pre:sub(cursor, cursor + 1)
-            cursor = cursor + #first_token
-          elseif pre:sub(cursor, cursor) == "{" then
-            local e = match_group(pre, cursor, "{", "}")
-            if e then first_token = pre:sub(cursor, e); cursor = e + 1 end
-          end
-          if first_token then
-            cursor = skip_space(pre, cursor)
-            if pre:sub(cursor, cursor) == "=" then
-              cursor = skip_space(pre, cursor + 1)
-            end
-            if pre:sub(cursor, cursor) == "\\" then
-              local second_token = pre:sub(cursor):match("^\\[%a@]+") or pre:sub(cursor, cursor + 1)
-              finish = cursor + #second_token - 1
-              command = pre:sub(a, finish)
-            elseif pre:sub(cursor, cursor) == "{" then
-              finish = match_group(pre, cursor, "{", "}")
-              if finish then command = pre:sub(a, finish) end
-            elseif cursor <= #pre and pre:sub(cursor, cursor):match("%S") then
-              finish = cursor
-              command = pre:sub(a, finish)
-            end
-          end
-        end
-      elseif not in_comment(pre, a)
-          and (name == "usepackage" or name == "RequirePackage" or SIMPLE_PREAMBLE[name] or name == "DeclareMathOperator"
-            or name == "newtheorem" or PAIR_DELIM[name] or name == "newenvironment"
-            or THREE_ARG_PREAMBLE[name]) then
-        local optional = ""
-        if (name == "DeclareMathOperator" or name == "newtheorem")
-            and pre:sub(cursor, cursor) == "*" then cursor = cursor + 1 end
-        cursor = skip_space(pre, cursor)
-        if (name == "usepackage" or name == "RequirePackage") and pre:sub(cursor, cursor) == "[" then
-          local e = match_group(pre, cursor, "[", "]")
-          if e then optional = pre:sub(cursor, e); cursor = e + 1 end
-        end
-        cursor = skip_space(pre, cursor)
-        local first_end
-        if name == "swapnumbers" then
-          first_end = cursor - 1
-          finish = first_end
-        elseif pre:sub(cursor, cursor) == "{" then
-          first_end = match_group(pre, cursor, "{", "}")
-        elseif pre:sub(cursor, cursor) == "\\" and (name == "DeclareMathOperator" or PAIR_DELIM[name] or THREE_ARG_PREAMBLE[name]) then
-          local token = pre:sub(cursor):match("^\\[%a@]+")
-          first_end = token and (cursor + #token - 1) or nil
-        end
-        if first_end then
-          if PAIR_DELIM[name] then
-            if PAIR_DELIM[name] == 0 then
-              finish = first_end
-              local next_arg = skip_space(pre, first_end + 1)
-              if pre:sub(next_arg, next_arg) == "[" then
-                local optional_end = match_group(pre, next_arg, "[", "]")
-                finish = optional_end or first_end
-              end
-            else
-              local next_arg = skip_space(pre, first_end + 1)
-              for k = 1, PAIR_DELIM[name] do
-                next_arg = skip_space(pre, next_arg)
-                if pre:sub(next_arg, next_arg) == "[" then
-                  local optional_end = match_group(pre, next_arg, "[", "]")
-                  next_arg = optional_end and (optional_end + 1) or next_arg
-                  next_arg = skip_space(pre, next_arg)
-                end
-                if pre:sub(next_arg, next_arg) == "{" then
-                  finish = match_group(pre, next_arg, "{", "}")
-                  next_arg = finish and finish + 1 or next_arg
-                elseif pre:sub(next_arg, next_arg) == "\\" then
-                  local token = pre:sub(next_arg):match("^\\[%a@]+")
-                  finish = token and (next_arg + #token - 1) or nil
-                  next_arg = finish and finish + 1 or next_arg
-                elseif pre:sub(next_arg, next_arg):match('^[%w"%-\']') then
-                  local token = pre:sub(next_arg):match('^"[^"]*"') or pre:sub(next_arg):match("^'[^']*'") or pre:sub(next_arg):match("^[%w%-%.]+")
-                  finish = token and (next_arg + #token - 1) or nil
-                  next_arg = finish and finish + 1 or next_arg
-                else
-                  finish = nil; break
-                end
-              end
-              if finish then
-                local next_arg = skip_space(pre, finish + 1)
-                if pre:sub(next_arg, next_arg) == "[" then
-                  local optional_end = match_group(pre, next_arg, "[", "]")
-                  if optional_end then finish = optional_end end
-                end
-              end
-            end
-          elseif name == "DeclareMathOperator" or name == "newtheorem"
-              or name == "newenvironment" or name == "newunicodechar"
-              or THREE_ARG_PREAMBLE[name] then
-            local next_arg = skip_space(pre, first_end + 1)
-            if (name == "newtheorem" or name == "newenvironment")
-                and pre:sub(next_arg, next_arg) == "[" then
-              local optional_end = match_group(pre, next_arg, "[", "]")
-              next_arg = optional_end and optional_end + 1 or next_arg
-            end
-            if name == "newenvironment" then
-              next_arg = skip_space(pre, next_arg)
-              if pre:sub(next_arg, next_arg) == "[" then
-                local optional_end = match_group(pre, next_arg, "[", "]")
-                next_arg = optional_end and optional_end + 1 or next_arg
-              end
-            end
-            next_arg = skip_space(pre, next_arg)
-            local second_end = pre:sub(next_arg, next_arg) == "{"
-                and match_group(pre, next_arg, "{", "}") or nil
-            finish = second_end
-            if second_end and (name == "newenvironment" or THREE_ARG_PREAMBLE[name]) then
-              next_arg = skip_space(pre, second_end + 1)
-              finish = pre:sub(next_arg, next_arg) == "{"
-                  and match_group(pre, next_arg, "{", "}") or nil
-            end
-            if second_end and name == "newtheorem" then
-              local trailing = skip_space(pre, second_end + 1)
-              if pre:sub(trailing, trailing) == "[" then
-                local trailing_end = match_group(pre, trailing, "[", "]")
-                if trailing_end then finish = trailing_end end
-              end
-            end
-          else
-            finish = first_end
-          end
-            if finish then
-              local first = pre:sub(cursor + 1, first_end - 1):match("^%s*(.-)%s*$")
-              if name == "usepackage" or name == "RequirePackage" then
-                local keep = {}
-                for package in first:gmatch("[^,%s]+") do
-                  if not SKIP_PACKAGES[package] then keep[#keep+1] = package end
-                end
-                if #keep > 0 then command = "\\usepackage" .. optional .. "{" .. table.concat(keep, ",") .. "}" end
-              elseif name ~= "newtheorem" or not TEMPLATE_THEOREMS[first] then
-                command = pre:sub(a, finish)
-              end
-            end
-          end
-        end
-      if finish then
-        if command then commands[#commands+1] = command end
-        pos = finish + 1
-      else
-        pos = a + 1
-      end
-    end
-  end
-  return commands
-end
-
 -- Template scaffolding macros that cannot safely execute in the document body.
 -- If a latex/tex code fence redefines them, it is treated as a code listing (run=false).
 local SCAFFOLDING_MACROS = {
@@ -1048,169 +705,183 @@ local function has_scaffolding_redefinition(text)
   return nil
 end
 
--- Identifies the unique target name for commands that have global or document-wide scope
--- (\DeclareMathOperator, \DeclarePairedDelimiter, \newunicodechar, \newtheorem)
--- to detect and prevent cross-fence naming collisions.
-local function get_global_command_target(cmd)
-  if cmd:match("^%s*\\DeclareMathOperator") then
-    local sym = cmd:match("^%s*\\DeclareMathOperator%*?%s*(%b{})")
-    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
-    else sym = cmd:match("^%s*\\DeclareMathOperator%*?%s*(\\[%a@]+)") end
-    if sym and not sym:match("^\\") then sym = "\\" .. sym end
-    return sym
-  end
-  if cmd:match("^%s*\\DeclarePairedDelimiter") then
-    local sym = cmd:match("^%s*\\DeclarePairedDelimiter[XP]*%s*(%b{})")
-    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
-    else sym = cmd:match("^%s*\\DeclarePairedDelimiter[XP]*%s*(\\[%a@]+)") end
-    if sym and not sym:match("^\\") then sym = "\\" .. sym end
-    return sym
-  end
-  if cmd:match("^%s*\\newunicodechar") then
-    local sym = cmd:match("^%s*\\newunicodechar%s*(%b{})")
-    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$") end
-    if sym then return "\\newunicodechar{" .. sym .. "}" end
-  end
-  if cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccent]+") then
-    local sym = cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccent]+%s*(%b{})")
-    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
-    else sym = cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccent]+%s*(\\[%a@]+)") end
-    if sym and not sym:match("^\\") then sym = "\\" .. sym end
-    return sym
-  end
-  if cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccentAlphabet]+")
-      or cmd:match("^%s*\\DeclareSymbolFontAlphabet")
-      or cmd:match("^%s*\\SetMathAlphabet") then
-    local sym = cmd:match("^%s*\\[%a@]+%s*(%b{})")
-    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
-    else sym = cmd:match("^%s*\\[%a@]+%s*(\\[%a@]+)") end
-    if sym and not sym:match("^\\") then sym = "\\" .. sym end
-    return sym
-  end
-  if cmd:match("^%s*\\newlength") then
-    local sym = cmd:match("^%s*\\newlength%s*(%b{})")
-    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$")
-    else sym = cmd:match("^%s*\\newlength%s*(\\[%a@]+)") end
-    if sym and not sym:match("^\\") then sym = "\\" .. sym end
-    return sym
-  end
-  if cmd:match("^%s*\\newtheorem") then
-    local sym = cmd:match("^%s*\\newtheorem%*?%s*(%b{})")
-    if sym then sym = sym:sub(2, -2):match("^%s*(.-)%s*$") end
-    if sym then return "\\newtheorem{" .. sym .. "}" end
-  end
-  return nil
-end
-
-local function has_universal_permeable(text)
-  if text:find("\\documentclass") or text:find("\\begin%s*{document}") then
-    return "documentclass/begin{document}"
-  end
+-- Helper to strip LaTeX line comments (% ...)
+local function strip_latex_comments(text)
+  local lines = {}
   for line in text:gmatch("[^\r\n]+") do
-    local a = line:find("\\", 1, true)
-    while a do
-      if not in_comment(line, a) then
-        local name = line:sub(a + 1):match("^([%a@]+)")
-        if name then
-          if name == "usepackage" or name == "RequirePackage" or name == "PassOptionsToPackage"
-              or name == "DeclareMathOperator" or name == "newtheorem"
-              or SIMPLE_PREAMBLE[name] or PAIR_DELIM[name] or THREE_ARG_PREAMBLE[name] then
-            return "\\" .. name
-          end
+    local non_comment = line
+    for i = 1, #line do
+      if line:byte(i) == 37 then -- '%'
+        local slashes = 0
+        local j = i - 1
+        while j >= 1 and line:byte(j) == 92 do
+          slashes = slashes + 1
+          j = j - 1
+        end
+        if slashes % 2 == 0 then
+          non_comment = line:sub(1, i - 1)
+          break
         end
       end
-      a = line:find("\\", a + 1, true)
     end
+    lines[#lines + 1] = non_comment
   end
-  return nil
+  return table.concat(lines, "\n")
 end
 
-local function render_latex_unv(el, class, preamble, global_defs)
+-- Extracts \usepackage[...] and \RequirePackage[...] lines from text, returning
+-- the list of package command lines and the remaining text.
+local function extract_packages(text)
+  local pkgs = {}
+  local cleaned = text:gsub("(%s*\\[uR]%a*%s*%b[]%s*%b{})", function(m)
+    if m:match("^%s*\\usepackage") or m:match("^%s*\\RequirePackage") then
+      pkgs[#pkgs + 1] = m:match("^%s*(.-)%s*$")
+      return ""
+    end
+    return m
+  end)
+  cleaned = cleaned:gsub("(%s*\\[uR]%a*%s*%b{})", function(m)
+    if m:match("^%s*\\usepackage") or m:match("^%s*\\RequirePackage") then
+      pkgs[#pkgs + 1] = m:match("^%s*(.-)%s*$")
+      return ""
+    end
+    return m
+  end)
+  return pkgs, cleaned
+end
+
+-- Deduplicate package additions into doc_state.loaded_packages
+local function add_packages_to_preamble(pkgs, preamble, doc_state)
+  for _, pkg_line in ipairs(pkgs) do
+    if not doc_state.loaded_packages[pkg_line] then
+      doc_state.loaded_packages[pkg_line] = true
+      preamble[#preamble + 1] = pkg_line
+    end
+  end
+end
+
+-- Strip documentclass lines
+local function strip_documentclass(text)
+  text = text:gsub("\\documentclass%s*%b[]%s*%b{}", "")
+  text = text:gsub("\\documentclass%s*%b{}", "")
+  return text
+end
+
+-- Preamble-only commands that cannot execute in the document body and require latex_unv
+local function has_preamble_only_command(text)
+  if text:match("\\DeclareMathOperator")
+      or text:match("\\DeclarePairedDelimiter")
+      or text:match("\\newtheorem")
+      or text:match("\\newunicodechar")
+      or text:match("\\DeclareMath[SymbolDelimiterAccentAlphabet]+")
+      or text:match("\\DeclareSymbolFont")
+      or text:match("\\SetSymbolFont")
+      or text:match("\\newlength") then
+    return true
+  end
+  return false
+end
+
+local function render_latex_unv(el, class, preamble, doc_state)
   local out = {}
   if el.attributes["show"] == "true" then
     out[#out + 1] = pandoc.CodeBlock(el.text, pandoc.Attr("", { class }))
   end
 
+  -- Rule: Exactly ONE latex_unv block is allowed per document
+  if doc_state.seen_unv_fence then
+    warn("only one latex_unv block is allowed per document; subsequent block rendered as code listing (run=false)")
+    return nil
+  end
+  doc_state.seen_unv_fence = true
+
   local pre_content = el.text
   local body_content = nil
-  local bs, e = el.text:find("\\begin%s*{document}")
+  local bs, be = el.text:find("\\begin%s*{document}")
   if bs then
     pre_content = el.text:sub(1, bs - 1)
-    local after_begin = el.text:sub(e + 1)
+    local after_begin = el.text:sub(be + 1)
     local inner = after_begin:match("^(.*)\\end%s*{document}")
     body_content = inner or after_begin
   end
 
-  local commands = extract_commands(pre_content)
-
-  for _, cmd in ipairs(commands) do
-    if cmd:match("^%s*\\usepackage") or cmd:match("^%s*\\RequirePackage") then
-      local opt = cmd:match("^%s*\\[%a@]+%s*(%b[])") or ""
-      local pkgs = cmd:match("^%s*\\[%a@]+%s*%b[]%s*(%b{})") or cmd:match("^%s*\\[%a@]+%s*(%b{})")
-      if pkgs then
-        for pkg in pkgs:sub(2, -2):gmatch("[^,%s]+") do
-          local target = "\\usepackage{" .. pkg .. "}"
-          if global_defs and global_defs[target] and global_defs[target] ~= opt then
-            warn(string.format("latex_unv block imports package '%s' with conflicting options; rendering as code listing (run=false)", pkg))
-            return nil
-          end
-          if global_defs then global_defs[target] = opt end
-        end
-      end
-    else
-      local target = get_global_command_target(cmd)
-      if target then
-        if global_defs and global_defs[target] then
-          warn(string.format("latex_unv block redefines global command '%s'; rendering as code listing (run=false)", target))
-          return nil
-        end
-      end
-    end
+  -- Pre-document content is universal preamble: strip documentclass and hoist raw
+  pre_content = strip_documentclass(pre_content)
+  if pre_content:match("%S") then
+    preamble[#preamble + 1] = pre_content:match("^%s*(.-)%s*$")
   end
 
-  for _, cmd in ipairs(commands) do
-    local target = get_global_command_target(cmd)
-    if target and global_defs then
-      global_defs[target] = cmd
-    end
-  end
-
-  for _, cmd in ipairs(commands) do
-    if cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\DeclarePairedDelimiter")
-        or cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccentAlphabet]+")
-        or cmd:match("^%s*\\DeclareSymbolFontAlphabet") or cmd:match("^%s*\\SetMathAlphabet")
-        or cmd:match("^%s*\\newlength") then
-      local target = get_global_command_target(cmd)
-      if target and target:match("^\\[%a@]+") then
-        cmd = "\\let" .. target .. "\\relax " .. cmd
-      end
-    end
-    preamble[#preamble + 1] = cmd
-  end
-
+  -- Post-document content is local body
   if body_content and body_content:match("%S") then
-    local isolated_body = "{\\begingroup\n" .. body_content .. "\n\\par\\endgroup}"
+    local isolated_body = "{\\begingroup\n" .. body_content:match("^%s*(.-)%s*$") .. "\n\\par\\endgroup}"
     out[#out + 1] = pandoc.RawBlock("latex", isolated_body)
   end
 
   return out
 end
 
-local function render_latex(el, class, preamble, global_defs)
+local function render_latex(el, class, preamble, doc_state)
   local out = {}
   if el.attributes["show"] == "true" then
     out[#out + 1] = pandoc.CodeBlock(el.text, pandoc.Attr("", { class }))
   end
 
-  local unv_cmd = has_universal_permeable(el.text)
-  if unv_cmd then
-    warn(string.format("latex block contains universal permeable '%s'; universal permeables require latex_unv or tex_unv; rendering as code listing (run=false)", unv_cmd))
-    return nil
-  end
+  local bs, be = el.text:find("\\begin%s*{document}")
+  if bs then
+    local pre_content = el.text:sub(1, bs - 1)
+    local after_begin = el.text:sub(be + 1)
+    local body_content = after_begin:match("^(.*)\\end%s*{document}") or after_begin
 
-  local isolated_body = "{\\begingroup\n" .. el.text .. "\n\\par\\endgroup}"
-  out[#out + 1] = pandoc.RawBlock("latex", isolated_body)
-  return out
+    -- Strip comments, documentclass, and extract packages
+    local no_comments = strip_latex_comments(pre_content)
+    local no_docclass = strip_documentclass(no_comments)
+    local pkgs, remaining = extract_packages(no_docclass)
+
+    -- Rule: ONLY \usepackage is allowed as an exception before \begin{document}.
+    -- If ANYTHING else remains before \begin{document}, it is a universal permeable violation!
+    if remaining:match("%S") then
+      warn("latex block contains commands before \\begin{document}; universal permeables require latex_unv; rendering as code listing (run=false)")
+      return nil
+    end
+
+    -- Hoist extracted packages
+    add_packages_to_preamble(pkgs, preamble, doc_state)
+
+    -- Check if body contains preamble-only commands
+    if has_preamble_only_command(body_content) then
+      warn("latex block contains preamble-only command in document body; universal permeables require latex_unv; rendering as code listing (run=false)")
+      return nil
+    end
+
+    -- Render local body
+    if body_content:match("%S") then
+      local isolated_body = "{\\begingroup\n" .. body_content:match("^%s*(.-)%s*$") .. "\n\\par\\endgroup}"
+      out[#out + 1] = pandoc.RawBlock("latex", isolated_body)
+    end
+    return out
+  else
+    -- No \begin{document}
+    if el.text:find("\\documentclass") then
+      warn("latex block contains \\documentclass without \\begin{document}; rendering as code listing (run=false)")
+      return nil
+    end
+
+    -- Check if there are \usepackage lines: extract and hoist them as the one allowed exception
+    local pkgs, remaining = extract_packages(el.text)
+    add_packages_to_preamble(pkgs, preamble, doc_state)
+
+    -- Check if remaining snippet contains preamble-only commands
+    if has_preamble_only_command(remaining) then
+      warn("latex block contains preamble-only command; universal permeables require latex_unv; rendering as code listing (run=false)")
+      return nil
+    end
+
+    if remaining:match("%S") then
+      local isolated_body = "{\\begingroup\n" .. remaining:match("^%s*(.-)%s*$") .. "\n\\par\\endgroup}"
+      out[#out + 1] = pandoc.RawBlock("latex", isolated_body)
+    end
+    return out
+  end
 end
 
 register{ id = "latex_unv", names = { "latex_unv", "tex_unv" }, render = render_latex_unv }
@@ -1458,7 +1129,7 @@ local function render(el, spec, res)
 end
 
 -- ------------------------------ 5. dispatch ---------------------------------
-local function process_code_block(el, preamble, global_defs)
+local function process_code_block(el, preamble, doc_state)
   if el.attributes["run"] == "false" then return nil end
   local class = (el.classes[1] or ""):lower()
   local spec = LANGS[class]
@@ -1470,7 +1141,7 @@ local function process_code_block(el, preamble, global_defs)
       return nil
     end
   end
-  if spec.render then return spec.render(el, class, preamble, global_defs) end
+  if spec.render then return spec.render(el, class, preamble, doc_state) end
   local result = run_exec(el, spec)
   if not result then return pandoc.CodeBlock(el.text, pandoc.Attr("", { spec.id })) end
   return render(el, spec, result)
@@ -1495,8 +1166,8 @@ end
 
 function Pandoc(doc)
   local preamble = {}
-  local global_defs = {}
-  doc = doc:walk({ CodeBlock = function(el) return process_code_block(el, preamble, global_defs) end })
+  local doc_state = { seen_unv_fence = false, loaded_packages = {} }
+  doc = doc:walk({ CodeBlock = function(el) return process_code_block(el, preamble, doc_state) end })
   add_latex_preamble(doc, preamble)
   return doc
 end

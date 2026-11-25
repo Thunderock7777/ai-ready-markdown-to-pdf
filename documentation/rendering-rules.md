@@ -153,29 +153,59 @@ database:
 
 ---
 
-### 3.3. LaTeX / TeX (`latex`, `tex`)
+### 3.3. Universal LaTeX Permeables (`latex_unv`, `tex_unv`)
+
+#### How It Renders Under the Hood
+* **Single Dedicated Universal Preamble Fence:** Code fences tagged `latex_unv` or `tex_unv` are the exclusive mechanism for declaring custom universal (document-wide) permeables. Exactly **one** `latex_unv` block is allowed per document; any subsequent `latex_unv` blocks automatically demote to `run=false` (syntax-highlighted code listing).
+  * **Pure Preamble Mode (No `\begin{document}`):** The entire block is treated as universal preamble. It is hoisted directly to Pandoc's `$header-includes$` as-is, pure and untouched (Overleaf-style pass-through).
+  * **Pasted Document Mode (With `\begin{document}`):** The position relative to `\begin{document}` defines the boundary:
+    * **Before `\begin{document}`:** Strips `\documentclass` boilerplate and hoists all remaining preamble lines raw to `$header-includes$`.
+    * **After `\begin{document}`:** Renders locally in the document body inside an isolated group (`{\begingroup...\par\endgroup}`).
+* **Direct Pass-Through Architecture:** No regex AST parsing or command modifying is performed. Whatever is written in the preamble area of `latex_unv` goes directly to the LaTeX engine.
+
+#### Examples
+
+**Pure Universal Macro & Package Declarations:**
+````markdown
+```latex_unv
+\usepackage{amsmath}
+\DeclareMathOperator{\myop}{myop}
+\let\eps\varepsilon
+\newcommand{\darcy}{\mathbf{q} = -\frac{k}{\mu}\nabla p}
+```
+````
+
+**Pasted Full LaTeX Document:**
+````markdown
+```latex_unv
+\documentclass{article}
+\usepackage{amsmath}
+\DeclareMathOperator{\sinc}{sinc}
+\begin{document}
+Here is text inside the body of the pasted document: $\sinc(x) = \frac{\sin x}{x}$.
+\end{document}
+```
+````
+
+---
+
+### 3.3.1. Standard Local LaTeX / TeX (`latex`, `tex`)
 
 #### How It Renders Under the Hood
 * **Direct Raw LaTeX Output:** Code fences tagged `latex` or `tex` are emitted directly into the generated `.tex` file as raw LaTeX.
-* **Universal Code Fence Isolation:** Every LaTeX fence is strictly wrapped inside a local group:
+* **Universal Code Fence Isolation:** Every standard `latex` fence is strictly wrapped inside a local group:
   ```latex
   {\begingroup
   <user-code>
   \par\endgroup}
   ```
-  This ensures that any macro definitions, low-level TeX primitives (`\def`, `\gdef`, `\edef`, `\let`), font family declarations (`\newfontfamily`, `\newfontface`), color overrides (`\color{...}`), font size changes (`\Huge`), or dimension adjustments (`\setlength`) made inside a block **cannot leak** into subsequent sections or corrupt the outer document geometry.
-* **Pasted Document Extraction & Universal Preamble Hoisting:** If a full pasted LaTeX document containing `\begin{document} ... \end{document}` is passed, the runner automatically hoists preamble-only commands, package configurations, and global definitions into the global document preamble (`$header-includes$`):
-  * **Package Loading & Options:** `\usepackage`, `\RequirePackage`, and `\PassOptionsToPackage`.
-  * **Math Operators, Symbols, Alphabets & Accents:** `\DeclareMathOperator`, `\DeclarePairedDelimiter` (including `X` and `XPP`), `\DeclareMathSymbol`, `\DeclareMathDelimiter`, `\DeclareMathAccent`, `\DeclareMathAlphabet`, `\SetMathAlphabet`, `\DeclareSymbolFont`, `\SetSymbolFont`, `\DeclareSymbolFontAlphabet`, `\DeclareMathVersion`, `\DeclareMathSizes`, and `\numberwithin`. All hoisted math operators, delimiters, alphabets, symbol fonts, and symbols accept both braced and unbraced forms and are safely guarded with `\let\cmd\relax` to prevent crashes against pre-existing kernel or package definitions (`\Tr`, `\Pr`, `\Re`, `\abs`, `\norm`, `physics.sty` macros, etc.).
-  * **Color Palettes:** `\definecolor`, `\colorlet` (with optional model arguments), and `\providecolor`.
-  * **Package Setters & Configuration:** `\tcbset`, `\lstset`, `\captionsetup`, `\setlist`, `\setchemfig`, `\definesubmol`, `\swapnumbers`, `\hypersetup`, `\mathtoolsset`, and TikZ/PGF libraries (`\usetikzlibrary`, `\usepgflibrary`, `\usegdlibrary`).
-  * **Lengths & Counters:** `\newlength`, `\setlength`, `\addtolength`, `\newcounter` (with optional parent reset counter `[parent]`), `\setcounter`, and `\addtocounter`. `\newlength` targets are protected with `\let\target\relax` collision guards.
-  * **Unicode Character Mappings:** `\newunicodechar` and `\DeclareUnicodeCharacter`.
-  * **Theorems:** `\newtheorem` (preserving optional subordinate reset counters `[section]` or shared counters `[shared]`) and preceding `\theoremstyle` definitions.
-  * **Universal Code Fence Isolation for Body Macros:** User-defined macros (`\newcommand`, `\renewcommand`, `\providecommand`, `\NewDocumentCommand`, `\RenewDocumentCommand`, `\ProvideDocumentCommand`, `\DeclareDocumentCommand`, `\NewExpandableDocumentCommand`), low-level TeX primitives (`\def`, `\gdef`, `\edef`, `\let`), custom environments, and fontspec font family/face commands (`\newfontfamily`, `\renewfontfamily`, `\setfontfamily`, `\providefontfamily`, `\newfontface`, `\renewfontface`, `\setfontface`, `\providefontface`) remain strictly local to the fence's `{\begingroup ... \par\endgroup}` body, preventing cross-fence namespace pollution. **Co-Occurrence Hoisting Rule:** If a specific command token (e.g. `\Tr`) is targeted in a universal hoisted permeable (`\DeclareMathOperator{\Tr}{...}`) and is simultaneously referenced in a local macro (`\let\Tr\relax`) inside the same fence, both are hoisted universally in their exact relative order to preserve sequential redefinition semantics while keeping all independent local macros isolated.
-* **Cross-Fence Global Command Conflict Protection:** Defining or redefining any global hoisted command (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\DeclareMathSymbol`, `\DeclareMathAlphabet`, `\newlength`, `\definecolor`, `\newunicodechar`, `\newtheorem`) or importing a package with conflicting options across multiple fences automatically demotes the offending block to `run=false` (syntax-highlighted code listing) with a console warning. Within the same fence, sequential redefinitions (e.g. `\DeclareMathOperator{\Tr}{Tr}` followed by `\let\Tr\relax \DeclareMathOperator{\Tr}{Trace}`) are fully permitted, matching standard LaTeX and Overleaf behavior with automatic `\let\cmd\relax` collision guards.
-* **Scaffolding Macro Protection:** If user LaTeX code attempts to redefine critical document scaffolding macros (`\maketitle`, `\tableofcontents`, `\title`, `\author`, `\date`), the runner automatically demotes the block to `run=false` (syntax-highlighted code listing) to prevent fatal document compilation crashes.
-* **Incomplete Preamble Protection:** If a LaTeX code fence contains preamble-only commands (`\usepackage` or `\documentclass`) but lacks `\begin{document}`, the runner automatically demotes the block to `run=false` (syntax-highlighted code listing) with a console warning, preventing fatal XeLaTeX document body crashes.
+  Local macros, low-level TeX primitives (`\def`, `\let`), font families, color overrides, or dimension adjustments made inside a standard block **cannot leak** into subsequent sections.
+* **The `\usepackage` Exception for AI Chat Pastes:** When pasted documents (e.g. from ChatGPT, Claude, or Gemini) contain `\usepackage` lines before `\begin{document}` (or in bare snippets), the runner extracts and hoists `\usepackage` to the document preamble (deduplicating to avoid clashes) and strips `\documentclass` and `\begin{document}...\end{document}` so the local body renders seamlessly.
+* **Strict Preamble & Scaffolding Prohibition:** 
+  * If **anything else** appears before `\begin{document}` in standard `latex` (e.g. `\newcommand`, `\def`, custom setup), **the fence will NOT run (`run=false`)**.
+  * If any preamble-only command (`\DeclareMathOperator`, `\DeclarePairedDelimiter`, `\newtheorem`, `\newunicodechar`, etc.) appears in standard `latex`, **the fence will NOT run (`run=false`)**.
+  * Custom global definitions and preambles strictly require the single `latex_unv` fence.
+* **Scaffolding Macro Protection:** If user LaTeX code attempts to redefine critical document scaffolding macros (`\maketitle`, `\tableofcontents`, `\title`, `\author`, `\date`), the runner automatically demotes the block to `run=false` (syntax-highlighted code listing).
 
 #### Examples
 
@@ -191,38 +221,9 @@ database:
 ```
 ````
 
-**Preamble Hoisting with Local Scoping & Font Family Extraction:**
-````markdown
-```latex
-\documentclass{article}
-\usepackage{amsmath}
-\DeclareMathOperator{\sinc}{sinc}
-\newfontfamily\NotoSansLight{Noto Sans}[Scale=0.95]
-\newcommand{\localbox}[1]{\fbox{\textbf{#1}}}
-\begin{document}
-Here is a hoisted operator: $\sinc(x) = \frac{\sin x}{x}$,
-and a scoped font/macro: {\NotoSansLight \localbox{Local Content}}.
-\end{document}
-```
-````
-
-**Cross-Fence Collision Protection (Automatic Demotion):**
-````markdown
-```latex
-% If an earlier fence already defined \sinc or \Tr, defining it again
-% here triggers cross-fence protection and demotes this block to a code listing:
-\documentclass{article}
-\DeclareMathOperator{\sinc}{sinc}
-\begin{document}
-Conflict detected: demoted to code listing (run=false).
-\end{document}
-```
-````
-
 **Syntax-Highlighted Listing Only (`run=false`):**
 ````markdown
 ```latex run=false
-% Prints verbatim in the PDF without compiling
 \documentclass{article}
 \usepackage{geometry}
 \begin{document}

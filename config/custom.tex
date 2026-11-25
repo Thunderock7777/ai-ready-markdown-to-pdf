@@ -583,6 +583,9 @@ $endif$
 }{}
 \IfFileExists{zref.sty}{\usepackage[savepos,abspage,user]{zref}}{}
 \IfFileExists{xparse.sty}{\usepackage{xparse}}{}
+\IfFileExists{adjustbox.sty}{\usepackage{adjustbox}}{}
+\IfFileExists{pgfplotstable.sty}{\usepackage{pgfplotstable}}{}
+\IfFileExists{tikz-cd.sty}{\usepackage{tikz-cd}}{}
 % --------------------------------------------- marginbox (pure TeX breakable boxes with bold header band & shadow)
 \ExplSyntaxOn
 \tl_new:N  \l__marginbox_color_tl
@@ -648,7 +651,7 @@ $endif$
 \dim_new:N \l__marginbox_yb_dim
 \dim_new:N \l__marginbox_ypagetop_dim
 \dim_new:N \l__marginbox_ypagebot_dim
-\NewDocumentEnvironment{marginbox}{ O{} G{} }
+\DeclareDocumentEnvironment{marginbox}{ O{} G{} }
   {
     \keys_set:nn { marginbox }
       { color=NavyBlue, bg=auto, title={}, left=1.5em, right=1.5em, padleft=1em, padright=1em,
@@ -837,9 +840,6 @@ $endif$
       { \__marginbox_draw_one:n { #1 } }
   }
 \ExplSyntaxOff
-\IfFileExists{adjustbox.sty}{\usepackage{adjustbox}}{}
-\IfFileExists{pgfplotstable.sty}{\usepackage{pgfplotstable}}{}
-\IfFileExists{tikz-cd.sty}{\usepackage{tikz-cd}}{}
 % physics and siunitx both define \qty and physics wins, which broke  \qty{1.5}{\meter}.
 % Dispatch:  \qty{number}{unit}  and  \qty[options]{number}{unit}  -> siunitx (\SI);
 %            everything else  \qty(..)  \qty[..]  \qty|..|  \qty\{..\}  \qty{..}  -> physics (\quantity).

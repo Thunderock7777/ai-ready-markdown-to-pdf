@@ -1483,12 +1483,9 @@ end
 
 -- Converts ```marginbox ... ``` and ```vbox ... ``` fences into Pandoc fenced Divs
 -- (::: {.marginbox ...} and ::: {.vbox ...})
--- Supports nesting of boxes and leaves inner non-box code fences untouched.
+-- Supports arbitrary nesting of boxes and properly distinguishes inner code fences
+-- (both language-tagged ```python and bare unadorned ``` blocks) from box closers.
 local function pass_box_fences(text)
-  local out = {}
-  local box_stack = {}
-  local code_fence = nil
-
   local function normalize_box_attrs(a)
     if not a or not a:match("%S") then return "" end
     a = a:match("^%s*(.-)%s*$")
@@ -1500,7 +1497,69 @@ local function pass_box_fences(text)
     return " " .. a
   end
 
-  for line in each_line(text) do
+  local lines = {}
+  for line in each_line(text) do lines[#lines + 1] = line end
+  local n = #lines
+
+  -- Pre-scan pass: classify fences so bare ``` can disambiguate
+  -- between box closers and inner bare code blocks.
+  local is_box_open = {}
+  local is_lang_open = {}
+  local is_lang_close = {}
+  local in_lang = false
+  local lang_fence_len = 0
+
+  for i = 1, n do
+    local line = lines[i]
+    local indent, ticks, rest = line:match("^(%s*)([`~]+)%s*(.*)$")
+    if ticks and #ticks >= 3 then
+      if not in_lang then
+        local is_box = false
+        if rest:match("^marginbox%f[%A]") or rest:match("^{%.marginbox") or
+           rest:match("^vbox%f[%A]") or rest:match("^{%.vbox") or
+           rest:match("^tcolorbox%f[%A]") or rest:match("^{%.tcolorbox") then
+          is_box = true
+        end
+        if is_box then
+          is_box_open[i] = true
+        elseif rest:match("%S") then
+          is_lang_open[i] = true
+          in_lang = true
+          lang_fence_len = #ticks
+        end
+      else
+        if rest:match("^%s*$") and #ticks >= lang_fence_len then
+          is_lang_close[i] = true
+          in_lang = false
+        end
+      end
+    end
+  end
+
+  -- Backward scan: count future box openers and bare fence candidates from line i forward.
+  local F_box_open = {}
+  local F_bare = {}
+  local count_box = 0
+  local count_bare = 0
+  for i = n, 1, -1 do
+    F_box_open[i] = count_box
+    if is_box_open[i] then
+      count_box = count_box + 1
+    end
+    local line = lines[i]
+    local indent, ticks, rest = line:match("^(%s*)([`~]+)%s*(.*)$")
+    if ticks and #ticks >= 3 and rest:match("^%s*$") and not is_lang_close[i] then
+      count_bare = count_bare + 1
+    end
+    F_bare[i] = count_bare
+  end
+
+  local out = {}
+  local box_stack = {}
+  local code_fence = nil
+
+  for i = 1, n do
+    local line = lines[i]
     local indent, ticks, rest = line:match("^(%s*)([`~]+)%s*(.*)$")
     if ticks and #ticks >= 3 then
       local box_kind, attrs = nil, nil
@@ -1523,13 +1582,23 @@ local function pass_box_fences(text)
         box_kind = "vbox"
         attrs = rest:match("^{%.tcolorbox%s*(.-)}%s*$")
       end
+
       if not code_fence and box_kind then
         box_stack[#box_stack + 1] = { len = #ticks }
         local attr_str = normalize_box_attrs(attrs)
         out[#out + 1] = indent .. "::: {." .. box_kind .. attr_str .. "}"
       elseif not code_fence and #box_stack > 0 and rest:match("^%s*$") and #ticks >= box_stack[#box_stack].len then
-        box_stack[#box_stack] = nil
-        out[#out + 1] = indent .. ":::"
+        local closers_needed = #box_stack + F_box_open[i]
+        if (F_bare[i] or 0) > closers_needed then
+          -- More bare fences exist than are needed to close open and future boxes:
+          -- this bare fence opens an inner unadorned code block.
+          code_fence = { len = #ticks, bare = true }
+          out[#out + 1] = line
+        else
+          -- This bare fence closes the innermost open box.
+          box_stack[#box_stack] = nil
+          out[#out + 1] = indent .. ":::"
+        end
       elseif not code_fence and rest:match("%S") then
         code_fence = { len = #ticks }
         out[#out + 1] = line

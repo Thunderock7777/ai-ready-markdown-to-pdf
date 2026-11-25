@@ -359,6 +359,7 @@ Version 1.4.2 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-25 | Disambiguate inner unadorned code fences in pass_box_fences via global fence census | source +77 / -8 | 85 / 500
 
 For each later accepted change, append one entry in this format:
 

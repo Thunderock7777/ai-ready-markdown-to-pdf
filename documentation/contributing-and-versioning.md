@@ -361,6 +361,7 @@ Version 1.4.2 cycle
 Change ledger
   2026-11-25 | Disambiguate inner unadorned code fences in pass_box_fences via global fence census | source +77 / -8 | 85 / 500
   2026-11-25 | Map marginbox violet preset to distinct LaTeX Violet preventing RoyalPurple collision | source +1 / -1 | 86 / 500
+  2026-11-26 | Replace fence census with inside-out center-to-surface reduction logic in pass_box_fences | source +81 / -82 | 249 / 500
 
 For each later accepted change, append one entry in this format:
 

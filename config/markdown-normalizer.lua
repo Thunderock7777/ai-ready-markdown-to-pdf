@@ -1483,8 +1483,11 @@ end
 
 -- Converts ```marginbox ... ``` and ```vbox ... ``` fences into Pandoc fenced Divs
 -- (::: {.marginbox ...} and ::: {.vbox ...})
--- Supports arbitrary nesting of boxes and properly distinguishes inner code fences
--- (both language-tagged ```python and bare unadorned ``` blocks) from box closers.
+-- Resolves fences from the inside-out (from the center to the surface):
+-- 1. Code blocks (language-tagged and bare ASCII/code snippets) form terminal leaves
+--    at the center where parsing halts.
+-- 2. Once the center code blocks are sealed, the parser ascends to the surface,
+--    cleanly closing nested boxes in exact LIFO order.
 local function pass_box_fences(text)
   local function normalize_box_attrs(a)
     if not a or not a:match("%S") then return "" end
@@ -1501,63 +1504,8 @@ local function pass_box_fences(text)
   for line in each_line(text) do lines[#lines + 1] = line end
   local n = #lines
 
-  -- Pre-scan pass: classify fences so bare ``` can disambiguate
-  -- between box closers and inner bare code blocks.
-  local is_box_open = {}
-  local is_lang_open = {}
-  local is_lang_close = {}
-  local in_lang = false
-  local lang_fence_len = 0
-
-  for i = 1, n do
-    local line = lines[i]
-    local indent, ticks, rest = line:match("^(%s*)([`~]+)%s*(.*)$")
-    if ticks and #ticks >= 3 then
-      if not in_lang then
-        local is_box = false
-        if rest:match("^marginbox%f[%A]") or rest:match("^{%.marginbox") or
-           rest:match("^vbox%f[%A]") or rest:match("^{%.vbox") or
-           rest:match("^tcolorbox%f[%A]") or rest:match("^{%.tcolorbox") then
-          is_box = true
-        end
-        if is_box then
-          is_box_open[i] = true
-        elseif rest:match("%S") then
-          is_lang_open[i] = true
-          in_lang = true
-          lang_fence_len = #ticks
-        end
-      else
-        if rest:match("^%s*$") and #ticks >= lang_fence_len then
-          is_lang_close[i] = true
-          in_lang = false
-        end
-      end
-    end
-  end
-
-  -- Backward scan: count future box openers and bare fence candidates from line i forward.
-  local F_box_open = {}
-  local F_bare = {}
-  local count_box = 0
-  local count_bare = 0
-  for i = n, 1, -1 do
-    F_box_open[i] = count_box
-    if is_box_open[i] then
-      count_box = count_box + 1
-    end
-    local line = lines[i]
-    local indent, ticks, rest = line:match("^(%s*)([`~]+)%s*(.*)$")
-    if ticks and #ticks >= 3 and rest:match("^%s*$") and not is_lang_close[i] then
-      count_bare = count_bare + 1
-    end
-    F_bare[i] = count_bare
-  end
-
-  local out = {}
-  local box_stack = {}
-  local code_fence = nil
-
+  -- 1. Scan all fence lines
+  local fences = {}
   for i = 1, n do
     local line = lines[i]
     local indent, ticks, rest = line:match("^(%s*)([`~]+)%s*(.*)$")
@@ -1583,35 +1531,86 @@ local function pass_box_fences(text)
         attrs = rest:match("^{%.tcolorbox%s*(.-)}%s*$")
       end
 
-      if not code_fence and box_kind then
-        box_stack[#box_stack + 1] = { len = #ticks }
-        local attr_str = normalize_box_attrs(attrs)
-        out[#out + 1] = indent .. "::: {." .. box_kind .. attr_str .. "}"
-      elseif not code_fence and #box_stack > 0 and rest:match("^%s*$") and #ticks >= box_stack[#box_stack].len then
-        local closers_needed = #box_stack + F_box_open[i]
-        if (F_bare[i] or 0) > closers_needed then
-          -- More bare fences exist than are needed to close open and future boxes:
-          -- this bare fence opens an inner unadorned code block.
-          code_fence = { len = #ticks, bare = true }
-          out[#out + 1] = line
-        else
-          -- This bare fence closes the innermost open box.
-          box_stack[#box_stack] = nil
-          out[#out + 1] = indent .. ":::"
-        end
-      elseif not code_fence and rest:match("%S") then
-        code_fence = { len = #ticks }
-        out[#out + 1] = line
-      elseif code_fence and rest:match("^%s*$") and #ticks >= code_fence.len then
-        code_fence = nil
-        out[#out + 1] = line
-      else
-        out[#out + 1] = line
+      local kind = "bare"
+      if box_kind then
+        kind = "box"
+      elseif rest:match("%S") then
+        kind = "lang"
       end
+
+      fences[#fences + 1] = {
+        line_idx = i,
+        ticks = ticks,
+        indent = indent,
+        rest = rest,
+        kind = kind,
+        box_kind = box_kind,
+        attrs = attrs,
+      }
+    end
+  end
+
+  -- 2. Identify and seal terminal code blocks at the center
+  -- Per rendering-rules.md, code blocks (```text, ```python, ```yaml, etc.)
+  -- are opaque terminal leaves at the very center where box parsing halts ("we won't go further").
+  -- The 4-backtick rule is respected: a block of N backticks is closed only by >= N backticks.
+  local is_code_open = {}
+  local is_code_close = {}
+  local is_box_closer = {}
+  local is_box_opener = {}
+
+  local i = 1
+  while i <= #fences do
+    local f = fences[i]
+    if f.kind == "lang" then
+      is_code_open[f.line_idx] = true
+      local j = i + 1
+      while j <= #fences do
+        local f2 = fences[j]
+        if f2.kind == "bare" and #f2.ticks >= #f.ticks then
+          is_code_close[f2.line_idx] = true
+          break
+        end
+        j = j + 1
+      end
+      i = j + 1
+    else
+      i = i + 1
+    end
+  end
+
+  -- 3. Ascend to the surface: pair remaining box openers and closers in exact LIFO order
+  local active_boxes = {}
+  for _, f in ipairs(fences) do
+    if not is_code_open[f.line_idx] and not is_code_close[f.line_idx] then
+      if f.kind == "box" then
+        active_boxes[#active_boxes + 1] = f
+        is_box_opener[f.line_idx] = f
+      elseif f.kind == "bare" then
+        if #active_boxes > 0 then
+          active_boxes[#active_boxes] = nil
+          is_box_closer[f.line_idx] = true
+        end
+      end
+    end
+  end
+
+  -- 4. Emit the normalized text
+  local out = {}
+  for idx = 1, n do
+    local line = lines[idx]
+    if is_box_opener[idx] then
+      local f = is_box_opener[idx]
+      local attr_str = normalize_box_attrs(f.attrs)
+      out[#out + 1] = f.indent .. "::: {." .. f.box_kind .. attr_str .. "}"
+    elseif is_box_closer[idx] then
+      local indent = line:match("^(%s*)") or ""
+      out[#out + 1] = indent .. ":::"
     else
       out[#out + 1] = line
     end
   end
+
   return table.concat(out, "\n")
 end
 

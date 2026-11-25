@@ -2387,7 +2387,7 @@ local function div_fix(el)
       elseif color == "cyan" then
         opts[#opts + 1] = "color=ProcessBlue"
       elseif color == "violet" then
-        opts[#opts + 1] = "color=RoyalPurple"
+        opts[#opts + 1] = "color=Violet"
       else
         opts[#opts + 1] = "color=" .. color
       end

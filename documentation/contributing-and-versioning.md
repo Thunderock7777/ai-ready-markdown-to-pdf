@@ -343,6 +343,7 @@ Version 1.4.0 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-25 | Explicit universal permeable fence latex_unv / tex_unv and strict local latex fence validation | source +96 / -122 | 218 / 500
 
 For each later accepted change, append one entry in this format:
 

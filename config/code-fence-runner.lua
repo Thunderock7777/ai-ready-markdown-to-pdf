@@ -1102,144 +1102,118 @@ local function get_global_command_target(cmd)
   return nil
 end
 
+local function has_universal_permeable(text)
+  if text:find("\\documentclass") or text:find("\\begin%s*{document}") then
+    return "documentclass/begin{document}"
+  end
+  for line in text:gmatch("[^\r\n]+") do
+    local a = line:find("\\", 1, true)
+    while a do
+      if not in_comment(line, a) then
+        local name = line:sub(a + 1):match("^([%a@]+)")
+        if name then
+          if name == "usepackage" or name == "RequirePackage" or name == "PassOptionsToPackage"
+              or name == "DeclareMathOperator" or name == "newtheorem"
+              or SIMPLE_PREAMBLE[name] or PAIR_DELIM[name] or THREE_ARG_PREAMBLE[name] then
+            return "\\" .. name
+          end
+        end
+      end
+      a = line:find("\\", a + 1, true)
+    end
+  end
+  return nil
+end
+
+local function render_latex_unv(el, class, preamble, global_defs)
+  local out = {}
+  if el.attributes["show"] == "true" then
+    out[#out + 1] = pandoc.CodeBlock(el.text, pandoc.Attr("", { class }))
+  end
+
+  local pre_content = el.text
+  local body_content = nil
+  local bs, e = el.text:find("\\begin%s*{document}")
+  if bs then
+    pre_content = el.text:sub(1, bs - 1)
+    local after_begin = el.text:sub(e + 1)
+    local inner = after_begin:match("^(.*)\\end%s*{document}")
+    body_content = inner or after_begin
+  end
+
+  local commands = extract_commands(pre_content)
+
+  for _, cmd in ipairs(commands) do
+    if cmd:match("^%s*\\usepackage") or cmd:match("^%s*\\RequirePackage") then
+      local opt = cmd:match("^%s*\\[%a@]+%s*(%b[])") or ""
+      local pkgs = cmd:match("^%s*\\[%a@]+%s*%b[]%s*(%b{})") or cmd:match("^%s*\\[%a@]+%s*(%b{})")
+      if pkgs then
+        for pkg in pkgs:sub(2, -2):gmatch("[^,%s]+") do
+          local target = "\\usepackage{" .. pkg .. "}"
+          if global_defs and global_defs[target] and global_defs[target] ~= opt then
+            warn(string.format("latex_unv block imports package '%s' with conflicting options; rendering as code listing (run=false)", pkg))
+            return nil
+          end
+          if global_defs then global_defs[target] = opt end
+        end
+      end
+    else
+      local target = get_global_command_target(cmd)
+      if target then
+        if global_defs and global_defs[target] then
+          warn(string.format("latex_unv block redefines global command '%s'; rendering as code listing (run=false)", target))
+          return nil
+        end
+      end
+    end
+  end
+
+  for _, cmd in ipairs(commands) do
+    local target = get_global_command_target(cmd)
+    if target and global_defs then
+      global_defs[target] = cmd
+    end
+  end
+
+  for _, cmd in ipairs(commands) do
+    if cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\DeclarePairedDelimiter")
+        or cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccentAlphabet]+")
+        or cmd:match("^%s*\\DeclareSymbolFontAlphabet") or cmd:match("^%s*\\SetMathAlphabet")
+        or cmd:match("^%s*\\newlength") then
+      local target = get_global_command_target(cmd)
+      if target and target:match("^\\[%a@]+") then
+        cmd = "\\let" .. target .. "\\relax " .. cmd
+      end
+    end
+    preamble[#preamble + 1] = cmd
+  end
+
+  if body_content and body_content:match("%S") then
+    local isolated_body = "{\\begingroup\n" .. body_content .. "\n\\par\\endgroup}"
+    out[#out + 1] = pandoc.RawBlock("latex", isolated_body)
+  end
+
+  return out
+end
+
 local function render_latex(el, class, preamble, global_defs)
   local out = {}
   if el.attributes["show"] == "true" then
     out[#out + 1] = pandoc.CodeBlock(el.text, pandoc.Attr("", { class }))
   end
-  local body = el.text
-  local bs, e = el.text:find("\\begin%s*{document}")
-  if e then
-    body = el.text:sub(e + 1)
-    local inner = body:match("^(.*)\\end%s*{document}")
-    if inner then
-      body = inner
-    else
-      warn("latex block has \\begin{document} but no \\end{document}: using everything after it")
-    end
-    -- Scope-isolated: packages, libraries, and preamble-only commands go to the preamble; macros stay local.
-    -- Co-occurrence rule: If a command token (e.g. \Tr) is targeted/used in a universal hoisted permeable
-    -- AND is also used in a local macro inside the same fence, hoist each of them universally in relative order.
-    local commands = extract_commands(el.text:sub(1, bs - 1))
-    local is_universal_cmd = function(cmd)
-      local cmd_name = cmd:match("^%s*\\(%a+)")
-      return cmd_name and (cmd_name == "usepackage" or cmd_name == "RequirePackage"
-          or SIMPLE_PREAMBLE[cmd_name] or cmd_name == "DeclareMathOperator"
-          or PAIR_DELIM[cmd_name] or cmd_name == "newtheorem")
-    end
 
-    local universal_symbols = {}
-    for _, cmd in ipairs(commands) do
-      if is_universal_cmd(cmd) then
-        local target = get_global_command_target(cmd)
-        if target and target:match("^\\[%a@]+") then
-          universal_symbols[target] = true
-        end
-        local macro_target = cmd:match("^%s*\\[%a@]+%*?%s*(%b{})")
-        if macro_target then
-          local inner = macro_target:sub(2, -2):match("^%s*(.-)%s*$")
-          if inner and inner:match("^\\[%a@]+") then
-            universal_symbols[inner] = true
-          end
-        else
-          local unbraced_target = cmd:match("^%s*\\[%a@]+%*?%s*(\\[%a@]+)")
-          if unbraced_target then
-            universal_symbols[unbraced_target] = true
-          end
-        end
-      end
-    end
-
-    local hoisted_cmds = {}
-    local local_cmds = {}
-    for _, cmd in ipairs(commands) do
-      if is_universal_cmd(cmd) then
-        hoisted_cmds[#hoisted_cmds + 1] = cmd
-      else
-        local promoted = false
-        for sym in pairs(universal_symbols) do
-          local pat = sym:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1") .. "%f[%A]"
-          if cmd:match(pat) then
-            promoted = true
-            break
-          end
-        end
-        if promoted then
-          hoisted_cmds[#hoisted_cmds + 1] = cmd
-        else
-          local_cmds[#local_cmds + 1] = cmd
-        end
-      end
-    end
-
-    -- Disallow defining or redefining in subsequent fences commands that cause global/document-level conflicts
-    -- (DeclareMathOperator, DeclarePairedDelimiter, newunicodechar, newtheorem, and conflicting usepackage options)
-    local all_cmds_to_check = {}
-    for _, cmd in ipairs(hoisted_cmds) do all_cmds_to_check[#all_cmds_to_check + 1] = cmd end
-    for _, cmd in ipairs(local_cmds) do
-      if cmd:match("^%s*\\newtheorem") then all_cmds_to_check[#all_cmds_to_check + 1] = cmd end
-    end
-
-    for _, cmd in ipairs(all_cmds_to_check) do
-      if cmd:match("^%s*\\usepackage") or cmd:match("^%s*\\RequirePackage") then
-        local opt = cmd:match("^%s*\\[%a@]+%s*(%b[])") or ""
-        local pkgs = cmd:match("^%s*\\[%a@]+%s*%b[]%s*(%b{})") or cmd:match("^%s*\\[%a@]+%s*(%b{})")
-        if pkgs then
-          for pkg in pkgs:sub(2, -2):gmatch("[^,%s]+") do
-            local target = "\\usepackage{" .. pkg .. "}"
-            if global_defs and global_defs[target] and global_defs[target] ~= opt then
-              warn(string.format("latex block imports package '%s' with conflicting options; rendering as code listing (run=false)", pkg))
-              return nil
-            end
-            if global_defs then global_defs[target] = opt end
-          end
-        end
-      else
-        local target = get_global_command_target(cmd)
-        if target then
-          if global_defs and global_defs[target] then
-            warn(string.format("latex block redefines global command '%s'; rendering as code listing (run=false)", target))
-            return nil
-          end
-        end
-      end
-    end
-
-    for _, cmd in ipairs(all_cmds_to_check) do
-      local target = get_global_command_target(cmd)
-      if target and global_defs then
-        global_defs[target] = cmd
-      end
-    end
-
-    for _, cmd in ipairs(hoisted_cmds) do
-      -- Make operator and delimiter declarations safe against pre-existing package or template definitions
-      if cmd:match("^%s*\\DeclareMathOperator") or cmd:match("^%s*\\DeclarePairedDelimiter")
-          or cmd:match("^%s*\\DeclareMath[SymbolDelimiterAccentAlphabet]+")
-          or cmd:match("^%s*\\DeclareSymbolFontAlphabet") or cmd:match("^%s*\\SetMathAlphabet")
-          or cmd:match("^%s*\\newlength") then
-        local target = get_global_command_target(cmd)
-        if target and target:match("^\\[%a@]+") then
-          cmd = "\\let" .. target .. "\\relax " .. cmd
-        end
-      end
-      preamble[#preamble + 1] = cmd
-    end
-
-    if #local_cmds > 0 then
-      body = table.concat(local_cmds, "\n") .. "\n" .. body
-    end
-  elseif el.text:find("\\usepackage") or el.text:find("\\documentclass") then
-    warn("latex block has preamble commands (\\usepackage or \\documentclass) but no \\begin{document}; rendering as code listing (run=false)")
+  local unv_cmd = has_universal_permeable(el.text)
+  if unv_cmd then
+    warn(string.format("latex block contains universal permeable '%s'; universal permeables require latex_unv or tex_unv; rendering as code listing (run=false)", unv_cmd))
     return nil
   end
-  -- Universal Code Fence Isolation: wrap every block in a local scope
-  -- so colors, styles, font sizes, lengths, and local macros never leak to outer document.
-  local isolated_body = "{\\begingroup\n" .. body .. "\n\\par\\endgroup}"
+
+  local isolated_body = "{\\begingroup\n" .. el.text .. "\n\\par\\endgroup}"
   out[#out + 1] = pandoc.RawBlock("latex", isolated_body)
   return out
 end
 
+register{ id = "latex_unv", names = { "latex_unv", "tex_unv" }, render = render_latex_unv }
 register{ id = "latex", names = { "latex", "tex" }, render = render_latex }
 
 -- ------------------------------- 3. runner ----------------------------------
@@ -1489,10 +1463,10 @@ local function process_code_block(el, preamble, global_defs)
   local class = (el.classes[1] or ""):lower()
   local spec = LANGS[class]
   if not spec then return nil end
-  if spec.id == "latex" then
+  if spec.id == "latex" or spec.id == "latex_unv" then
     local scaffold = has_scaffolding_redefinition(el.text)
     if scaffold then
-      warn(string.format("latex block redefines template scaffolding macro '\\%s'; rendering as code listing (run=false)", scaffold))
+      warn(string.format("%s block redefines template scaffolding macro '\\%s'; rendering as code listing (run=false)", spec.id, scaffold))
       return nil
     end
   end

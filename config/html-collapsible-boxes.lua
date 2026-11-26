@@ -114,28 +114,34 @@ function Pandoc(doc)
     end
   end
 
-  -- Mobile PWA meta tags and offline MathJax macro shield
+  -- MathJax configuration for robust LaTeX rendering in desktop Chrome
   local header_includes = doc.meta["header-includes"] or pandoc.MetaList({})
   if header_includes.t ~= "MetaList" then
     header_includes = pandoc.MetaList({ header_includes })
   end
 
-  local mobile_meta = pandoc.RawBlock("html", [[
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#fdfdfd" media="(prefers-color-scheme: light)">
+  local mathjax_config = pandoc.RawBlock("html", [==[
 <script>
-// Progressive Enhancement: If native MathML is missing, load polyfill when online
-if (!('MathMLMathElement' in window)) {
-  var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js';
-  s.defer = true;
-  document.head.appendChild(s);
-}
-</script>]])
-  header_includes[#header_includes + 1] = pandoc.MetaBlocks({ mobile_meta })
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(', '\\)']],
+    displayMath: [['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    macros: {
+      bm: ['\\boldsymbol{#1}', 1],
+      bra: ['\\left\\langle{#1}\\right|', 1],
+      ket: ['\\left|{#1}\\right\\rangle', 1],
+      braket: ['\\left\\langle{#1}\\middle|{#2}\\right\\rangle', 2]
+    }
+  },
+  options: {
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  }
+};
+</script>]==])
+  header_includes[#header_includes + 1] = pandoc.MetaBlocks({ mathjax_config })
   doc.meta["header-includes"] = header_includes
 
   -- Floating reading & navigation toolbar (Expand/Collapse All, Theme, Scroll Top)

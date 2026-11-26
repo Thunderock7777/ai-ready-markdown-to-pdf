@@ -435,6 +435,7 @@ Version 1.8.0 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-26 | Center bottom ▲ Collapse button (.marginbox-footer) horizontally inside collapsible boxes | source +1 / -1 | 2 / 500
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

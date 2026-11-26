@@ -851,7 +851,7 @@ details.vbox > .marginbox-body {
 
 .marginbox-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   margin-top: 12px;
   padding-top: 8px;
   border-top: 1px dashed color-mix(in srgb, var(--box-col, #1A9E39) 35%, transparent);

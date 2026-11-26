@@ -588,9 +588,18 @@ Document-level processing and finalization
   report_scrub_counts()
     Writes citation and emoji removal summaries when their counters are
     nonzero.
+  parse_dimension_in_inches(val) -> number or nil
+    Parses a user-supplied `whiteboard-width` or `page-width` dimension (`in`,
+    `cm`, `mm`, `pt`, or unitless inches) into inches.
+  calculate_whiteboard_width(doc)
+    Computes `doc.meta.whiteboard_width` (11.00in floor to 100.00in ceiling,
+    rounded up to 0.25in increments) from user overrides, multi-column table
+    widths at box nesting depth, standalone box nesting depth (`11.0 + (depth - 1) * 1.5` in),
+    and wide CodeBlock lines (>70 chars), setting `whiteboard_width_max` if clamped.
   apply_page_layout(doc)
     Maps the supported `page-layout: presentation`, `page-layout: whiteboard`, and `page-layout: whiteboard_html`
-    YAML values to template flags; other supplied values warn and leave default A4 active.
+    YAML values to template flags and triggers `calculate_whiteboard_width(doc)` for
+    whiteboard presets; other supplied values warn and leave default A4 active.
   apply_title_rule(doc)
     Maps YAML boolean `title-rule` to the template flag, defaulting to true;
     non-boolean values warn and retain the visible title rule.

@@ -19,6 +19,9 @@ Recommended folder layout
             markdown-normalizer.lua
             code-fence-runner.lua
             error-annotator.lua
+            html-collapsible-boxes.lua
+            tex-to-html-preprocessor.lua
+            latex.css
         documentation\
             rendering-rules.md
             installation-and-usage.md
@@ -33,7 +36,7 @@ Recommended folder layout
         md2pdf_cache\                    (created as needed; disposable)
         your own input .md/.txt files and PDFs (wherever convenient)
 
-Keep compile.bat at the root and the four configuration files under config\.
+Keep compile.bat at the root and the configuration files under config\.
 The documentation\ folder is only for workflow documentation and its regression
 fixture; user input files may live anywhere. The output PDF stays beside the
 first input, not in config\. The cache is rooted beside compile.bat so generated
@@ -112,9 +115,15 @@ Pipeline and ordering
    balances braces/percent signs, and wraps the offending lines in red bold
    [!!!] badges and \detokenize{...} before triggering a recovery compilation.
    The console switches to yellow (color 0E) on error recovery or diagnostics.
-   The completed PDF is copied beside the first input; temporary build files
-   are then removed. The Python cache is separate and persists in md2pdf_cache
-   beside compile.bat.
+   The completed PDF is copied beside the first input.
+6. When `page-layout: whiteboard_html` is active (detected via `% WHITEBOARD_HTML_LAYOUT`
+   in the generated `.tex`), `compile.bat` runs `config\tex-to-html-preprocessor.lua`
+   (converting unsupported TikZ/diagram/chemfig/\begin{htmlsvg} environments to cached
+   base64 SVGs via XeLaTeX + `dvisvgm`) and then invokes Pandoc with `-f latex -t html5 --mathjax --embed-resources --standalone --css=config\latex.css --lua-filter=config\html-collapsible-boxes.lua`
+   to write `<first-input-basename>.html` beside the PDF, inheriting the dynamic
+   `% WHITEBOARD_WIDTH:` as `--whiteboard-width` / `--document-width`.
+   Temporary build files are then removed. The Python/SVG cache is separate and
+   persists in md2pdf_cache beside compile.bat.
 
 The order of the two Lua filters is intentional: config\code-fence-runner.lua
 must see the combined, normalized AST produced by config\markdown-normalizer.lua.
@@ -171,9 +180,12 @@ fonts, math and Unicode mappings, tables, code, figures, links, citations, and
 optional packages. See its opening FEATURES and LIMITATIONS comments for exact
 package, font, and symbol caveats. Missing optional packages may leave their
 commands undefined; missing glyphs may be blank and reported in the XeLaTeX log.
-Page size defaults to A4. A YAML `page-layout: presentation` value selects a
-13 1/3-by-7.5-inch (16:9) landscape page; the normalizer sets the template flag
-only for that supported value and warns/falls back to A4 for other values.
+Page size defaults to A4. Supported `page-layout` YAML values are `presentation`
+(13 1/3-by-7.5-inch 16:9 landscape), `whiteboard` (continuous single/100in-capped
+canvas whose width scales from `11.00in` up to `100.00in` based on tables,
+nested box depth, and wide code blocks), and `whiteboard_html` (same PDF layout
+plus standalone desktop Chrome HTML with MathJax, collapsible boxes, and matching
+dynamic canvas width); unrecognized values warn and fall back to A4.
 The title rule is enabled by default; YAML boolean `title-rule: false` disables
 the template rule while retaining its surrounding vertical spacing.
 The master test suite `documentation\compiled-fence-test.md` exercises both

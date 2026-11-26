@@ -839,34 +839,6 @@ details.vbox > .marginbox-body {
   padding: 8px 10px;
 }
 
-@media (max-width: 600px) {
-  body {
-    padding: 1rem 0.5rem;
-  }
-
-  details.marginbox > summary,
-  details.tcolorbox > summary,
-  details.vbox > summary {
-    padding: 8px 12px;
-    font-size: 0.9rem;
-    min-height: 40px;
-  }
-
-  details.marginbox > .marginbox-body,
-  details.tcolorbox > .marginbox-body,
-  details.vbox > .marginbox-body {
-    padding: 10px 8px;
-  }
-
-  .marginbox-body .marginbox-body {
-    padding: 8px 6px;
-  }
-
-  .marginbox-body .marginbox-body .marginbox-body {
-    padding: 6px 4px;
-  }
-}
-
 /* ==========================================================================
    MathJax Display & Responsive Math Formatting
    ========================================================================== */
@@ -1067,19 +1039,6 @@ body.latex-light img[src^="data:image/svg+xml"] {
 
 .floating-toolbar button:active {
   transform: translateY(0);
-}
-
-@media (max-width: 480px) {
-  .floating-toolbar {
-    bottom: 12px;
-    right: 12px;
-    padding: 4px 8px;
-    gap: 6px;
-  }
-  .floating-toolbar button {
-    padding: 5px 10px;
-    font-size: 0.78rem;
-  }
 }
 
 /* 4. Print Stylesheet (@media print) */

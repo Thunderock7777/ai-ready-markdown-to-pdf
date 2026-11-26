@@ -390,6 +390,7 @@ Change ledger
   2026-11-26 | Revert mobile MathML hacks and restore desktop Chrome MathJax engine | source +29 / -118 | 271 / 500
   2026-11-26 | Dynamic whiteboard canvas expansion in HTML: scale document width from box nesting depth and content | source +81 / -12 | 352 / 500
   2026-11-26 | Enforce full whiteboard canvas width expansion beyond viewport in latex.css (and print reset) | source +5 / -2 | 359 / 500
+  2026-11-26 | Remove leftover mobile viewport media queries in latex.css and sync README and architecture docs with PDF/HTML whiteboard behavior | source +0 / -41 | 400 / 500
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

@@ -210,6 +210,18 @@ img {
   display: block;
 }
 
+/* Center alignment helper */
+.center {
+  text-align: center;
+}
+.center > p {
+  text-align: center;
+}
+.center img {
+  margin: 0 auto;
+  display: block;
+}
+
 /* Inherit fonts for inputs and buttons */
 input,
 button,
@@ -740,18 +752,18 @@ details.vbox {
   border: 1px solid var(--box-col, #1A9E39);
   border-left: 6px solid var(--box-col, #1A9E39);
   border-radius: 4px;
-  background-color: color-mix(in srgb, var(--box-col, #1A9E39) 7%, white);
-  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.08);
+  background-color: color-mix(in srgb, var(--box-col, #1A9E39) 6%, #ffffff);
+  color: var(--body-color, hsl(0, 5%, 10%));
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.06);
   overflow: hidden;
 }
 
-@media (prefers-color-scheme: dark) {
-  details.marginbox,
-  details.tcolorbox,
-  details.vbox {
-    background-color: color-mix(in srgb, var(--box-col, #1A9E39) 15%, #1c1c1c);
-    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
-  }
+body.latex-dark details.marginbox,
+body.latex-dark details.tcolorbox,
+body.latex-dark details.vbox {
+  background-color: color-mix(in srgb, var(--box-col, #1A9E39) 15%, #1c1c1c);
+  color: var(--body-color, hsl(0, 0%, 86%));
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 details.marginbox > summary,
@@ -762,12 +774,15 @@ details.vbox > summary {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-weight: 700;
   font-size: 0.95rem;
-  padding: 8px 14px;
+  padding: 10px 16px;
+  min-height: 44px;
   cursor: pointer;
   list-style: none;
   display: flex;
   align-items: center;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 details.marginbox > summary::-webkit-details-marker,
@@ -794,5 +809,299 @@ details.vbox[open] > summary::before {
 details.marginbox > .marginbox-body,
 details.tcolorbox > .marginbox-body,
 details.vbox > .marginbox-body {
-  padding: 12px 16px;
+  padding: 14px 18px;
+  color: var(--body-color, hsl(0, 5%, 10%));
+  background-color: transparent;
+}
+
+/* ==========================================================================
+   Cross-Device Portability, Mobile Responsiveness & Dark Mode
+   ========================================================================== */
+
+/* 1. Responsive Math, Table, and Code Overflow Protection */
+math {
+  font-family: 'Latin Modern Math', 'STIX Two Math', 'Cambria Math', 'TeX Gyre Termes Math', 'KaTeX_Math', math, serif;
+  font-size: 1.05em;
+  direction: ltr;
+}
+
+math[display="block"] {
+  display: block;
+  text-align: center;
+  margin: 1.2rem auto;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.5rem 0.25rem;
+}
+
+math[display="inline"] {
+  display: inline;
+}
+
+mfrac {
+  padding: 0 0.15em;
+}
+
+span.math.inline {
+  font-family: 'Latin Modern Math', 'STIX Two Math', 'Cambria Math', 'Times New Roman', serif;
+}
+
+span.math.display {
+  display: block;
+  text-align: center;
+  font-family: 'Latin Modern Math', 'STIX Two Math', 'Cambria Math', 'Times New Roman', serif;
+  margin: 0.8rem 0;
+  padding: 0.4rem;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 4px;
+}
+
+.math.display,
+div.math.display,
+span.math.display,
+mjx-container[jax="CHTML"][display="true"],
+math[display="block"] {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.5rem 0.25rem;
+}
+
+table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+pre, code {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+img, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 2. Automatic System Dark Mode via prefers-color-scheme */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --body-color: hsl(0, 0%, 88%);
+    --body-bg-color: hsl(0, 0%, 13%);
+    --link-visited: hsl(196, 80%, 77%);
+    --link-focus-outline: hsl(215, 63%, 73%);
+    --pre-bg-color: hsl(0, 1%, 20%);
+    --kbd-bg-color: hsl(0, 0%, 16%);
+    --kbd-border-color: hsl(210, 5%, 50%);
+    --table-border-color: #555;
+    --sidenote-target-border-color: hsl(0, 0%, 59%);
+    --footnotes-border-color: hsl(0, 0%, 59%);
+    --proof-symbol-filter: invert(80%);
+  }
+
+  body:not(.latex-light) {
+    color: var(--body-color);
+    background-color: var(--body-bg-color);
+  }
+
+  body:not(.latex-light) details.marginbox,
+  body:not(.latex-light) details.tcolorbox,
+  body:not(.latex-light) details.vbox {
+    background-color: color-mix(in srgb, var(--box-col, #1A9E39) 14%, #181818) !important;
+    color: hsl(0, 0%, 88%) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  body:not(.latex-light) details.marginbox > .marginbox-body,
+  body:not(.latex-light) details.tcolorbox > .marginbox-body,
+  body:not(.latex-light) details.vbox > .marginbox-body {
+    color: hsl(0, 0%, 88%) !important;
+  }
+
+  body:not(.latex-light) img[src^="data:image/svg+xml"] {
+    filter: invert(0.88) hue-rotate(180deg);
+  }
+
+  body:not(.latex-light) .floating-toolbar {
+    background: rgba(30, 30, 30, 0.88);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  }
+
+  body:not(.latex-light) .floating-toolbar button {
+    background: rgba(255, 255, 255, 0.1);
+    color: hsl(0, 0%, 90%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  body:not(.latex-light) .floating-toolbar button:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* Explicit class overrides for manual theme toggling */
+body.latex-dark {
+  --body-color: hsl(0, 0%, 88%);
+  --body-bg-color: hsl(0, 0%, 13%);
+  color: var(--body-color) !important;
+  background-color: var(--body-bg-color) !important;
+}
+
+body.latex-dark details.marginbox,
+body.latex-dark details.tcolorbox,
+body.latex-dark details.vbox {
+  background-color: color-mix(in srgb, var(--box-col, #1A9E39) 14%, #181818) !important;
+  color: hsl(0, 0%, 88%) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45) !important;
+}
+
+body.latex-dark details.marginbox > .marginbox-body,
+body.latex-dark details.tcolorbox > .marginbox-body,
+body.latex-dark details.vbox > .marginbox-body {
+  color: hsl(0, 0%, 88%) !important;
+}
+
+body.latex-dark img[src^="data:image/svg+xml"] {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+body.latex-dark .floating-toolbar {
+  background: rgba(30, 30, 30, 0.88);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+body.latex-dark .floating-toolbar button {
+  background: rgba(255, 255, 255, 0.1);
+  color: hsl(0, 0%, 90%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+body.latex-dark .floating-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+body.latex-light {
+  --body-color: hsl(0, 5%, 10%);
+  --body-bg-color: hsl(210, 20%, 98%);
+  color: var(--body-color) !important;
+  background-color: var(--body-bg-color) !important;
+}
+
+body.latex-light img[src^="data:image/svg+xml"] {
+  filter: none !important;
+}
+
+/* 3. Floating Action Toolbar */
+.floating-toolbar {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 10000;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 30px;
+  padding: 6px 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  user-select: none;
+}
+
+.floating-toolbar button {
+  background: rgba(0, 0, 0, 0.05);
+  color: hsl(0, 0%, 20%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 18px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+
+.floating-toolbar button:hover {
+  background: rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.floating-toolbar button:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 480px) {
+  .floating-toolbar {
+    bottom: 12px;
+    right: 12px;
+    padding: 4px 8px;
+    gap: 6px;
+  }
+  .floating-toolbar button {
+    padding: 5px 10px;
+    font-size: 0.78rem;
+  }
+}
+
+/* 4. Print Stylesheet (@media print) */
+@media print {
+  body {
+    max-width: 100% !important;
+    padding: 0 !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  .floating-toolbar {
+    display: none !important;
+  }
+
+  details.marginbox,
+  details.tcolorbox,
+  details.vbox {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #aaa !important;
+    border-left: 5px solid var(--box-col, #333) !important;
+    margin: 1rem 0 !important;
+    page-break-inside: avoid;
+  }
+
+  details.marginbox > summary,
+  details.tcolorbox > summary,
+  details.vbox > summary {
+    background-color: #f0f0f0 !important;
+    color: #111 !important;
+    border-bottom: 1px solid #ccc;
+  }
+
+  details.marginbox > .marginbox-body,
+  details.tcolorbox > .marginbox-body,
+  details.vbox > .marginbox-body {
+    display: block !important;
+    padding: 10px 14px !important;
+  }
+
+  details.marginbox > summary::before,
+  details.tcolorbox > summary::before,
+  details.vbox > summary::before {
+    content: "▼" !important;
+  }
+
+  img[src^="data:image/svg+xml"] {
+    filter: none !important;
+  }
 }

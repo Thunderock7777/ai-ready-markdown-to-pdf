@@ -5,40 +5,9 @@
 -- 1. If a box has a title, the summary bar displays that title.
 -- 2. If untitled, the summary bar displays the custom prompt "Click for more info".
 -- 3. Clicking any box opens ONLY its immediate children; grandchildren and deeper stay collapsed.
--- 4. Dynamic hex colors are extracted from \definecolor definitions in the .tex file and assigned to each box.
+-- 4. Dynamic hex colors are mapped directly from box attributes or \definecolor in the .tex file.
 
-local color_map = {
-  NavyBlue = "#1A469E",
-  RoyalPurple = "#651A9E",
-  ForestGreen = "#1A9E39",
-  BurntOrange = "#9E6B1A",
-  RubineRed = "#9E1A46",
-  TealBlue = "#1A9E9E",
-  Magenta = "#9E1A78",
-  OliveGreen = "#769E1A",
-  ProcessBlue = "#1A869E",
-  Violet = "#781A9E",
-  Gray = "#666666",
-  blue = "#1A469E",
-  red = "#9E1A46",
-  green = "#1A9E39",
-  amber = "#9E6B1A",
-  orange = "#9E6B1A",
-  purple = "#651A9E",
-  teal = "#1A9E9E",
-  cyan = "#1A869E",
-  olive = "#769E1A",
-  gray = "#666666",
-}
-
-local depth_colors = {
-  [1] = "#1A9E39",
-  [2] = "#9E6B1A",
-  [3] = "#1A469E",
-  [4] = "#9E1A91",
-  [5] = "#1A9E9E",
-  [6] = "#5C9E1A",
-}
+local hex_map = {}
 
 local function load_colors_from_tex()
   local path = PANDOC_STATE and PANDOC_STATE.input_files and PANDOC_STATE.input_files[1]
@@ -48,11 +17,7 @@ local function load_colors_from_tex()
   local content = f:read("*a")
   f:close()
   for name, hex in content:gmatch("\\definecolor%s*{([%w_]+)}%s*{HTML}%s*{([%x]+)}") do
-    color_map[name] = "#" .. hex
-    local d = name:match("genboxT%d+D(%d+)")
-    if d then
-      depth_colors[tonumber(d)] = "#" .. hex
-    end
+    hex_map[name] = "#" .. hex
   end
 end
 
@@ -73,9 +38,13 @@ local function transform_div(el, depth)
 
     for _, inline in ipairs(p.content) do
       if inline.tag == "Span" and inline.identifier and inline.identifier:match("^boxcol:") then
-        local col_name = inline.identifier:match("^boxcol:(.+)")
-        if col_name and color_map[col_name] then
-          color_hex = color_map[col_name]
+        local val = inline.identifier:match("^boxcol:(.+)")
+        if val then
+          if val:match("^%x%x%x%x%x%x$") then
+            color_hex = "#" .. val
+          elseif hex_map[val] then
+            color_hex = hex_map[val]
+          end
         end
       elseif inline.tag == "Span" and not found_title and #remaining_inlines == 0 then
         local span_text = pandoc.utils.stringify(inline):match("^%s*(.-)%s*$")
@@ -98,9 +67,7 @@ local function transform_div(el, depth)
     body_blocks[#body_blocks + 1] = el.content[i]
   end
 
-  if not color_hex then
-    color_hex = depth_colors[depth] or depth_colors[((depth - 1) % 6) + 1] or "#1A9E39"
-  end
+  color_hex = color_hex or "#1A9E39"
 
   local processed_body = {}
   for _, b in ipairs(body_blocks) do
@@ -146,5 +113,102 @@ function Pandoc(doc)
       new_blocks[#new_blocks + 1] = b
     end
   end
+
+  -- Mobile PWA meta tags and offline MathJax macro shield
+  local header_includes = doc.meta["header-includes"] or pandoc.MetaList({})
+  if header_includes.t ~= "MetaList" then
+    header_includes = pandoc.MetaList({ header_includes })
+  end
+
+  local mobile_meta = pandoc.RawBlock("html", [[
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#fdfdfd" media="(prefers-color-scheme: light)">
+<script>
+// Progressive Enhancement: If native MathML is missing, load polyfill when online
+if (!('MathMLMathElement' in window)) {
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js';
+  s.defer = true;
+  document.head.appendChild(s);
+}
+</script>]])
+  header_includes[#header_includes + 1] = pandoc.MetaBlocks({ mobile_meta })
+  doc.meta["header-includes"] = header_includes
+
+  -- Floating reading & navigation toolbar (Expand/Collapse All, Theme, Scroll Top)
+  local toolbar_html = [[
+<div class="floating-toolbar" id="floatingToolbar" role="toolbar" aria-label="Reading Controls">
+  <button id="btnToggleBoxes" type="button" title="Expand or collapse all boxes" aria-label="Toggle all boxes">
+    <span id="toggleBoxesIcon">⊞</span> <span id="toggleBoxesLabel">Expand All</span>
+  </button>
+  <button id="btnToggleTheme" type="button" title="Switch theme" aria-label="Toggle dark/light theme">
+    <span id="toggleThemeIcon">🌓</span> Theme
+  </button>
+  <button id="btnScrollTop" type="button" title="Scroll to top" aria-label="Scroll to top">
+    ↑ Top
+  </button>
+</div>
+<script>
+(function() {
+  // 1. Box Expand / Collapse Toggle
+  var btnBoxes = document.getElementById('btnToggleBoxes');
+  var lblBoxes = document.getElementById('toggleBoxesLabel');
+  var icoBoxes = document.getElementById('toggleBoxesIcon');
+  var allExpanded = false;
+
+  if (btnBoxes) {
+    btnBoxes.addEventListener('click', function() {
+      allExpanded = !allExpanded;
+      var boxes = document.querySelectorAll('details.marginbox, details.tcolorbox, details.vbox');
+      boxes.forEach(function(d) { d.open = allExpanded; });
+      if (lblBoxes) lblBoxes.textContent = allExpanded ? 'Collapse All' : 'Expand All';
+      if (icoBoxes) icoBoxes.textContent = allExpanded ? '⊟' : '⊞';
+    });
+  }
+
+  // 2. Theme Toggle (Auto -> Dark -> Light -> Auto)
+  var btnTheme = document.getElementById('btnToggleTheme');
+  var currentTheme = localStorage.getItem('latex-theme') || 'auto';
+
+  function applyTheme(theme) {
+    document.body.classList.remove('latex-dark', 'latex-light');
+    if (theme === 'dark') document.body.classList.add('latex-dark');
+    if (theme === 'light') document.body.classList.add('latex-light');
+    localStorage.setItem('latex-theme', theme);
+    currentTheme = theme;
+  }
+
+  if (currentTheme !== 'auto') {
+    applyTheme(currentTheme);
+  }
+
+  if (btnTheme) {
+    btnTheme.addEventListener('click', function() {
+      if (currentTheme === 'auto') {
+        var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        applyTheme(isDark ? 'light' : 'dark');
+      } else if (currentTheme === 'dark') {
+        applyTheme('light');
+      } else {
+        applyTheme('auto');
+      }
+    });
+  }
+
+  // 3. Scroll to Top
+  var btnTop = document.getElementById('btnScrollTop');
+  if (btnTop) {
+    btnTop.addEventListener('click', function() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+})();
+</script>]]
+
+  new_blocks[#new_blocks + 1] = pandoc.RawBlock("html", toolbar_html)
+
   return pandoc.Pandoc(new_blocks, doc.meta)
 end

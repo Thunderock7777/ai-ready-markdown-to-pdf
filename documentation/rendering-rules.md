@@ -121,7 +121,7 @@ The integral ∫ from 0 to ∞ of $e^{-x}\,dx = 1$.
 * **Supported Layout Presets:**
   * `page-layout: presentation`: Switches page geometry from standard portrait A4 to 16:9 widescreen landscape (13.33 in $\times$ 7.5 in, 0.5 in margins) with scaled headings.
   * `page-layout: whiteboard`: Generates a continuous canvas page (with 0.5 in margins) whose height dynamically and precisely expands to fit all content (two-pass `.aux` height auto-calibration up to a 100 in ceiling). When content exceeds the 100 in height limit, it cleanly starts a new whiteboard canvas page. Width is flexible with a minimum floor of 11.0 in (little less than the presentation layout) and an upper safety ceiling of 100.0 in (matching the 100-inch height limit); it automatically expands when multi-column tables or nested color boxes require extra horizontal clearance to prevent table column overlap or cramping. Authors may also supply an explicit override via `page-width:` or `whiteboard-width:` (e.g. `16in`), strictly enforced between the 11.0 in floor and 100.0 in ceiling. Boxes are breakable across page boundaries so content flows cleanly when hitting the height limit without clipping or TeX dimension overflow. Strict manual pagebreak prohibition is enforced: any manual page break (`\newpage`, `\pagebreak`, `\clearpage`, `\cleardoublepage`, `\eject`, `\tcbbreak`, `::: {.pagebreak}`) in Markdown or LaTeX code fences is automatically converted into an elegant horizontal canvas section divider line.
-  * `page-layout: whiteboard_html`: Produces the full continuous whiteboard XeLaTeX PDF, and as the final compilation step, converts the generated LaTeX into a standalone, interactive HTML document (`.html`) styled with Vincent Dörig's `LaTeX.css` and MathJax formulas. Nested marginbox/tcolorbox environments are transformed into interactive HTML5 `<details>` and `<summary>` elements with hierarchical progressive disclosure: clicking any parent opens only its immediate children (grandchildren and deeper nested levels stay collapsed until clicked), displaying exact box titles or the fallback `'Click for more info'` prompt, styled with matching generational depth-based colors.
+  * `page-layout: whiteboard_html`: Produces the full continuous whiteboard XeLaTeX PDF, and as the final compilation step, converts the generated LaTeX into a standalone, interactive HTML document (`.html`) styled with Vincent Dörig's `LaTeX.css` and MathJax formulas. Nested marginbox/tcolorbox environments are transformed into interactive HTML5 `<details>` and `<summary>` elements with hierarchical progressive disclosure: clicking any parent opens only its immediate children (grandchildren and deeper nested levels stay collapsed until clicked), displaying exact box titles or the fallback `'Click for more info'` prompt, styled with matching generational depth-based colors. Additionally, vector graphics (`tikzpicture`, `circuitikz`, `chemfig`, `quantikz`, `forest`) and arbitrary complex LaTeX environments wrapped in `\begin{htmlsvg}...\end{htmlsvg}` are preprocessed via a XeLaTeX-to-SVG safety net pipeline (`dvisvgm --no-fonts`), embedding 100% vector-accurate SVGs directly into the self-contained HTML while remaining native zero-overhead passthroughs in the PDF. The generated HTML is fully responsive and cross-device portable across mobile phones, tablets, and desktops: it features 44px touch-friendly hit targets, horizontal momentum scrolling on wide equations/tables/code blocks, automatic system OLED dark mode (`@media (prefers-color-scheme: dark)`), a floating reading toolbar (Expand/Collapse All, Theme Switcher, Scroll to Top), mobile PWA meta tags, and a smart print stylesheet (`@media print`) that automatically expands all collapsible boxes when exporting or printing to PDF.
   * `title-rule: false`: Disables the horizontal decorative rule rendered beneath the document title block.
   * `header-left: "..."`: Sets the running header on the top left of every page (defaults to "Notes").
 * **Verbatim Listing Mode (`run=false`):** When you need to display YAML code in your document without applying it to the document's settings, add `run=false`. The pre-processor ignores it as metadata and leaves it as a syntax-highlighted code block.
@@ -241,7 +241,35 @@ Hello World!
 
 ---
 
-### 3.4. Python (`python`, `py`, `python3`, `py3`)
+### 3.4. HTML SVG Safety Net Fence (`htmlsvg`, `svg`) & Automatic MathJax Fallback
+
+#### How It Renders Under the Hood
+* **Dedicated Safety Net Fence:** Code fences tagged ````htmlsvg```` or ````svg```` provide a universal safety net for complex LaTeX tables, diagrams, and arbitrary formulas where web math/HTML parsers (like MathJax) fail or lack package support.
+* **Dual-Engine Behavior:**
+  * **XeLaTeX PDF:** Renders natively as pure LaTeX within an isolated group (`{\begingroup...\par\endgroup}`) via the `\newenvironment{htmlsvg}{}{}` passthrough in `custom.tex`. Zero performance penalty, full vector fidelity, and crisp selectable text.
+  * **Whiteboard HTML:** When compiling with `page-layout: whiteboard_html`, `tex-to-html-preprocessor.lua` intercepts the block, compiles the snippet with standalone XeLaTeX (`xelatex -no-pdf` + `dvisvgm --no-fonts`), and converts it to a clean vector SVG. The SVG is cached by MD5 hash in `md2pdf_cache` and embedded directly into the standalone HTML document (`data:image/svg+xml;base64,...`).
+* **Automatic Build-Time Fallback (Method 1 Heuristic Analysis):** In addition to manual ````htmlsvg```` fences, `tex-to-html-preprocessor.lua` inspects all display math (`\[...\]`), inline math (`\(...\)`), and LaTeX environments during HTML export. Any block containing constructs unsupported by MathJax (e.g. TikZ `\draw`/`\node`, nested `tabular`, `\diagbox`, `\chemfig`, quantum circuits `\qw`/`\gate`, TeX layout primitives like `\raisebox`) is automatically detected at compile time and routed to SVG generation, while standard mathematical formulas remain lightweight native MathJax.
+* **Algorithmic Unicode Math Normalization:** Plane-1 Unicode math symbols (such as bold vectors, Greek operators, and superscripts) within the fence or math blocks are automatically normalized before compilation.
+
+#### Examples
+
+**Complex LaTeX Table Rendered Natively in PDF and as SVG in HTML:**
+````markdown
+```htmlsvg
+\begin{tabular}{llr}
+\toprule
+\multicolumn{2}{c}{General Quantum Operator} & Commutator \\
+\midrule
+Position \& Momentum & $[\hat{x}, \hat{p}]$ & $i\hbar$ \\
+Potential \& Momentum & $[𝐕(𝐱),\boldsymbol𝚷]$ & $\mathbf{0}$ \\
+\bottomrule
+\end{tabular}
+```
+````
+
+---
+
+### 3.5. Python (`python`, `py`, `python3`, `py3`)
 
 #### How It Renders Under the Hood
 * **Execution & Launcher:** Python blocks are executed via the Windows Python launcher (`py`). The active working directory is scoped to the directory of the first input file.

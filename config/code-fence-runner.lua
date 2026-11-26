@@ -769,6 +769,115 @@ local function strip_documentclass(text)
   return text
 end
 
+local GREEK_UPPER = {
+  [0]="\\mathbf{A}", [1]="\\mathbf{B}", [2]="\\boldsymbol{\\Gamma}", [3]="\\boldsymbol{\\Delta}", [4]="\\mathbf{E}",
+  [5]="\\mathbf{Z}", [6]="\\mathbf{H}", [7]="\\boldsymbol{\\Theta}", [8]="\\mathbf{I}", [9]="\\mathbf{K}",
+  [10]="\\boldsymbol{\\Lambda}", [11]="\\mathbf{M}", [12]="\\mathbf{N}", [13]="\\boldsymbol{\\Xi}", [14]="\\mathbf{O}",
+  [15]="\\boldsymbol{\\Pi}", [16]="\\mathbf{P}", [17]="\\boldsymbol{\\varTheta}", [18]="\\boldsymbol{\\Sigma}", [19]="\\mathbf{T}",
+  [20]="\\boldsymbol{\\Upsilon}", [21]="\\boldsymbol{\\Phi}", [22]="\\mathbf{X}", [23]="\\boldsymbol{\\Psi}", [24]="\\boldsymbol{\\Omega}"
+}
+local GREEK_LOWER = {
+  [0]="\\alpha", [1]="\\beta", [2]="\\gamma", [3]="\\delta", [4]="\\epsilon",
+  [5]="\\zeta", [6]="\\eta", [7]="\\theta", [8]="\\iota", [9]="\\kappa",
+  [10]="\\lambda", [11]="\\mu", [12]="\\nu", [13]="\\xi", [14]="o",
+  [15]="\\pi", [16]="\\rho", [17]="\\varsigma", [18]="\\sigma", [19]="\\tau",
+  [20]="\\upsilon", [21]="\\phi", [22]="\\chi", [23]="\\psi", [24]="\\omega",
+  [25]="\\partial", [26]="\\varepsilon", [27]="\\vartheta",
+  [28]="\\varkappa", [29]="\\varphi", [30]="\\varrho", [31]="\\varpi"
+}
+
+local function cleanup_boldsymbol(s)
+  if not s:find("\\boldsymbol", 1, true) and not s:find("\\bm", 1, true) then return s end
+  s = s:gsub("\\boldsymbol%s*\\boldsymbol", "\\boldsymbol")
+  s = s:gsub("\\boldsymbol%s*\\bm", "\\bm")
+  s = s:gsub("\\bm%s*\\boldsymbol", "\\bm")
+  s = s:gsub("\\bm%s*\\bm", "\\bm")
+  s = s:gsub("\\boldsymbol%s*(\\mathbf%b{})", "%1")
+  s = s:gsub("\\boldsymbol%s*(\\bm%b{})", "%1")
+  s = s:gsub("\\bm%s*(\\mathbf%b{})", "%1")
+  s = s:gsub("\\boldsymbol%s*(\\[%a]+)", function(cmd)
+    if cmd == "\\mathbf" or cmd == "\\bm" or cmd == "\\boldsymbol" then return cmd end
+    return "\\boldsymbol{" .. cmd .. "}"
+  end)
+  s = s:gsub("\\boldsymbol%s*([^\n\r%s{%a\\])", "\\boldsymbol{%1}")
+  return s
+end
+
+local function normalize_math_unicode(s)
+  if not s:find("[\240-\244]") then
+    return cleanup_boldsymbol(s)
+  end
+
+  local chars = {}
+  for ch in s:gmatch(utf8.charpattern) do
+    local cp = utf8.codepoint(ch)
+    local rep = nil
+
+    if cp >= 0x1D400 and cp <= 0x1D419 then
+      rep = "\\mathbf{" .. string.char(cp - 0x1D400 + 65) .. "}"
+    elseif cp >= 0x1D41A and cp <= 0x1D433 then
+      rep = "\\mathbf{" .. string.char(cp - 0x1D41A + 97) .. "}"
+    elseif cp >= 0x1D434 and cp <= 0x1D44D then
+      rep = string.char(cp - 0x1D434 + 65)
+    elseif cp >= 0x1D44E and cp <= 0x1D467 then
+      rep = string.char(cp - 0x1D44E + 97)
+    elseif cp >= 0x1D468 and cp <= 0x1D481 then
+      rep = "\\bm{" .. string.char(cp - 0x1D468 + 65) .. "}"
+    elseif cp >= 0x1D482 and cp <= 0x1D49B then
+      rep = "\\bm{" .. string.char(cp - 0x1D482 + 97) .. "}"
+    elseif cp >= 0x1D49C and cp <= 0x1D4B5 then
+      rep = "\\mathcal{" .. string.char(cp - 0x1D49C + 65) .. "}"
+    elseif cp >= 0x1D4B6 and cp <= 0x1D4CF then
+      rep = "\\mathcal{" .. string.char(cp - 0x1D4B6 + 97) .. "}"
+    elseif cp >= 0x1D4D0 and cp <= 0x1D4E9 then
+      rep = "\\bm{\\mathcal{" .. string.char(cp - 0x1D4D0 + 65) .. "}}"
+    elseif cp >= 0x1D4EA and cp <= 0x1D503 then
+      rep = "\\bm{\\mathcal{" .. string.char(cp - 0x1D4EA + 97) .. "}}"
+    elseif cp >= 0x1D504 and cp <= 0x1D51D then
+      rep = "\\mathfrak{" .. string.char(cp - 0x1D504 + 65) .. "}"
+    elseif cp >= 0x1D51E and cp <= 0x1D537 then
+      rep = "\\mathfrak{" .. string.char(cp - 0x1D51E + 97) .. "}"
+    elseif cp >= 0x1D538 and cp <= 0x1D551 then
+      rep = "\\mathbb{" .. string.char(cp - 0x1D538 + 65) .. "}"
+    elseif cp >= 0x1D552 and cp <= 0x1D56B then
+      rep = "\\mathbb{" .. string.char(cp - 0x1D552 + 97) .. "}"
+    elseif cp >= 0x1D56C and cp <= 0x1D585 then
+      rep = "\\bm{\\mathfrak{" .. string.char(cp - 0x1D56C + 65) .. "}}"
+    elseif cp >= 0x1D586 and cp <= 0x1D59F then
+      rep = "\\bm{\\mathfrak{" .. string.char(cp - 0x1D586 + 97) .. "}}"
+    elseif cp >= 0x1D5A0 and cp <= 0x1D5B9 then
+      rep = "\\mathsf{" .. string.char(cp - 0x1D5A0 + 65) .. "}"
+    elseif cp >= 0x1D5BA and cp <= 0x1D5D3 then
+      rep = "\\mathsf{" .. string.char(cp - 0x1D5BA + 97) .. "}"
+    elseif cp >= 0x1D670 and cp <= 0x1D689 then
+      rep = "\\mathtt{" .. string.char(cp - 0x1D670 + 65) .. "}"
+    elseif cp >= 0x1D68A and cp <= 0x1D6A3 then
+      rep = "\\mathtt{" .. string.char(cp - 0x1D68A + 97) .. "}"
+    elseif cp >= 0x1D6A8 and cp <= 0x1D6C0 then
+      rep = GREEK_UPPER[cp - 0x1D6A8]
+    elseif cp >= 0x1D6C2 and cp <= 0x1D6E1 then
+      local g = GREEK_LOWER[cp - 0x1D6C2]
+      if g then
+        rep = "\\bm{" .. g .. "}"
+      end
+    elseif cp >= 0x1D7CE and cp <= 0x1D7D7 then
+      rep = "\\mathbf{" .. string.char(cp - 0x1D7CE + 48) .. "}"
+    elseif cp >= 0x1D7D8 and cp <= 0x1D7E1 then
+      rep = "\\mathbb{" .. string.char(cp - 0x1D7D8 + 48) .. "}"
+    elseif cp >= 0x1D756 and cp <= 0x1D76F then
+      rep = "\\mathbf{\\mathsf{" .. string.char(cp - 0x1D756 + 65) .. "}}"
+    elseif cp >= 0x1D770 and cp <= 0x1D789 then
+      rep = "\\mathbf{\\mathsf{" .. string.char(cp - 0x1D770 + 97) .. "}}"
+    elseif cp >= 0x1D7F6 and cp <= 0x1D7FF then
+      rep = "\\mathtt{" .. string.char(cp - 0x1D7F6 + 48) .. "}"
+    end
+
+    chars[#chars + 1] = rep or ch
+  end
+
+  return cleanup_boldsymbol(table.concat(chars))
+end
+
 local function render_latex_unv(el, class, preamble, doc_state)
   local out = {}
   if el.attributes["show"] == "true" then
@@ -800,7 +909,8 @@ local function render_latex_unv(el, class, preamble, doc_state)
 
   -- Post-document content is local body
   if body_content and body_content:match("%S") then
-    local isolated_body = "{\\begingroup\n" .. body_content:match("^%s*(.-)%s*$") .. "\n\\par\\endgroup}"
+    local normalized = normalize_math_unicode(body_content:match("^%s*(.-)%s*$"))
+    local isolated_body = "{\\begingroup\n" .. normalized .. "\n\\par\\endgroup}"
     out[#out + 1] = pandoc.RawBlock("latex", isolated_body)
   end
 
@@ -836,7 +946,8 @@ local function render_latex(el, class, preamble, doc_state)
 
     -- Render local body
     if body_content:match("%S") then
-      local isolated_body = "{\\begingroup\n" .. body_content:match("^%s*(.-)%s*$") .. "\n\\par\\endgroup}"
+      local normalized = normalize_math_unicode(body_content:match("^%s*(.-)%s*$"))
+      local isolated_body = "{\\begingroup\n" .. normalized .. "\n\\par\\endgroup}"
       out[#out + 1] = pandoc.RawBlock("latex", isolated_body)
     end
     return out
@@ -852,15 +963,46 @@ local function render_latex(el, class, preamble, doc_state)
     add_imports_to_preamble(imports, preamble, doc_state)
 
     if remaining:match("%S") then
-      local isolated_body = "{\\begingroup\n" .. remaining:match("^%s*(.-)%s*$") .. "\n\\par\\endgroup}"
+      local normalized = normalize_math_unicode(remaining:match("^%s*(.-)%s*$"))
+      local isolated_body = "{\\begingroup\n" .. normalized .. "\n\\par\\endgroup}"
       out[#out + 1] = pandoc.RawBlock("latex", isolated_body)
     end
     return out
   end
 end
 
+local function render_htmlsvg(el, class, preamble, doc_state)
+  local out = {}
+  if el.attributes["show"] == "true" then
+    out[#out + 1] = pandoc.CodeBlock(el.text, pandoc.Attr("", { class }))
+  end
+
+  local bs, be = el.text:find("\\begin%s*{document}")
+  local body_content = el.text
+  if bs then
+    local pre_content = el.text:sub(1, bs - 1)
+    local after_begin = el.text:sub(be + 1)
+    body_content = after_begin:match("^(.*)\\end%s*{document}") or after_begin
+
+    local no_comments = strip_latex_comments(pre_content)
+    local no_docclass = strip_documentclass(no_comments)
+    local imports = extract_imports(no_docclass)
+    add_imports_to_preamble(imports, preamble, doc_state)
+  else
+    local imports, remaining = extract_imports(el.text)
+    add_imports_to_preamble(imports, preamble, doc_state)
+    body_content = remaining
+  end
+
+  local normalized = normalize_math_unicode(body_content:match("^%s*(.-)%s*$"))
+  local isolated_body = "\\begin{htmlsvg}\n{\\begingroup\n" .. normalized .. "\n\\par\\endgroup}\n\\end{htmlsvg}"
+  out[#out + 1] = pandoc.RawBlock("latex", isolated_body)
+  return out
+end
+
 register{ id = "latex_unv", names = { "latex_unv", "tex_unv" }, render = render_latex_unv }
 register{ id = "latex", names = { "latex", "tex" }, render = render_latex }
+register{ id = "htmlsvg", names = { "htmlsvg", "svg" }, render = render_htmlsvg }
 
 -- ------------------------------- 3. runner ----------------------------------
 local ERR_LINES = 30            -- how many trailing lines of an error report go into the PDF
@@ -1109,7 +1251,7 @@ local function process_code_block(el, preamble, doc_state)
   local class = (el.classes[1] or ""):lower()
   local spec = LANGS[class]
   if not spec then return nil end
-  if spec.id == "latex" or spec.id == "latex_unv" then
+  if spec.id == "latex" or spec.id == "latex_unv" or spec.id == "htmlsvg" then
     local scaffold = has_scaffolding_redefinition(el.text)
     if scaffold then
       warn(string.format("%s block redefines template scaffolding macro '\\%s'; rendering as code listing (run=false)", spec.id, scaffold))

@@ -13,7 +13,7 @@ REM XeLaTeX runs in a temporary directory, with up to three reference passes.
 
 echo.
 echo ==========================================
-echo    Markdown + LaTeX  ->  PDF
+echo    Markdown + LaTeX  -^>  PDF
 echo ==========================================
 echo If you want to terminate the job, press Ctrl + C
 echo.
@@ -34,6 +34,7 @@ set "NORMALIZER_FILTER=%CONFIG_DIR%\markdown-normalizer.lua"
 set "CODE_FENCE_FILTER=%CONFIG_DIR%\code-fence-runner.lua"
 set "HTML_BOX_FILTER=%CONFIG_DIR%\html-collapsible-boxes.lua"
 set "LATEX_CSS=%CONFIG_DIR%\latex.css"
+set "HTML_PREPROCESSOR=%CONFIG_DIR%\tex-to-html-preprocessor.lua"
 set "ANNOTATOR_SCRIPT=%CONFIG_DIR%\error-annotator.lua"
 if not defined PYTHON set "PYTHON=py"
 if not defined C_COMPILER set "C_COMPILER=gcc"
@@ -73,6 +74,7 @@ REM Temporary working folder (deleted at the end)
 set "WORK=%TEMP%\md2pdf_%RANDOM%%RANDOM%"
 
 set "TEX_OUTPUT=%WORK%\%~n1.tex"
+set "HTML_TEX=%WORK%\%~n1_html.tex"
 set "WORK_PDF=%WORK%\%~n1.pdf"
 set "LOG_FILE=%WORK%\%~n1.log"
 
@@ -308,7 +310,13 @@ if "%WB_HTML_LAYOUT%"=="1" (
     echo ==========================================
     echo              CREATING HTML
     echo ==========================================
-    pandoc "%TEX_OUTPUT%" -f latex -t html5 --mathjax --embed-resources --standalone --css="%LATEX_CSS%" --lua-filter="%HTML_BOX_FILTER%" -o "%HTML_OUTPUT%" >nul 2>&1
+    if exist "%HTML_PREPROCESSOR%" (
+        texlua "%HTML_PREPROCESSOR%" "%TEX_OUTPUT%" "%HTML_TEX%" "%MD2PDF_CACHE%"
+    )
+    if not exist "%HTML_TEX%" (
+        copy /Y "%TEX_OUTPUT%" "%HTML_TEX%" >nul
+    )
+    pandoc "%HTML_TEX%" -f latex -t html5 --mathml --embed-resources --standalone --css="%LATEX_CSS%" --lua-filter="%HTML_BOX_FILTER%" -o "%HTML_OUTPUT%" >nul 2>&1
 )
 
 rmdir /s /q "%WORK%" >nul 2>&1

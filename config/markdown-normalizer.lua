@@ -1708,6 +1708,144 @@ local function convert(s, kind)
   return table.concat(out)
 end
 
+local GREEK_UPPER = {
+  [0]="\\mathbf{A}", [1]="\\mathbf{B}", [2]="\\boldsymbol{\\Gamma}", [3]="\\boldsymbol{\\Delta}", [4]="\\mathbf{E}",
+  [5]="\\mathbf{Z}", [6]="\\mathbf{H}", [7]="\\boldsymbol{\\Theta}", [8]="\\mathbf{I}", [9]="\\mathbf{K}",
+  [10]="\\boldsymbol{\\Lambda}", [11]="\\mathbf{M}", [12]="\\mathbf{N}", [13]="\\boldsymbol{\\Xi}", [14]="\\mathbf{O}",
+  [15]="\\boldsymbol{\\Pi}", [16]="\\mathbf{P}", [17]="\\boldsymbol{\\varTheta}", [18]="\\boldsymbol{\\Sigma}", [19]="\\mathbf{T}",
+  [20]="\\boldsymbol{\\Upsilon}", [21]="\\boldsymbol{\\Phi}", [22]="\\mathbf{X}", [23]="\\boldsymbol{\\Psi}", [24]="\\boldsymbol{\\Omega}"
+}
+local GREEK_LOWER = {
+  [0]="\\alpha", [1]="\\beta", [2]="\\gamma", [3]="\\delta", [4]="\\epsilon",
+  [5]="\\zeta", [6]="\\eta", [7]="\\theta", [8]="\\iota", [9]="\\kappa",
+  [10]="\\lambda", [11]="\\mu", [12]="\\nu", [13]="\\xi", [14]="o",
+  [15]="\\pi", [16]="\\rho", [17]="\\varsigma", [18]="\\sigma", [19]="\\tau",
+  [20]="\\upsilon", [21]="\\phi", [22]="\\chi", [23]="\\psi", [24]="\\omega",
+  [25]="\\partial", [26]="\\varepsilon", [27]="\\vartheta",
+  [28]="\\varkappa", [29]="\\varphi", [30]="\\varrho", [31]="\\varpi"
+}
+
+local function cleanup_boldsymbol(s)
+  if not s:find("\\boldsymbol", 1, true) and not s:find("\\bm", 1, true) then return s end
+  s = s:gsub("\\boldsymbol%s*\\boldsymbol", "\\boldsymbol")
+  s = s:gsub("\\boldsymbol%s*\\bm", "\\bm")
+  s = s:gsub("\\bm%s*\\boldsymbol", "\\bm")
+  s = s:gsub("\\bm%s*\\bm", "\\bm")
+  s = s:gsub("\\boldsymbol%s*(\\mathbf%b{})", "%1")
+  s = s:gsub("\\boldsymbol%s*(\\bm%b{})", "%1")
+  s = s:gsub("\\bm%s*(\\mathbf%b{})", "%1")
+  s = s:gsub("\\boldsymbol%s*(\\[%a]+)", function(cmd)
+    if cmd == "\\mathbf" or cmd == "\\bm" or cmd == "\\boldsymbol" then return cmd end
+    return "\\boldsymbol{" .. cmd .. "}"
+  end)
+  s = s:gsub("\\boldsymbol%s*([^\n\r%s{%a\\])", "\\boldsymbol{%1}")
+  return s
+end
+
+-- Algorithmic projection of Unicode Mathematical Alphanumerics (Plane 1, U+1D400..U+1D7FF)
+-- into standard LaTeX math font commands (\mathbf, \mathit, \mathbb, \mathcal, \mathfrak).
+local function normalize_math_unicode(s)
+  if not s:find("[\240-\244]") then
+    return cleanup_boldsymbol(s)
+  end
+
+  local chars = {}
+  for ch in s:gmatch(utf8.charpattern) do
+    local cp = utf8.codepoint(ch)
+    local rep = nil
+
+    -- Bold Latin Upper (0x1D400 - 0x1D419)
+    if cp >= 0x1D400 and cp <= 0x1D419 then
+      rep = "\\mathbf{" .. string.char(cp - 0x1D400 + 65) .. "}"
+    -- Bold Latin Lower (0x1D41A - 0x1D433)
+    elseif cp >= 0x1D41A and cp <= 0x1D433 then
+      rep = "\\mathbf{" .. string.char(cp - 0x1D41A + 97) .. "}"
+    -- Italic Latin Upper (0x1D434 - 0x1D44D)
+    elseif cp >= 0x1D434 and cp <= 0x1D44D then
+      rep = string.char(cp - 0x1D434 + 65)
+    -- Italic Latin Lower (0x1D44E - 0x1D467)
+    elseif cp >= 0x1D44E and cp <= 0x1D467 then
+      rep = string.char(cp - 0x1D44E + 97)
+    -- Bold Italic Latin Upper (0x1D468 - 0x1D481)
+    elseif cp >= 0x1D468 and cp <= 0x1D481 then
+      rep = "\\bm{" .. string.char(cp - 0x1D468 + 65) .. "}"
+    -- Bold Italic Latin Lower (0x1D482 - 0x1D49B)
+    elseif cp >= 0x1D482 and cp <= 0x1D49B then
+      rep = "\\bm{" .. string.char(cp - 0x1D482 + 97) .. "}"
+    -- Script Upper (0x1D49C - 0x1D4B5)
+    elseif cp >= 0x1D49C and cp <= 0x1D4B5 then
+      rep = "\\mathcal{" .. string.char(cp - 0x1D49C + 65) .. "}"
+    -- Script Lower (0x1D4B6 - 0x1D4CF)
+    elseif cp >= 0x1D4B6 and cp <= 0x1D4CF then
+      rep = "\\mathcal{" .. string.char(cp - 0x1D4B6 + 97) .. "}"
+    -- Bold Script Upper (0x1D4D0 - 0x1D4E9)
+    elseif cp >= 0x1D4D0 and cp <= 0x1D4E9 then
+      rep = "\\bm{\\mathcal{" .. string.char(cp - 0x1D4D0 + 65) .. "}}"
+    -- Bold Script Lower (0x1D4EA - 0x1D503)
+    elseif cp >= 0x1D4EA and cp <= 0x1D503 then
+      rep = "\\bm{\\mathcal{" .. string.char(cp - 0x1D4EA + 97) .. "}}"
+    -- Fraktur Upper (0x1D504 - 0x1D51D)
+    elseif cp >= 0x1D504 and cp <= 0x1D51D then
+      rep = "\\mathfrak{" .. string.char(cp - 0x1D504 + 65) .. "}"
+    -- Fraktur Lower (0x1D51E - 0x1D537)
+    elseif cp >= 0x1D51E and cp <= 0x1D537 then
+      rep = "\\mathfrak{" .. string.char(cp - 0x1D51E + 97) .. "}"
+    -- Blackboard Bold Upper (0x1D538 - 0x1D551)
+    elseif cp >= 0x1D538 and cp <= 0x1D551 then
+      rep = "\\mathbb{" .. string.char(cp - 0x1D538 + 65) .. "}"
+    -- Blackboard Bold Lower (0x1D552 - 0x1D56B)
+    elseif cp >= 0x1D552 and cp <= 0x1D56B then
+      rep = "\\mathbb{" .. string.char(cp - 0x1D552 + 97) .. "}"
+    -- Bold Fraktur Upper (0x1D56C - 0x1D585)
+    elseif cp >= 0x1D56C and cp <= 0x1D585 then
+      rep = "\\bm{\\mathfrak{" .. string.char(cp - 0x1D56C + 65) .. "}}"
+    -- Bold Fraktur Lower (0x1D586 - 0x1D59F)
+    elseif cp >= 0x1D586 and cp <= 0x1D59F then
+      rep = "\\bm{\\mathfrak{" .. string.char(cp - 0x1D586 + 97) .. "}}"
+    -- Sans-serif Upper (0x1D5A0 - 0x1D5B9)
+    elseif cp >= 0x1D5A0 and cp <= 0x1D5B9 then
+      rep = "\\mathsf{" .. string.char(cp - 0x1D5A0 + 65) .. "}"
+    -- Sans-serif Lower (0x1D5BA - 0x1D5D3)
+    elseif cp >= 0x1D5BA and cp <= 0x1D5D3 then
+      rep = "\\mathsf{" .. string.char(cp - 0x1D5BA + 97) .. "}"
+    -- Monospace Upper (0x1D670 - 0x1D689)
+    elseif cp >= 0x1D670 and cp <= 0x1D689 then
+      rep = "\\mathtt{" .. string.char(cp - 0x1D670 + 65) .. "}"
+    -- Monospace Lower (0x1D68A - 0x1D6A3)
+    elseif cp >= 0x1D68A and cp <= 0x1D6A3 then
+      rep = "\\mathtt{" .. string.char(cp - 0x1D68A + 97) .. "}"
+    -- Bold Greek Upper (0x1D6A8 - 0x1D6C0)
+    elseif cp >= 0x1D6A8 and cp <= 0x1D6C0 then
+      rep = GREEK_UPPER[cp - 0x1D6A8]
+    -- Bold Greek Lower (0x1D6C2 - 0x1D6E1)
+    elseif cp >= 0x1D6C2 and cp <= 0x1D6E1 then
+      local g = GREEK_LOWER[cp - 0x1D6C2]
+      if g then
+        rep = "\\bm{" .. g .. "}"
+      end
+    -- Bold Digits (0x1D7CE - 0x1D7D7)
+    elseif cp >= 0x1D7CE and cp <= 0x1D7D7 then
+      rep = "\\mathbf{" .. string.char(cp - 0x1D7CE + 48) .. "}"
+    -- Double-struck Digits (0x1D7D8 - 0x1D7E1)
+    elseif cp >= 0x1D7D8 and cp <= 0x1D7E1 then
+      rep = "\\mathbb{" .. string.char(cp - 0x1D7D8 + 48) .. "}"
+    -- Sans-serif Bold Upper (0x1D756 - 0x1D76F)
+    elseif cp >= 0x1D756 and cp <= 0x1D76F then
+      rep = "\\mathbf{\\mathsf{" .. string.char(cp - 0x1D756 + 65) .. "}}"
+    -- Sans-serif Bold Lower (0x1D770 - 0x1D789)
+    elseif cp >= 0x1D770 and cp <= 0x1D789 then
+      rep = "\\mathbf{\\mathsf{" .. string.char(cp - 0x1D770 + 97) .. "}}"
+    -- Monospace Digits (0x1D7F6 - 0x1D7FF)
+    elseif cp >= 0x1D7F6 and cp <= 0x1D7FF then
+      rep = "\\mathtt{" .. string.char(cp - 0x1D7F6 + 48) .. "}"
+    end
+
+    chars[#chars + 1] = rep or ch
+  end
+
+  return cleanup_boldsymbol(table.concat(chars))
+end
+
 local function bold_greek(s)
   if not s:find("\\math", 1, true) then return s end
   return convert(s, nil)
@@ -1718,6 +1856,8 @@ end
 -- Matches anywhere in display math to allow preceding/trailing text, spaces, or comments.
 local function math_fix(el)
   local changed = false
+  local text = normalize_math_unicode(el.text)
+  if text ~= el.text then el = pandoc.Math(el.mathtype, text); changed = true end
   local fixed = bold_greek(el.text)
   if fixed ~= el.text then el = pandoc.Math(el.mathtype, fixed); changed = true end
   if el.mathtype ~= "DisplayMath" then return changed and el or nil end
@@ -2003,13 +2143,23 @@ end
 -- (pandoc usually reads it as a RawInline inside a paragraph; sometimes as a RawBlock.)
 local function rawblock_super(el)
   if not el.format:match("^%a*tex$") then return nil end
-  local env = el.text:match("^%s*\\begin%s*{(%a+)%*?}")
-  if not (env and REGISTRY.MATH_ENVS[env]) then return nil end
-  local new, hit = scripts_in_math(el.text)
-  if not hit then return nil end
-  State.super_fixes = State.super_fixes + 1
-  if el.t == "RawBlock" then return pandoc.RawBlock(el.format, new) end
-  return pandoc.RawInline(el.format, new)
+  local changed = false
+  local text = normalize_math_unicode(el.text)
+  if text ~= el.text then changed = true end
+  local env = text:match("^%s*\\begin%s*{(%a+)%*?}")
+  if env and REGISTRY.MATH_ENVS[env] then
+    local new, hit = scripts_in_math(text)
+    if hit then
+      text = new
+      changed = true
+      State.super_fixes = State.super_fixes + 1
+    end
+  end
+  if changed then
+    if el.t == "RawBlock" then return pandoc.RawBlock(el.format, text) end
+    return pandoc.RawInline(el.format, text)
+  end
+  return nil
 end
 
 -- ----------------------------------------------------------------------
@@ -2243,6 +2393,7 @@ local function assign_box_colors(blocks, tree_state, depth)
         current_tree = {
           id = tree_counter,
           gen_colors = {},
+          gen_hexes = {},
           ancestor_hues = {},
         }
         current_depth = 1
@@ -2264,6 +2415,7 @@ local function assign_box_colors(blocks, tree_state, depth)
       if current_tree.gen_colors[current_depth] then
         col = current_tree.gen_colors[current_depth]
         b.attributes["color"] = col
+        b.attributes["hex"] = current_tree.gen_hexes[current_depth]
       elseif col and col ~= "" then
         current_tree.gen_colors[current_depth] = col
         b.attributes["color"] = col
@@ -2303,12 +2455,15 @@ local function assign_box_colors(blocks, tree_state, depth)
 
         State.hoisted[#State.hoisted + 1] = string.format("\\definecolor{%s}{HTML}{%s}", col_name, hex)
         current_tree.gen_colors[current_depth] = col_name
+        current_tree.gen_hexes[current_depth] = hex
         b.attributes["color"] = col_name
+        b.attributes["hex"] = hex
       end
 
       local child_tree = {
         id = current_tree.id,
         gen_colors = current_tree.gen_colors,
+        gen_hexes = current_tree.gen_hexes,
         ancestor_hues = {},
       }
       for d = 1, current_depth do
@@ -2463,6 +2618,8 @@ local function div_fix(el)
     if #opts > 0 then
       opt = "[" .. table.concat(opts, ",") .. "]"
     end
+  elseif el.classes:includes("htmlsvg") or el.classes:includes("svg") then
+    env = "htmlsvg"
   else
     return nil
   end
@@ -2475,7 +2632,10 @@ local function div_fix(el)
       begin_str = begin_str .. "{}"
     end
   end
-  if box_color and box_color ~= "" then
+  local box_hex = el.attributes["hex"]
+  if box_hex and box_hex ~= "" then
+    begin_str = begin_str .. "\\hypertarget{boxcol:" .. box_hex .. "}{}"
+  elseif box_color and box_color ~= "" then
     begin_str = begin_str .. "\\hypertarget{boxcol:" .. box_color .. "}{}"
   end
   local out = { pandoc.RawBlock("latex", begin_str) }

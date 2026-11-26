@@ -369,9 +369,22 @@ Change ledger
 Version 1.4.3 cycle
   Starting count: 0 / 500
 
-For each later accepted change, append one entry in this format:
+Change ledger
+  2026-11-26 | XeLaTeX-to-SVG compilation pipeline safety net for HTML export (TikZ, CircuiTikZ, chemfig, quantikz, forest, and htmlsvg fence/env), algorithmic Plane-1 Unicode math normalization, and offline MathJax shield | source +704 / -68 | 772 / 500 (cycle limit exceeded, versioned as 1.5.0 MINOR)
 
-  YYYY-MM-DD | commit-or-change-id | short description | source +added / -deleted | cumulative / 500
+Version 1.5.0 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-26 | Automatic build-time MathJax incompatibility detector and SVG fallback routing for display math, inline math, and complex environments | source +104 / -0 | 104 / 500
+  2026-11-26 | Cross-device HTML portability: responsive equation/table scroll wrappers, touch hit targets, automatic system dark mode, floating reading toolbar, and smart print stylesheet | source +403 / -4 | 511 / 500 (cycle limit reached, versioned as 1.5.1 PATCH)
+
+Version 1.5.1 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-26 | Add mandatory Node.js and npm automated verification and installation to setup.bat | source +72 / -12 | 84 / 500
+  2026-11-26 | Self-contained zero-external-network HTML math via native MathML and progressive polyfill | source +33 / -14 | 131 / 500
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

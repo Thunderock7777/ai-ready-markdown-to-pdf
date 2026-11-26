@@ -1000,9 +1000,539 @@ local function render_htmlsvg(el, class, preamble, doc_state)
   return out
 end
 
+-- ---- html (whiteboard_html interactive tab attachment + recursive local asset bundler) ----
+local B64_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+local function b64encode(data)
+  if not data or data == "" then return "" end
+  local out = {}
+  local len = #data
+  local i = 1
+  while i <= len do
+    local b1 = data:byte(i)
+    local b2 = (i + 1 <= len) and data:byte(i + 1) or 0
+    local b3 = (i + 2 <= len) and data:byte(i + 2) or 0
+    local n = b1 * 65536 + b2 * 256 + b3
+    local c1 = math.floor(n / 262144) % 64 + 1
+    local c2 = math.floor(n / 4096) % 64 + 1
+    local c3 = math.floor(n / 64) % 64 + 1
+    local c4 = n % 64 + 1
+    out[#out + 1] = B64_ALPHA:sub(c1, c1)
+    out[#out + 1] = B64_ALPHA:sub(c2, c2)
+    out[#out + 1] = (i + 1 <= len) and B64_ALPHA:sub(c3, c3) or "="
+    out[#out + 1] = (i + 2 <= len) and B64_ALPHA:sub(c4, c4) or "="
+    i = i + 3
+  end
+  return table.concat(out)
+end
+
+local HTML_MIME_MAP = {
+  css = "text/css",
+  js = "text/javascript",
+  mjs = "text/javascript",
+  png = "image/png",
+  jpg = "image/jpeg",
+  jpeg = "image/jpeg",
+  gif = "image/gif",
+  webp = "image/webp",
+  svg = "image/svg+xml",
+  ico = "image/x-icon",
+  woff2 = "font/woff2",
+  woff = "font/woff",
+  ttf = "font/ttf",
+  otf = "font/otf",
+  json = "application/json",
+}
+
+local function mime_for_path(p)
+  local ext = (p:match("%.([%a%d]+)$") or ""):lower()
+  return HTML_MIME_MAP[ext] or "application/octet-stream"
+end
+
+local function is_remote_or_special_url(u)
+  if not u or u == "" then return true end
+  local low = u:lower()
+  return low:match("^https?://") ~= nil
+      or low:match("^//") ~= nil
+      or low:match("^data:") ~= nil
+      or low:match("^blob:") ~= nil
+      or low:match("^mailto:") ~= nil
+      or low:match("^tel:") ~= nil
+      or low:match("^javascript:") ~= nil
+      or low:match("^#") ~= nil
+end
+
+local function normalize_posix_path(p)
+  p = slash(p or "")
+  local prefix = ""
+  if p:match("^//") then
+    prefix = "//"
+    p = p:sub(3)
+  elseif p:match("^%a:/") then
+    prefix = p:sub(1, 3)
+    p = p:sub(4)
+  elseif p:sub(1, 1) == "/" then
+    prefix = "/"
+    p = p:sub(2)
+  end
+  local parts = {}
+  for seg in p:gmatch("[^/]+") do
+    if seg == ".." then
+      if #parts > 0 and parts[#parts] ~= ".." then
+        parts[#parts] = nil
+      elseif prefix == "" then
+        parts[#parts + 1] = ".."
+      end
+    elseif seg ~= "." and seg ~= "" then
+      parts[#parts + 1] = seg
+    end
+  end
+  return prefix .. table.concat(parts, "/")
+end
+
+local function dir_of_path(p)
+  p = slash(p or "")
+  local d = p:match("^(.*)/[^/]*$")
+  return (d and d ~= "") and d or "."
+end
+
+local function base_name_of(p)
+  p = slash(p or "")
+  return p:match("([^/]+)$") or p
+end
+
+local function resolve_local_ref(base_dir, ref_url)
+  local raw = (ref_url or ""):match("^%s*(.-)%s*$")
+  local path_only, suffix = raw:match("^([^?#]+)(.*)$")
+  path_only = path_only or raw
+  suffix = suffix or ""
+  if path_only:match("^file:///") then
+    path_only = path_only:gsub("^file:///*", ""):gsub("%%(%x%x)", function(h)
+      return string.char(tonumber(h, 16))
+    end)
+  end
+  local norm_p = slash(path_only)
+  local is_abs = norm_p:match("^%a:/") ~= nil or norm_p:sub(1, 1) == "/"
+  local combined = is_abs and norm_p or ((base_dir or ".") .. "/" .. norm_p)
+  return normalize_posix_path(combined), suffix
+end
+
+local function escape_latex_plain(s)
+  return (s or "")
+    :gsub("\\", "\\textbackslash{}")
+    :gsub("([%%$#&_{}])", "\\%1")
+    :gsub("~", "\\textasciitilde{}")
+    :gsub("%^", "\\textasciicircum{}")
+end
+
+local function get_html_working_dir()
+  local wd = os.getenv("MD2PDF_WORKING_DIR")
+  if wd and wd ~= "" then return normalize_posix_path(wd) end
+  if pandoc and pandoc.system and pandoc.system.get_working_directory then
+    return normalize_posix_path(pandoc.system.get_working_directory())
+  end
+  return "."
+end
+
+local function extract_html_file_candidate(raw_text)
+  local t = (raw_text or ""):match("^%s*(.-)%s*$")
+  if t == "" or t:find("[\r\n<>]") then return nil end
+  local unquoted = t:match('^"(.+)"$') or t:match("^'(.+)'$") or t
+  if unquoted:lower():match("%.html?$") then
+    return unquoted
+  end
+  return nil
+end
+
+local function extract_attr(attrs, name)
+  if not attrs then return nil end
+  local low_target = name:lower()
+  for k, q, v in attrs:gmatch("([%a%d_%-:]+)%s*=%s*([\"'])(.-)%2") do
+    if k:lower() == low_target then return v end
+  end
+  for k, v in attrs:gmatch("([%a%d_%-:]+)%s*=%s*([^%s\"'>]+)") do
+    if k:lower() == low_target then return v end
+  end
+  return nil
+end
+
+local function strip_attr(attrs, name)
+  if not attrs then return "" end
+  local low_target = name:lower()
+  local out = attrs:gsub("(%s*)([%a%d_%-:]+)(%s*=%s*[\"'][^\"']*[\"'])", function(sp, k, val)
+    if k:lower() == low_target then return "" end
+    return sp .. k .. val
+  end)
+  out = out:gsub("(%s*)([%a%d_%-:]+)(%s*=%s*[^%s\"'>]+)", function(sp, k, val)
+    if k:lower() == low_target then return "" end
+    return sp .. k .. val
+  end)
+  out = out:gsub("(%s+)(%a+)(%s*)", function(s1, k, s2)
+    if k:lower() == low_target then return (s1 ~= "" and s2 ~= "") and " " or "" end
+    return s1 .. k .. s2
+  end)
+  return out
+end
+
+local function record_missing_asset(stats, label)
+  if not stats.missing_set[label] then
+    stats.missing_set[label] = true
+    stats.missing[#stats.missing + 1] = label
+  end
+end
+
+local function inline_css_text(css_text, css_dir, stats, visited_css)
+  visited_css = visited_css or {}
+
+  -- Inline @import statements recursively first
+  css_text = css_text:gsub("@import%s+url%(%s*([\"']?)([^\"')]+)%1%s*%)%s*;?", function(q, ref)
+    if is_remote_or_special_url(ref) then return nil end
+    local abs_path = resolve_local_ref(css_dir, ref)
+    local key = abs_path:lower()
+    if visited_css[key] then return "/* circular @import skipped: " .. ref .. " */" end
+    local sub_css = read_file(to_os_path(abs_path))
+    if not sub_css then
+      record_missing_asset(stats, ref)
+      return nil
+    end
+    visited_css[key] = true
+    stats.inlined = stats.inlined + 1
+    local res = inline_css_text(sub_css, dir_of_path(abs_path), stats, visited_css)
+    visited_css[key] = nil
+    return "/* inlined: " .. ref .. " */\n" .. res
+  end)
+
+  css_text = css_text:gsub("@import%s+([\"'])([^\"']+)%1%s*;?", function(q, ref)
+    if is_remote_or_special_url(ref) then return nil end
+    local abs_path = resolve_local_ref(css_dir, ref)
+    local key = abs_path:lower()
+    if visited_css[key] then return "/* circular @import skipped: " .. ref .. " */" end
+    local sub_css = read_file(to_os_path(abs_path))
+    if not sub_css then
+      record_missing_asset(stats, ref)
+      return nil
+    end
+    visited_css[key] = true
+    stats.inlined = stats.inlined + 1
+    local res = inline_css_text(sub_css, dir_of_path(abs_path), stats, visited_css)
+    visited_css[key] = nil
+    return "/* inlined: " .. ref .. " */\n" .. res
+  end)
+
+  -- Inline url(...) assets (fonts, background images, SVG icons)
+  css_text = css_text:gsub("url%(%s*([\"']?)([^\"')]+)%1%s*%)", function(q, ref)
+    if is_remote_or_special_url(ref) then return nil end
+    local abs_path, suffix = resolve_local_ref(css_dir, ref)
+    local bin = read_file(to_os_path(abs_path))
+    if not bin then
+      record_missing_asset(stats, ref)
+      return nil
+    end
+    stats.inlined = stats.inlined + 1
+    local frag = suffix:match("(#.*)$") or ""
+    return string.format('url("data:%s;base64,%s%s")', mime_for_path(abs_path), b64encode(bin), frag)
+  end)
+
+  return css_text
+end
+
+local function inline_js_module(js_text, js_dir, stats, visited_js)
+  visited_js = visited_js or {}
+
+  local function resolve_module_spec(spec)
+    if not spec or (not spec:match("^%./") and not spec:match("^%.%./")) then
+      return nil
+    end
+    local abs_path = resolve_local_ref(js_dir, spec)
+    local os_p = to_os_path(abs_path)
+    if not file_exists(os_p) then
+      if file_exists(to_os_path(abs_path .. ".js")) then
+        abs_path = abs_path .. ".js"
+        os_p = to_os_path(abs_path)
+      elseif file_exists(to_os_path(abs_path .. ".mjs")) then
+        abs_path = abs_path .. ".mjs"
+        os_p = to_os_path(abs_path)
+      end
+    end
+    local key = abs_path:lower()
+    if visited_js[key] then return nil end
+    local sub_js = read_file(os_p)
+    if not sub_js then
+      record_missing_asset(stats, spec)
+      return nil
+    end
+    visited_js[key] = true
+    stats.inlined = stats.inlined + 1
+    local bundled = inline_js_module(sub_js, dir_of_path(abs_path), stats, visited_js)
+    visited_js[key] = nil
+    return "data:text/javascript;base64," .. b64encode(bundled)
+  end
+
+  -- 1. import/export ... from './rel.js'
+  js_text = js_text:gsub("([%a_][%w_]*[^;\r\n'\"]-%s+from%s*)([\"'])([^\"']+)%2", function(prefix, q, spec)
+    local rep = resolve_module_spec(spec)
+    if rep then return prefix .. q .. rep .. q end
+    return nil
+  end)
+  -- 2. Side-effect import './rel.js'
+  js_text = js_text:gsub("(%f[%a]import%s*)([\"'])([^\"']+)%2", function(prefix, q, spec)
+    local rep = resolve_module_spec(spec)
+    if rep then return prefix .. q .. rep .. q end
+    return nil
+  end)
+  -- 3. Literal dynamic import('./rel.js')
+  js_text = js_text:gsub("(%f[%a]import%s*%(%s*)([\"'])([^\"']+)%2(%s*%))", function(prefix, q, spec, closep)
+    local rep = resolve_module_spec(spec)
+    if rep then return prefix .. q .. rep .. q .. closep end
+    return nil
+  end)
+
+  return js_text
+end
+
+local function inline_html_nonraw_segment(seg, html_dir, stats)
+  -- 1. Replace local <link rel="stylesheet" href="..."> and inline local favicon href
+  seg = seg:gsub("<[Ll][Ii][Nn][Kk](%s[^>]-)/?>", function(attrs)
+    local href = extract_attr(attrs, "href")
+    if not href or is_remote_or_special_url(href) then return nil end
+    local rel = (extract_attr(attrs, "rel") or ""):lower()
+    local is_css = rel:find("stylesheet", 1, true) ~= nil or (rel == "" and href:lower():match("%.css([?#].*)?$") ~= nil)
+    local abs_path = resolve_local_ref(html_dir, href)
+    if is_css then
+      local css = read_file(to_os_path(abs_path))
+      if not css then
+        record_missing_asset(stats, href)
+        return nil
+      end
+      stats.inlined = stats.inlined + 1
+      local inlined = inline_css_text(css, dir_of_path(abs_path), stats, { [abs_path:lower()] = true })
+      inlined = inlined:gsub("</([Ss][Tt][Yy][Ll][Ee])", "<\\/%1")
+      return "<style>\n/* inlined: " .. href .. " */\n" .. inlined .. "\n</style>"
+    elseif rel:find("icon", 1, true) ~= nil then
+      local bin = read_file(to_os_path(abs_path))
+      if not bin then
+        record_missing_asset(stats, href)
+        return nil
+      end
+      stats.inlined = stats.inlined + 1
+      local data_url = string.format("data:%s;base64,%s", mime_for_path(abs_path), b64encode(bin))
+      local new_attrs = attrs:gsub("(href%s*=%s*)([\"'])([^\"']+)%2", function(k, q, _)
+        return k .. q .. data_url .. q
+      end, 1)
+      return "<link" .. new_attrs .. ">"
+    end
+    return nil
+  end)
+
+  -- 2. Inline local <img src="...">, <source src="...">, and <image href/xlink:href="...">
+  local function rewrite_tag_attr(tag_name, attrs, attr_name)
+    local val = extract_attr(attrs, attr_name)
+    if not val or is_remote_or_special_url(val) then return nil end
+    local abs_path, suffix = resolve_local_ref(html_dir, val)
+    local bin = read_file(to_os_path(abs_path))
+    if not bin then
+      record_missing_asset(stats, val)
+      return nil
+    end
+    stats.inlined = stats.inlined + 1
+    local frag = suffix:match("(#.*)$") or ""
+    local data_url = string.format("data:%s;base64,%s%s", mime_for_path(abs_path), b64encode(bin), frag)
+    local replaced = false
+    local new_attrs = attrs:gsub("([%a%d_%-:]+%s*=%s*)([\"'])([^\"']+)%2", function(k_eq, q, v)
+      if not replaced and k_eq:gsub("%s*=%s*$", ""):lower() == attr_name:lower() then
+        replaced = true
+        return k_eq .. q .. data_url .. q
+      end
+      return nil
+    end)
+    if not replaced then
+      new_attrs = attrs:gsub("([%a%d_%-:]+%s*=%s*)([^%s\"'>]+)", function(k_eq, v)
+        if not replaced and k_eq:gsub("%s*=%s*$", ""):lower() == attr_name:lower() then
+          replaced = true
+          return k_eq .. '"' .. data_url .. '"'
+        end
+        return nil
+      end)
+    end
+    return "<" .. tag_name .. new_attrs .. ">"
+  end
+
+  seg = seg:gsub("<([Ii][Mm][Gg])(%s[^>]*)>", function(tag_name, attrs)
+    return rewrite_tag_attr(tag_name, attrs, "src")
+  end)
+  seg = seg:gsub("<([Ss][Oo][Uu][Rr][Cc][Ee])(%s[^>]*)>", function(tag_name, attrs)
+    return rewrite_tag_attr(tag_name, attrs, "src")
+  end)
+  seg = seg:gsub("<([Ii][Mm][Aa][Gg][Ee])(%s[^>]*)>", function(tag_name, attrs)
+    return rewrite_tag_attr(tag_name, attrs, "href") or rewrite_tag_attr(tag_name, attrs, "xlink:href")
+  end)
+
+  return seg
+end
+
+local function inline_html_assets(html_text, html_dir)
+  local stats = { inlined = 0, missing = {}, missing_set = {} }
+  local out = {}
+  local pos = 1
+  local len = #html_text
+  local low_html = html_text:lower()
+
+  while pos <= len do
+    local s_pos = low_html:find("<script", pos, true)
+    local st_pos = low_html:find("<style", pos, true)
+    local next_pos, kind = nil, nil
+    if s_pos and (not st_pos or s_pos < st_pos) then
+      local after = html_text:sub(s_pos + 7, s_pos + 7)
+      if after == "" or after:match("[%s>]") then
+        next_pos, kind = s_pos, "script"
+      end
+    elseif st_pos then
+      local after = html_text:sub(st_pos + 6, st_pos + 6)
+      if after == "" or after:match("[%s>]") then
+        next_pos, kind = st_pos, "style"
+      end
+    end
+
+    if not next_pos then
+      if s_pos or st_pos then
+        local skip_to = math.min(s_pos or (len + 1), st_pos or (len + 1))
+        out[#out + 1] = inline_html_nonraw_segment(html_text:sub(pos, skip_to), html_dir, stats)
+        pos = skip_to + 1
+      else
+        out[#out + 1] = inline_html_nonraw_segment(html_text:sub(pos), html_dir, stats)
+        break
+      end
+    else
+      if next_pos > pos then
+        out[#out + 1] = inline_html_nonraw_segment(html_text:sub(pos, next_pos - 1), html_dir, stats)
+      end
+
+      local open_end = html_text:find(">", next_pos, true)
+      if not open_end then
+        out[#out + 1] = html_text:sub(next_pos)
+        break
+      end
+      local open_tag = html_text:sub(next_pos, open_end)
+      local tag_len = (kind == "script") and 7 or 6
+      local attrs = open_tag:sub(tag_len + 1, -2)
+      local close_pat = (kind == "script") and "</script>" or "</style>"
+      local c_start, c_end = low_html:find(close_pat, open_end + 1, true)
+      if not c_start then
+        out[#out + 1] = html_text:sub(next_pos)
+        break
+      end
+      local body = html_text:sub(open_end + 1, c_start - 1)
+      local close_tag = html_text:sub(c_start, c_end)
+
+      if kind == "style" then
+        local inlined_style = inline_css_text(body, html_dir, stats, {})
+        out[#out + 1] = open_tag .. inlined_style .. close_tag
+      else
+        local src = extract_attr(attrs, "src")
+        local typ = (extract_attr(attrs, "type") or ""):lower()
+        local is_module = (typ == "module")
+        if src and not is_remote_or_special_url(src) then
+          local abs_path = resolve_local_ref(html_dir, src)
+          local js = read_file(to_os_path(abs_path))
+          if js then
+            stats.inlined = stats.inlined + 1
+            if is_module then
+              js = inline_js_module(js, dir_of_path(abs_path), stats, { [abs_path:lower()] = true })
+            end
+            js = js:gsub("</([Ss][Cc][Rr][Ii][Pp][Tt])", "<\\/%1")
+            local new_attrs = strip_attr(strip_attr(attrs, "src"), "defer")
+            out[#out + 1] = "<script" .. new_attrs .. ">\n/* inlined: " .. src .. " */\n" .. js .. "\n" .. close_tag
+          else
+            record_missing_asset(stats, src)
+            out[#out + 1] = html_text:sub(next_pos, c_end)
+          end
+        else
+          if is_module and body:match("%S") then
+            body = inline_js_module(body, html_dir, stats, {})
+          end
+          out[#out + 1] = open_tag .. body .. close_tag
+        end
+      end
+      pos = c_end + 1
+    end
+  end
+
+  return table.concat(out), stats
+end
+
+local function render_html(el, class, preamble, doc_state)
+  local out = {}
+  if el.attributes["show"] == "true" then
+    out[#out + 1] = pandoc.CodeBlock(el.text, pandoc.Attr("", { class }))
+  end
+
+  local custom_title = el.attributes["title"] or el.attributes["label"] or el.attributes["caption"]
+  local file_cand = extract_html_file_candidate(el.text)
+  local working_dir = get_html_working_dir()
+  local raw_html = nil
+  local err_msg = ""
+  local asset_dir = working_dir
+  local fallback_title = "Open Interactive HTML"
+
+  if file_cand then
+    local resolved = resolve_local_ref(working_dir, file_cand)
+    fallback_title = base_name_of(resolved)
+    local content = read_file(to_os_path(resolved))
+    if content then
+      raw_html = content
+      asset_dir = dir_of_path(resolved)
+    else
+      err_msg = "HTML file not found: " .. file_cand
+      warn("[html] " .. err_msg)
+    end
+  else
+    raw_html = el.text
+  end
+
+  local title = custom_title
+  if (not title or title == "") and raw_html then
+    local parsed_title = raw_html:match("<[Tt][Ii][Tt][Ll][Ee][^>]*>(.-)</[Tt][Ii][Tt][Ll][Ee]>")
+    if parsed_title then
+      parsed_title = parsed_title:gsub("%s+", " "):match("^%s*(.-)%s*$")
+      if parsed_title ~= "" then title = parsed_title end
+    end
+  end
+  title = (title and title ~= "") and title or fallback_title
+
+  if not doc_state.is_whiteboard_html then
+    local note_latex = string.format(
+      "\\begin{quote}\\textbf{[Interactive HTML: %s]} Available in \\texttt{page-layout: whiteboard\\_html} to open in a browser tab.\\end{quote}",
+      escape_latex_plain(title)
+    )
+    out[#out + 1] = pandoc.RawBlock("latex", note_latex)
+    return out
+  end
+
+  local bundled_html, stats = "", { inlined = 0, missing = {}, missing_set = {} }
+  if raw_html then
+    bundled_html, stats = inline_html_assets(raw_html, asset_dir)
+    if #stats.missing > 0 then
+      warn("[html] Missing local asset(s) for '" .. title .. "': " .. table.concat(stats.missing, ", ") .. " (HTML will still launch)")
+    end
+  end
+
+  local missing_str = table.concat(stats.missing, ", ")
+  local payload_line = table.concat({
+    b64encode(title),
+    b64encode(missing_str),
+    b64encode(err_msg),
+    tostring(stats.inlined),
+    b64encode(bundled_html)
+  }, "|")
+
+  out[#out + 1] = pandoc.RawBlock("latex", "\n\\begin{wbhtmlembed}\n" .. payload_line .. "\n\\end{wbhtmlembed}\n")
+  return out
+end
+
 register{ id = "latex_unv", names = { "latex_unv", "tex_unv" }, render = render_latex_unv }
 register{ id = "latex", names = { "latex", "tex" }, render = render_latex }
 register{ id = "htmlsvg", names = { "htmlsvg", "svg" }, render = render_htmlsvg }
+register{ id = "html", names = { "html", "htm" }, render = render_html }
 
 -- ------------------------------- 3. runner ----------------------------------
 local ERR_LINES = 30            -- how many trailing lines of an error report go into the PDF
@@ -1283,7 +1813,16 @@ end
 
 function Pandoc(doc)
   local preamble = {}
-  local doc_state = { seen_unv_fence = false, loaded_packages = {} }
+  local is_wb_html = false
+  if doc and doc.meta then
+    local wb_flag = doc.meta.whiteboard_html
+    if wb_flag == true or tostring(wb_flag) == "true" then
+      is_wb_html = true
+    elseif doc.meta["page-layout"] and pandoc.utils and pandoc.utils.stringify(doc.meta["page-layout"]) == "whiteboard_html" then
+      is_wb_html = true
+    end
+  end
+  local doc_state = { seen_unv_fence = false, loaded_packages = {}, is_whiteboard_html = is_wb_html }
   doc = doc:walk({ CodeBlock = function(el) return process_code_block(el, preamble, doc_state) end })
   add_latex_preamble(doc, preamble)
   return doc

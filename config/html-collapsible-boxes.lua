@@ -12,9 +12,102 @@ local whiteboard_width_css = nil
 local max_box_depth = 1
 local annot_box_counter = 0
 local annot_sec_counter = 0
+local html_embed_counter = 0
+
+local B64_REV = {}
+do
+  local alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+  for i = 1, #alpha do
+    B64_REV[alpha:byte(i)] = i - 1
+  end
+end
+
+local function b64decode(data)
+  if not data or data == "" then return "" end
+  local out = {}
+  local vals = {}
+  for i = 1, #data do
+    local b = data:byte(i)
+    if b == 61 then -- '='
+      vals[#vals + 1] = -1
+    elseif B64_REV[b] then
+      vals[#vals + 1] = B64_REV[b]
+    end
+    if #vals == 4 then
+      local v1, v2, v3, v4 = vals[1], vals[2], vals[3], vals[4]
+      vals = {}
+      if v1 >= 0 and v2 >= 0 then
+        local c1 = v1 * 4 + math.floor(v2 / 16)
+        out[#out + 1] = string.char(c1)
+        if v3 >= 0 then
+          local c2 = ((v2 % 16) * 16) + math.floor(v3 / 4)
+          out[#out + 1] = string.char(c2)
+          if v4 >= 0 then
+            local c3 = ((v3 % 4) * 64) + v4
+            out[#out + 1] = string.char(c3)
+          end
+        end
+      end
+    end
+  end
+  return table.concat(out)
+end
+
+local function escape_html(s)
+  return (s or ""):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;")
+end
 
 local function is_box_div(el)
   return el.tag == "Div" and (el.classes:includes("marginbox") or el.classes:includes("tcolorbox") or el.classes:includes("vbox"))
+end
+
+local function transform_html_embed(el)
+  local raw = pandoc.utils.stringify(el):gsub("%s+", "")
+  local title_b64, missing_b64, err_b64, inlined_str, html_b64 = raw:match("^([^|]*)|([^|]*)|([^|]*)|([^|]*)|(.*)$")
+  if not html_b64 then
+    return el
+  end
+  html_embed_counter = html_embed_counter + 1
+  local embed_id = "wb-html-" .. tostring(html_embed_counter)
+  local title = escape_html(b64decode(title_b64))
+  if title == "" then title = "Open Interactive HTML" end
+  local missing = escape_html(b64decode(missing_b64))
+  local err_msg = escape_html(b64decode(err_b64))
+  local inlined_count = tonumber(inlined_str) or 0
+
+  if err_msg ~= "" then
+    return pandoc.RawBlock("html", string.format(
+      '<div class="wb-html-card wb-html-error" role="alert"><strong>%s</strong> — %s</div>',
+      title, err_msg
+    ))
+  end
+
+  local pill = ""
+  if inlined_count > 0 then
+    pill = string.format('<span class="wb-html-meta-pill">Inlined %d local asset%s</span>', inlined_count, inlined_count == 1 and "" or "s")
+  end
+  local warn_html = ""
+  if missing ~= "" then
+    warn_html = string.format(
+      '<div class="wb-html-missing">⚠ Missing local asset(s): %s — HTML will still launch without them.</div>',
+      missing
+    )
+  end
+
+  local card_html = string.format([[
+<div class="wb-html-card">
+  <div class="wb-html-card-row">
+    <span class="wb-html-card-title">📄 %s</span>
+    <div class="wb-html-card-actions">
+      %s
+      <button type="button" class="wb-html-launch" data-wb-html-target="%s">Open in New Tab ↗</button>
+    </div>
+  </div>
+  %s
+</div>
+<script type="text/plain" class="wb-html-b64" id="%s">%s</script>]],
+    title, pill, embed_id, warn_html, embed_id, html_b64)
+  return pandoc.RawBlock("html", card_html)
 end
 
 local function compute_doc_id(doc)
@@ -147,6 +240,8 @@ function process_block_sequence(blocks, depth)
       for _, sb in ipairs(sub_res) do
         out[#out + 1] = sb
       end
+    elseif b.tag == "Div" and b.classes:includes("wbhtmlembed") then
+      flow_buf[#flow_buf + 1] = transform_html_embed(b)
     else
       flow_buf[#flow_buf + 1] = b
     end
@@ -159,6 +254,7 @@ function Pandoc(doc)
   load_tex_metadata()
   annot_box_counter = 0
   annot_sec_counter = 0
+  html_embed_counter = 0
   local new_blocks = process_block_sequence(doc.blocks, 0)
   local doc_id = compute_doc_id(doc)
 
@@ -1311,6 +1407,39 @@ window.MathJax = {
   syncTopBarBodyOffset();
   loadInitialAnnotations();
   renderAllAnnotations();
+
+  // 5. Embedded HTML Tab Launcher (creates on-click Blob URL and opens in new tab)
+  document.addEventListener('click', function(e) {
+    var tgt = (e.target && e.target.nodeType === 3) ? e.target.parentNode : e.target;
+    var btn = tgt && tgt.closest ? tgt.closest('.wb-html-launch') : null;
+    if (!btn) return;
+    var payloadId = btn.getAttribute('data-wb-html-target');
+    var payloadEl = payloadId ? document.getElementById(payloadId) : null;
+    if (!payloadEl) return;
+    try {
+      var b64 = (payloadEl.textContent || '').replace(/\s+/g, '');
+      var binStr = window.atob ? window.atob(b64) : '';
+      var bytes = new Uint8Array(binStr.length);
+      for (var i = 0; i < binStr.length; i++) {
+        bytes[i] = binStr.charCodeAt(i);
+      }
+      var blob = new Blob([bytes], { type: 'text/html;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var opened = window.open ? window.open(url, '_blank') : null;
+      if (!opened) {
+        var a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+    } catch (err) {
+      alert('Unable to open embedded HTML in a new tab: ' + err);
+    }
+  });
 })();
 </script>]===]
 

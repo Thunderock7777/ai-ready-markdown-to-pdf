@@ -414,6 +414,13 @@ Version 1.6.1 cycle
 Change ledger
   2026-11-26 | Move unified PDF-viewer-style toolbar to pinned top bar (#floatingToolbar top:0) with Print button and automatic body top-padding offset sync | source +22 / -41 | 63 / 500
   2026-11-26 | Unwrap Pandoc Highlighting/Shaded code blocks to verbatim/lstlisting in tex-to-html-preprocessor.lua (clearing fvextra verbatim redefinitions) so HTML renders proper pre/code with intact indentation and line breaks | source +131 / -0 | 194 / 500
+  2026-11-26 | Add html/htm interactive attachment fence for whiteboard_html (inline HTML or .html path resolution, recursive local CSS/JS/ES-module/image inlining, non-fatal missing-asset warnings, PDF placeholder, and Blob new-tab launcher) | source +787 / -1 | 982 / 500 (cycle limit exceeded, versioned as 1.7.0 MINOR)
+
+Version 1.7.0 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  (no changes yet)
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

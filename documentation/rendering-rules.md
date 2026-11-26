@@ -269,6 +269,16 @@ Potential \& Momentum & $[𝐕(𝐱),\boldsymbol𝚷]$ & $\mathbf{0}$ \\
 
 ---
 
+### 3.4b. Interactive HTML Launcher Fence (`html`, `htm`)
+
+#### How It Renders Under the Hood
+* **Whiteboard HTML Only:** Follows the same control attributes as ````latex```` fences (`run=false` keeps a plain source listing, `show=true` shows source + launcher, `title="..."` / `label="..."` customizes the title). Active only when `page-layout: whiteboard_html` is enabled; in PDF layouts (`default`, `presentation`, `whiteboard`), it emits a styled `[Interactive HTML: ...]` placeholder quote instead.
+* **File Path or Inline HTML:** If the fence contains a single `.html` / `.htm` file path (absolute or relative to the input `.txt`/`.md` folder), `code-fence-runner.lua` reads that file automatically; if the file is missing, it logs a warning and renders a non-fatal error badge without aborting the build. Otherwise, the fence body itself is embedded as HTML.
+* **Recursive Local Asset Bundling:** Automatically resolves local `<link rel="stylesheet" href="...">`, inline `<style>` / CSS `@import` and `url(...)` (fonts/background images), `<img src="...">` / `<source src="...">` / SVG `<image>` assets (as Base64 `data:` URIs), `<script src="...">`, and static ES module imports (`import ... from './sub.js'` in `<script type="module">` as `data:text/javascript;base64,...` modules). Any missing local assets log a console warning and appear in an amber banner on the card while still letting the HTML open normally.
+* **New-Tab Launch:** Embeds the bundled HTML as Base64 inside `<script type="text/plain" class="wb-html-b64">` and renders a `.wb-html-card` button (`Open in New Tab ↗`) that constructs an on-click UTF-8 `Blob` URL (`text/html`) and opens it in a fresh browser tab (surviving **Save HTML** / **Save As** exports).
+
+---
+
 ### 3.5. Python (`python`, `py`, `python3`, `py3`)
 
 #### How It Renders Under the Hood

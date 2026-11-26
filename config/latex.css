@@ -134,11 +134,10 @@ body {
   font-family: 'Latin Modern', 'Latin Modern Roman', 'Computer Modern', 'TeX Gyre Termes', Georgia, Cambria, 'Times New Roman', Times, serif;
   line-height: 1.8;
 
-  max-width: 80ch;
+  max-width: min(96vw, 1320px);
   min-height: 100vh;
-  overflow-x: hidden;
   margin: 0 auto;
-  padding: 2rem 1.25rem;
+  padding: 1.5rem 1rem;
 
   counter-reset: theorem definition sidenote-counter;
 
@@ -809,9 +808,55 @@ details.vbox[open] > summary::before {
 details.marginbox > .marginbox-body,
 details.tcolorbox > .marginbox-body,
 details.vbox > .marginbox-body {
-  padding: 14px 18px;
+  padding: 12px 16px;
   color: var(--body-color, hsl(0, 5%, 10%));
   background-color: transparent;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Lean hierarchical padding for nested boxes: gives innermost blocks maximum reading width */
+.marginbox-body details.marginbox,
+.marginbox-body details.tcolorbox,
+.marginbox-body details.vbox {
+  margin: 0.8rem 0;
+  border-left-width: 4px;
+}
+
+.marginbox-body .marginbox-body {
+  padding: 10px 12px;
+}
+
+.marginbox-body .marginbox-body .marginbox-body {
+  padding: 8px 10px;
+}
+
+@media (max-width: 600px) {
+  body {
+    padding: 1rem 0.5rem;
+  }
+
+  details.marginbox > summary,
+  details.tcolorbox > summary,
+  details.vbox > summary {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    min-height: 40px;
+  }
+
+  details.marginbox > .marginbox-body,
+  details.tcolorbox > .marginbox-body,
+  details.vbox > .marginbox-body {
+    padding: 10px 8px;
+  }
+
+  .marginbox-body .marginbox-body {
+    padding: 8px 6px;
+  }
+
+  .marginbox-body .marginbox-body .marginbox-body {
+    padding: 6px 4px;
+  }
 }
 
 /* ==========================================================================

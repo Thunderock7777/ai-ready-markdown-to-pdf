@@ -818,7 +818,7 @@ details.vbox > .marginbox-body {
    Cross-Device Portability, Mobile Responsiveness & Dark Mode
    ========================================================================== */
 
-/* 1. Responsive Math, Table, and Code Overflow Protection */
+/* 1. Universal MathML Layout & Fallback (Works in standard browsers & stripped-down WebViews) */
 math,
 math[display="inline"],
 math:not([display="block"]) {
@@ -829,13 +829,19 @@ math:not([display="block"]) {
   vertical-align: baseline;
 }
 
-math[display="inline"] semantics,
-math:not([display="block"]) semantics,
-math[display="inline"] mrow,
-math:not([display="block"]) mrow {
+/* Force all inline MathML tokens (identifiers, operators, numbers) to flow horizontally */
+math:not([display="block"]) *,
+math[display="inline"] * {
   display: inline !important;
 }
 
+/* Hide raw TeX annotation strings */
+math annotation,
+annotation {
+  display: none !important;
+}
+
+/* Display equations (block math) */
 math[display="block"] {
   display: block !important;
   text-align: center;
@@ -849,11 +855,47 @@ math[display="block"] {
 
 math[display="block"] semantics,
 math[display="block"] mrow {
-  display: block;
+  display: inline;
 }
 
-mfrac {
-  padding: 0 0.15em;
+/* Pure CSS fallback for fractions in viewers without native MathML Core */
+math mfrac {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  vertical-align: -0.55em !important;
+  text-align: center !important;
+  padding: 0 0.2em !important;
+  font-size: 0.9em;
+  line-height: 1.1;
+}
+
+math mfrac > *:first-child {
+  border-bottom: 1px solid currentColor !important;
+  padding-bottom: 1px !important;
+  display: block !important;
+}
+
+math mfrac > *:last-child {
+  padding-top: 1px !important;
+  display: block !important;
+}
+
+/* Pure CSS fallback for superscripts and subscripts */
+math msup {
+  display: inline-flex !important;
+  vertical-align: 0.45em !important;
+  font-size: 0.75em !important;
+}
+
+math msub {
+  display: inline-flex !important;
+  vertical-align: -0.3em !important;
+  font-size: 0.75em !important;
+}
+
+math msubsup {
+  display: inline-flex !important;
+  vertical-align: middle !important;
 }
 
 span.math.inline {

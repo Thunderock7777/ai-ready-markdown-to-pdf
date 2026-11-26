@@ -436,7 +436,12 @@ Version 1.8.0 cycle
 
 Change ledger
   2026-11-26 | Center bottom ▲ Collapse button (.marginbox-footer) horizontally inside collapsible boxes | source +1 / -1 | 2 / 500
-  2026-11-27 | Render Tree View ↗ jump buttons as unclipped SVG badges (<g class="wb-mm-jump wb-mm-jump-svg">) outside foreignObject, strip inline jump buttons from build-graph.js, and await KaTeX CSS load in CDN mode | source +108 / -36 | 146 / 500
+  2026-11-27 | Render Tree View ↗ jump buttons as unclipped SVG badges (<g class="wb-mm-jump wb-mm-jump-svg">) outside foreignObject, strip inline jump buttons from build-graph.js, and await KaTeX CSS load in CDN mode | source +108 / -36 | 146 / 500 (versioned as 1.8.1 PATCH)
+
+Version 1.8.1 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

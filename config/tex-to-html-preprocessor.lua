@@ -496,10 +496,141 @@ local function process_inline_math(tex)
   return out:sub(2)
 end
 
+local PANDOC_TEXT_ESCAPES = {
+  textbackslash = "\\",
+  textless = "<",
+  textgreater = ">",
+  textquotesingle = "'",
+  textasciigrave = "`",
+  textasciitilde = "~",
+  textbar = "|"
+}
+
+local SINGLE_CHAR_ESCAPES = {
+  ["{"] = "{", ["}"] = "}", ["%"] = "%", ["#"] = "#",
+  ["&"] = "&", ["_"] = "_", ['"'] = '"', [" "] = " "
+}
+
+local function find_matching_brace(s, open_pos)
+  local depth = 1
+  local i = open_pos + 1
+  local len = #s
+  while i <= len do
+    local ch = s:sub(i, i)
+    if ch == "\\" then
+      i = i + 2
+    elseif ch == "{" then
+      depth = depth + 1
+      i = i + 1
+    elseif ch == "}" then
+      depth = depth - 1
+      if depth == 0 then return i end
+      i = i + 1
+    else
+      i = i + 1
+    end
+  end
+  return nil
+end
+
+local function unwrap_tok_macros(s)
+  local cur = s
+  while true do
+    local out = {}
+    local pos = 1
+    local changed = false
+    while true do
+      local m_start, m_end = cur:find("\\%a+Tok%s*{", pos)
+      if not m_start then
+        out[#out + 1] = cur:sub(pos)
+        break
+      end
+      local close_pos = find_matching_brace(cur, m_end)
+      if not close_pos then
+        out[#out + 1] = cur:sub(pos, m_end)
+        pos = m_end + 1
+      else
+        if m_start > pos then
+          out[#out + 1] = cur:sub(pos, m_start - 1)
+        end
+        out[#out + 1] = cur:sub(m_end + 1, close_pos - 1)
+        pos = close_pos + 1
+        changed = true
+      end
+    end
+    cur = table.concat(out)
+    if not changed then break end
+  end
+  return cur
+end
+
+local function unescape_pandoc_highlighting(raw)
+  local stripped = unwrap_tok_macros(raw)
+  stripped = stripped:gsub("{%-}", "-")
+
+  local out = {}
+  local pos = 1
+  local len = #stripped
+  while pos <= len do
+    local bs = stripped:find("\\", pos, true)
+    if not bs then
+      out[#out + 1] = stripped:sub(pos)
+      break
+    end
+    if bs > pos then
+      out[#out + 1] = stripped:sub(pos, bs - 1)
+    end
+    local _, cmd_end, cmd = stripped:find("^\\(text%a+)%s*{%s*}", bs)
+    if cmd and PANDOC_TEXT_ESCAPES[cmd] then
+      out[#out + 1] = PANDOC_TEXT_ESCAPES[cmd]
+      pos = cmd_end + 1
+    elseif stripped:sub(bs, bs + 3) == "\\^{}" then
+      out[#out + 1] = "^"
+      pos = bs + 4
+    else
+      local next_ch = stripped:sub(bs + 1, bs + 1)
+      local mapped = SINGLE_CHAR_ESCAPES[next_ch]
+      if mapped then
+        out[#out + 1] = mapped
+        pos = bs + 2
+      else
+        out[#out + 1] = "\\"
+        pos = bs + 1
+      end
+    end
+  end
+  return table.concat(out)
+end
+
+-- Convert Pandoc Highlighting/Shaded code environments back to plain verbatim/lstlisting
+-- so Pandoc's LaTeX reader (-f latex -t html5) emits proper <pre><code> blocks with intact line breaks/indentation.
+local function unwrap_highlighting_blocks(tex)
+  local function format_code_env(inner)
+    local plain = unescape_pandoc_highlighting(inner)
+    plain = plain:gsub("^\r?\n", ""):gsub("\r?\n$", "")
+    if not plain:find("\\end{verbatim}", 1, true) then
+      return "\n\\begin{verbatim}\n" .. plain .. "\n\\end{verbatim}\n"
+    else
+      return "\n\\begin{lstlisting}\n" .. plain .. "\n\\end{lstlisting}\n"
+    end
+  end
+
+  tex = tex:gsub("\\let\\verbatim\\undefined%s*", "")
+  tex = tex:gsub("\\let\\endverbatim\\undefined%s*", "")
+  tex = tex:gsub("\\DefineVerbatimEnvironment%s*{verbatim}%b{}%b{}%s*", "")
+  tex = tex:gsub("\\RecustomVerbatimEnvironment%s*{Highlighting}%b{}%b{}%s*", "")
+  tex = tex:gsub("\\begin%s*{Shaded}%s*\\begin%s*{Highlighting}%s*%b[](.-)\\end%s*{Highlighting}%s*\\end%s*{Shaded}", format_code_env)
+  tex = tex:gsub("\\begin%s*{Shaded}%s*\\begin%s*{Highlighting}(.-)\\end%s*{Highlighting}%s*\\end%s*{Shaded}", format_code_env)
+  tex = tex:gsub("\\begin%s*{Highlighting}%s*%b[](.-)\\end%s*{Highlighting}", format_code_env)
+  tex = tex:gsub("\\begin%s*{Highlighting}(.-)\\end%s*{Highlighting}", format_code_env)
+  return tex
+end
+
 local processed = process_environments(content)
 processed = process_inline_htmlsvg(processed)
 processed = process_display_math(processed)
 processed = process_inline_math(processed)
+processed = unwrap_highlighting_blocks(processed)
 
 if not write_file(output_path, processed) then
   io.stderr:write("[tex-to-html-preprocessor] Error: cannot write output file: " .. output_path .. "\n")

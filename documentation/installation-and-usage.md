@@ -115,7 +115,7 @@ The default PDF size is A4. Supported `page-layout` YAML presets are:
     # or:
     page-layout: whiteboard      # continuous dynamic-height canvas; width scales (11in–100in)
     # or:
-    page-layout: whiteboard_html # HTML-only interactive desktop Chrome whiteboard (skips PDF)
+    page-layout: whiteboard_html # HTML-only interactive whiteboard for modern browsers (skips PDF)
     ```
 
 Presentation mode changes page dimensions, not the document into a Beamer slide

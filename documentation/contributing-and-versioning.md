@@ -399,6 +399,21 @@ Version 1.5.2 cycle
 Change ledger
   2026-11-26 | Switch HTML MathJax to self-contained tex-svg-full.js so embedded builds retain built-in boldsymbol, ams, and offline glyph paths | source +11 / -3 | 14 / 500
   2026-11-26 | Make page-layout: whiteboard_html HTML-only in compile.bat by skipping full-document XeLaTeX PDF generation | source +19 / -4 | 37 / 500
+  2026-11-26 | Add top red incompatible-viewer warning banner (#viewerCompatWarning) with ES5 capability & MathJax verification in whiteboard_html | source +113 / -3 | 153 / 500
+  2026-11-26 | Add Option A container-anchored PDF-style annotations (Pen, Highlighter, Sticky Notes, Eraser, Undo/Clear, Save HTML self-contained export, draft auto-save, print preservation) | source +833 / -26 | 1012 / 500 (cycle limit exceeded, versioned as 1.6.0 MINOR)
+
+Version 1.6.0 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-26 | Add cursor line-by-line highlighting, in-place Save HTML overwrite + Save As modal window, and beforeprint/afterprint full box expansion for Ctrl+P | source +507 / -2 | 509 / 500 (cycle limit reached, versioned as 1.6.1 PATCH)
+
+Version 1.6.1 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-26 | Move unified PDF-viewer-style toolbar to pinned top bar (#floatingToolbar top:0) with Print button and automatic body top-padding offset sync | source +22 / -41 | 63 / 500
+  2026-11-26 | Unwrap Pandoc Highlighting/Shaded code blocks to verbatim/lstlisting in tex-to-html-preprocessor.lua (clearing fvextra verbatim redefinitions) so HTML renders proper pre/code with intact indentation and line breaks | source +131 / -0 | 194 / 500
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

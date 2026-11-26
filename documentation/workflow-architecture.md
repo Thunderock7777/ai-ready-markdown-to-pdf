@@ -184,7 +184,7 @@ commands undefined; missing glyphs may be blank and reported in the XeLaTeX log.
 Page size defaults to A4. Supported `page-layout` YAML values are `presentation`
 (13 1/3-by-7.5-inch 16:9 landscape), `whiteboard` (continuous single/100in-capped
 canvas whose width scales from `11.00in` up to `100.00in` based on tables,
-nested box depth, and wide code blocks), and `whiteboard_html` (HTML-only desktop Chrome output with MathJax, collapsible boxes,
+nested box depth, and wide code blocks), and `whiteboard_html` (HTML-only interactive browser output with MathJax, collapsible boxes,
 and matching dynamic canvas width, skipping PDF creation); unrecognized values warn and fall back to A4.
 The title rule is enabled by default; YAML boolean `title-rule: false` disables
 the template rule while retaining its surrounding vertical spacing.

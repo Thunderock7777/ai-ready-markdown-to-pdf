@@ -145,7 +145,6 @@ cd /d "%INPUT_DIR%"
 mkdir "%WORK%" >nul 2>&1
 
 echo Inputs: %PANDOC_INPUTS%
-echo PDF   : "%PDF_OUTPUT%"
 echo.
 
 REM =========================================================
@@ -182,6 +181,12 @@ if not errorlevel 1 set "WB_WIDTH_MAX=1"
 set "WB_HTML_LAYOUT="
 findstr /C:"WHITEBOARD_HTML_LAYOUT" "%TEX_OUTPUT%" >nul 2>&1
 if not errorlevel 1 set "WB_HTML_LAYOUT=1"
+if "%WB_HTML_LAYOUT%"=="1" (
+    echo HTML  : "%HTML_OUTPUT%"
+    goto CREATE_HTML
+) else (
+    echo PDF   : "%PDF_OUTPUT%"
+)
 
 REM =========================================================
 REM XELATEX  (all build files go to the temp folder)
@@ -305,6 +310,7 @@ if errorlevel 1 (
     echo Close it in any PDF viewer and check that the folder is writable.
     goto CLEANUP_FAIL
 )
+:CREATE_HTML
 if "%WB_HTML_LAYOUT%"=="1" (
     echo.
     echo ==========================================
@@ -317,6 +323,14 @@ if "%WB_HTML_LAYOUT%"=="1" (
         copy /Y "%TEX_OUTPUT%" "%HTML_TEX%" >nul
     )
     pandoc "%HTML_TEX%" -f latex -t html5 --mathjax="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js" --embed-resources --standalone --css="%LATEX_CSS%" --lua-filter="%HTML_BOX_FILTER%" -o "%HTML_OUTPUT%"
+    if errorlevel 1 (
+        color 0E
+        echo.
+        echo ==========================================
+        echo            HTML CREATION FAILED
+        echo ==========================================
+        goto CLEANUP_FAIL
+    )
 )
 
 rmdir /s /q "%WORK%" >nul 2>&1
@@ -326,9 +340,10 @@ echo ==========================================
 echo           CONVERSION COMPLETED
 echo ==========================================
 echo.
-echo PDF: "%PDF_OUTPUT%"
-if "%WB_HTML_LAYOUT%"=="1" if exist "%HTML_OUTPUT%" (
-    echo HTML: "%HTML_OUTPUT%"
+if "%WB_HTML_LAYOUT%"=="1" (
+    if exist "%HTML_OUTPUT%" echo HTML: "%HTML_OUTPUT%"
+) else (
+    echo PDF: "%PDF_OUTPUT%"
 )
 if "%WB_WIDTH_MAX%"=="1" (
     echo Note: Whiteboard width reached maximum ceiling ^(100in^).

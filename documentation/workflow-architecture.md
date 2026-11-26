@@ -117,10 +117,11 @@ Pipeline and ordering
    The console switches to yellow (color 0E) on error recovery or diagnostics.
    The completed PDF is copied beside the first input.
 6. When `page-layout: whiteboard_html` is active (detected via `% WHITEBOARD_HTML_LAYOUT`
-   in the generated `.tex`), `compile.bat` runs `config\tex-to-html-preprocessor.lua`
+   in the generated `.tex`), `compile.bat` skips full-document XeLaTeX PDF creation
+   and jumps straight to HTML generation: it runs `config\tex-to-html-preprocessor.lua`
    (converting unsupported TikZ/diagram/chemfig/\begin{htmlsvg} environments to cached
-   base64 SVGs via XeLaTeX + `dvisvgm`) and then invokes Pandoc with `-f latex -t html5 --mathjax --embed-resources --standalone --css=config\latex.css --lua-filter=config\html-collapsible-boxes.lua`
-   to write `<first-input-basename>.html` beside the PDF, inheriting the dynamic
+   base64 SVGs via XeLaTeX + `dvisvgm`) and then invokes Pandoc with `-f latex -t html5 --mathjax="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js" --embed-resources --standalone --css=config\latex.css --lua-filter=config\html-collapsible-boxes.lua`
+   to write `<first-input-basename>.html` only, inheriting the dynamic
    `% WHITEBOARD_WIDTH:` as `--whiteboard-width` / `--document-width`.
    Temporary build files are then removed. The Python/SVG cache is separate and
    persists in md2pdf_cache beside compile.bat.
@@ -183,9 +184,8 @@ commands undefined; missing glyphs may be blank and reported in the XeLaTeX log.
 Page size defaults to A4. Supported `page-layout` YAML values are `presentation`
 (13 1/3-by-7.5-inch 16:9 landscape), `whiteboard` (continuous single/100in-capped
 canvas whose width scales from `11.00in` up to `100.00in` based on tables,
-nested box depth, and wide code blocks), and `whiteboard_html` (same PDF layout
-plus standalone desktop Chrome HTML with MathJax, collapsible boxes, and matching
-dynamic canvas width); unrecognized values warn and fall back to A4.
+nested box depth, and wide code blocks), and `whiteboard_html` (HTML-only desktop Chrome output with MathJax, collapsible boxes,
+and matching dynamic canvas width, skipping PDF creation); unrecognized values warn and fall back to A4.
 The title rule is enabled by default; YAML boolean `title-rule: false` disables
 the template rule while retaining its surrounding vertical spacing.
 The master test suite `documentation\compiled-fence-test.md` exercises both

@@ -398,6 +398,7 @@ Version 1.5.2 cycle
 
 Change ledger
   2026-11-26 | Switch HTML MathJax to self-contained tex-svg-full.js so embedded builds retain built-in boldsymbol, ams, and offline glyph paths | source +11 / -3 | 14 / 500
+  2026-11-26 | Make page-layout: whiteboard_html HTML-only in compile.bat by skipping full-document XeLaTeX PDF generation | source +19 / -4 | 37 / 500
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

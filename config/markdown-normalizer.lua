@@ -177,6 +177,27 @@ REGISTRY.MATH_ENVS = word_set("align alignat flalign equation gather multline eq
 -- Capital Greek letters that need protection inside \mathbf / \mathrm / \mathit.
 REGISTRY.GREEK_CAPITALS = word_set("Gamma Delta Theta Lambda Xi Pi Sigma Upsilon Phi Psi Omega")
 
+-- Lowercase Greek letters and math commands that \mathbf fails to bold in XeLaTeX and MathJax.
+REGISTRY.GREEK_LOWERS = word_set(
+  "alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa varkappa " ..
+  "lambda mu nu xi pi varpi rho varrho sigma varsigma tau upsilon phi varphi chi psi omega"
+)
+
+REGISTRY.BOLD_MATH_COMMANDS = word_set(
+  "hbar hslash ell partial nabla infty to rightarrow leftarrow leftrightarrow " ..
+  "Rightarrow Leftarrow Leftrightarrow implies iff equiv sim simeq approx cong propto " ..
+  "times cdot pm mp leq le geq ge neq ne ll gg langle rangle checkmark dagger star circ bullet setminus"
+)
+
+REGISTRY.BOLD_MATH_OPERATORS = word_set("cos sin tan cot sec csc ln log exp")
+
+REGISTRY.SKIP_BOLD_COMMANDS = word_set(
+  "text textrm textit textbf textsf texttt mbox hbox operatorname tag label " ..
+  "boldsymbol bm mathnormal mathrm mathit mathcal mathbb mathfrak mathsf mathtt"
+)
+
+REGISTRY.DELIMITER_PREFIXES = word_set("left right middle big Big bigg Bigg bigl Bigl biggl Biggl bigr Bigr biggr Biggr bigm Bigm biggm Biggm")
+
 -- Text-mode commands: Unicode scripts inside them become \textsuperscript / \textsubscript.
 REGISTRY.TEXT_COMMANDS = word_set("text textrm textit textbf textsf texttt mbox hbox")
 
@@ -1483,12 +1504,12 @@ end
 
 -- Converts ```marginbox ... ``` and ```vbox ... ``` fences into Pandoc fenced Divs
 -- (::: {.marginbox ...} and ::: {.vbox ...})
--- Supports nesting of boxes and leaves inner non-box code fences untouched.
+-- Resolves fences from the inside-out (from the center to the surface):
+-- 1. Code blocks (language-tagged and bare ASCII/code snippets) form terminal leaves
+--    at the center where parsing halts.
+-- 2. Once the center code blocks are sealed, the parser ascends to the surface,
+--    cleanly closing nested boxes in exact LIFO order.
 local function pass_box_fences(text)
-  local out = {}
-  local box_stack = {}
-  local code_fence = nil
-
   local function normalize_box_attrs(a)
     if not a or not a:match("%S") then return "" end
     a = a:match("^%s*(.-)%s*$")
@@ -1500,7 +1521,14 @@ local function pass_box_fences(text)
     return " " .. a
   end
 
-  for line in each_line(text) do
+  local lines = {}
+  for line in each_line(text) do lines[#lines + 1] = line end
+  local n = #lines
+
+  -- 1. Scan all fence lines
+  local fences = {}
+  for i = 1, n do
+    local line = lines[i]
     local indent, ticks, rest = line:match("^(%s*)([`~]+)%s*(.*)$")
     if ticks and #ticks >= 3 then
       local box_kind, attrs = nil, nil
@@ -1523,26 +1551,87 @@ local function pass_box_fences(text)
         box_kind = "vbox"
         attrs = rest:match("^{%.tcolorbox%s*(.-)}%s*$")
       end
-      if not code_fence and box_kind then
-        box_stack[#box_stack + 1] = { len = #ticks }
-        local attr_str = normalize_box_attrs(attrs)
-        out[#out + 1] = indent .. "::: {." .. box_kind .. attr_str .. "}"
-      elseif not code_fence and #box_stack > 0 and rest:match("^%s*$") and #ticks >= box_stack[#box_stack].len then
-        box_stack[#box_stack] = nil
-        out[#out + 1] = indent .. ":::"
-      elseif not code_fence and rest:match("%S") then
-        code_fence = { len = #ticks }
-        out[#out + 1] = line
-      elseif code_fence and rest:match("^%s*$") and #ticks >= code_fence.len then
-        code_fence = nil
-        out[#out + 1] = line
-      else
-        out[#out + 1] = line
+
+      local kind = "bare"
+      if box_kind then
+        kind = "box"
+      elseif rest:match("%S") then
+        kind = "lang"
       end
+
+      fences[#fences + 1] = {
+        line_idx = i,
+        ticks = ticks,
+        indent = indent,
+        rest = rest,
+        kind = kind,
+        box_kind = box_kind,
+        attrs = attrs,
+      }
+    end
+  end
+
+  -- 2. Identify and seal terminal code blocks at the center
+  -- Per rendering-rules.md, code blocks (```text, ```python, ```yaml, etc.)
+  -- are opaque terminal leaves at the very center where box parsing halts ("we won't go further").
+  -- The 4-backtick rule is respected: a block of N backticks is closed only by >= N backticks.
+  local is_code_open = {}
+  local is_code_close = {}
+  local is_box_closer = {}
+  local is_box_opener = {}
+
+  local i = 1
+  while i <= #fences do
+    local f = fences[i]
+    if f.kind == "lang" then
+      is_code_open[f.line_idx] = true
+      local j = i + 1
+      while j <= #fences do
+        local f2 = fences[j]
+        if f2.kind == "bare" and #f2.ticks >= #f.ticks then
+          is_code_close[f2.line_idx] = true
+          break
+        end
+        j = j + 1
+      end
+      i = j + 1
+    else
+      i = i + 1
+    end
+  end
+
+  -- 3. Ascend to the surface: pair remaining box openers and closers in exact LIFO order
+  local active_boxes = {}
+  for _, f in ipairs(fences) do
+    if not is_code_open[f.line_idx] and not is_code_close[f.line_idx] then
+      if f.kind == "box" then
+        active_boxes[#active_boxes + 1] = f
+        is_box_opener[f.line_idx] = f
+      elseif f.kind == "bare" then
+        if #active_boxes > 0 then
+          active_boxes[#active_boxes] = nil
+          is_box_closer[f.line_idx] = true
+        end
+      end
+    end
+  end
+
+  -- 4. Emit the normalized text
+  local out = {}
+  for idx = 1, n do
+    local line = lines[idx]
+    if is_box_opener[idx] then
+      local f = is_box_opener[idx]
+      local attr_str = normalize_box_attrs(f.attrs)
+      out[#out + 1] = f.indent .. "::: {." .. f.box_kind .. attr_str .. "}"
+    elseif is_box_closer[idx] then
+      local indent = line:match("^(%s*)") or ""
+      out[#out + 1] = indent .. ":::"
     else
       out[#out + 1] = line
     end
   end
+
   return table.concat(out, "\n")
 end
 
@@ -1602,20 +1691,134 @@ local GREEK_WRAP = {
 }
 
 local function wrap_greek(inner, kind)
-  local out, pos = {}, 1
-  for p, name, e in inner:gmatch("()\\(%a+)()") do
-    local base = name:gsub("^var", "")
-    local before = inner:sub(math.max(1, p - 14), p - 1)
-    if (REGISTRY.GREEK_CAPITALS[name] or REGISTRY.GREEK_CAPITALS[base])
-       and not before:find("\\bo?l?d?s?y?m?b?o?l?%s*{%s*$")
-       and not before:find("\\bm%s*{%s*$")
-       and not before:find("\\mathnormal%s*{%s*$") then
-      out[#out + 1] = inner:sub(pos, p - 1)
-      out[#out + 1] = GREEK_WRAP[kind](name)
-      pos = e
+  if kind ~= "bf" then
+    local out, pos = {}, 1
+    for p, name, e in inner:gmatch("()\\(%a+)()") do
+      local base = name:gsub("^var", "")
+      local before = inner:sub(math.max(1, p - 14), p - 1)
+      if (REGISTRY.GREEK_CAPITALS[name] or REGISTRY.GREEK_CAPITALS[base])
+         and not before:find("\\bo?l?d?s?y?m?b?o?l?%s*{%s*$")
+         and not before:find("\\bm%s*{%s*$")
+         and not before:find("\\mathnormal%s*{%s*$") then
+        out[#out + 1] = inner:sub(pos, p - 1)
+        out[#out + 1] = GREEK_WRAP[kind](name)
+        pos = e
+      end
+    end
+    out[#out + 1] = inner:sub(pos)
+    return table.concat(out)
+  end
+
+  -- Inside \mathbf{...}, wrap Greek (capital + lowercase), unbolded math symbols/functions,
+  -- and bare math operators/relations/delimiters in \boldsymbol{...} so every symbol renders bold
+  -- in both XeLaTeX PDF and MathJax HTML without breaking layout primitives.
+  local out = {}
+  local pos, len = 1, #inner
+  local prev_nonspace = ""
+
+  local function last_nonspace_before(s, idx)
+    local j = idx - 1
+    while j >= 1 and s:sub(j, j):match("%s") do j = j - 1 end
+    return j >= 1 and s:sub(j, j) or ""
+  end
+
+  while pos <= len do
+    local ch = inner:sub(pos, pos)
+    if ch == "\\" then
+      local name_start, name_end, name = inner:find("^\\(%a+)", pos)
+      if name_start then
+        local base = name:gsub("^var", "")
+        if REGISTRY.SKIP_BOLD_COMMANDS[name] then
+          local open_pos = inner:find("^%s*{", name_end + 1)
+          if open_pos then
+            local close_pos = group_end(inner, open_pos)
+            if close_pos then
+              out[#out + 1] = inner:sub(pos, close_pos - 1)
+              pos = close_pos
+              prev_nonspace = "}"
+            else
+              out[#out + 1] = inner:sub(pos, name_end)
+              pos = name_end + 1
+              prev_nonspace = name:sub(-1)
+            end
+          else
+            out[#out + 1] = inner:sub(pos, name_end)
+            pos = name_end + 1
+            prev_nonspace = name:sub(-1)
+          end
+        elseif REGISTRY.DELIMITER_PREFIXES[name] then
+          -- Preserve sizing prefixes (\left(, \right), \big(, ...) and optional escaped/bare delimiter right after.
+          local after = name_end + 1
+          while after <= len and inner:sub(after, after):match("%s") do after = after + 1 end
+          if after <= len then
+            local dch = inner:sub(after, after)
+            if dch == "\\" and after + 1 <= len then
+              local _, cmd_end = inner:find("^\\[A-Za-z]+", after)
+              after = cmd_end and (cmd_end + 1) or (after + 2)
+            elseif dch:match("[%(%)%[%]|%.]") then
+              after = after + 1
+            end
+          end
+          out[#out + 1] = inner:sub(pos, after - 1)
+          prev_nonspace = inner:sub(after - 1, after - 1)
+          pos = after
+        elseif REGISTRY.BOLD_MATH_OPERATORS[name] and prev_nonspace ~= "^" and prev_nonspace ~= "_" then
+          out[#out + 1] = "\\mathop{\\mathbf{" .. name .. "}}\\nolimits"
+          pos = name_end + 1
+          prev_nonspace = name:sub(-1)
+        elseif (REGISTRY.GREEK_CAPITALS[name] or REGISTRY.GREEK_CAPITALS[base]
+                or REGISTRY.GREEK_LOWERS[name] or REGISTRY.BOLD_MATH_COMMANDS[name])
+               and prev_nonspace ~= "^" and prev_nonspace ~= "_" then
+          out[#out + 1] = "\\boldsymbol{\\" .. name .. "}"
+          pos = name_end + 1
+          prev_nonspace = "}"
+        elseif name == "sqrt" then
+          out[#out + 1] = "\\sqrt"
+          local after = name_end + 1
+          local ws_end, opt_start = inner:find("^%s*(%[)", after)
+          if opt_start then
+            local close_br = inner:find("%]", opt_start + 1)
+            if close_br then
+              out[#out + 1] = inner:sub(after, close_br)
+              pos = close_br + 1
+              prev_nonspace = "]"
+            else
+              pos = after
+              prev_nonspace = "t"
+            end
+          else
+            pos = after
+            prev_nonspace = "t"
+          end
+        else
+          out[#out + 1] = inner:sub(pos, name_end)
+          pos = name_end + 1
+          prev_nonspace = name:sub(-1)
+        end
+      else
+        -- Escaped symbol like \{, \}, \|, \, , \;
+        local esc = inner:sub(pos, math.min(len, pos + 1))
+        out[#out + 1] = esc
+        pos = pos + #esc
+        prev_nonspace = esc:sub(-1)
+      end
+    elseif ch:match("^[%+%-=<>|%(%)%[%]]$") and prev_nonspace ~= "^" and prev_nonspace ~= "_" then
+      -- Only wrap bare operators/delimiters when not immediately following a superscript/subscript token
+      local pns = last_nonspace_before(inner, pos)
+      if pns ~= "^" and pns ~= "_" then
+        out[#out + 1] = "\\boldsymbol{" .. ch .. "}"
+        prev_nonspace = "}"
+      else
+        out[#out + 1] = ch
+        prev_nonspace = ch
+      end
+      pos = pos + 1
+    else
+      out[#out + 1] = ch
+      if not ch:match("%s") then prev_nonspace = ch end
+      pos = pos + 1
     end
   end
-  out[#out + 1] = inner:sub(pos)
   return table.concat(out)
 end
 
@@ -1640,6 +1843,144 @@ local function convert(s, kind)
   return table.concat(out)
 end
 
+local GREEK_UPPER = {
+  [0]="\\mathbf{A}", [1]="\\mathbf{B}", [2]="\\boldsymbol{\\Gamma}", [3]="\\boldsymbol{\\Delta}", [4]="\\mathbf{E}",
+  [5]="\\mathbf{Z}", [6]="\\mathbf{H}", [7]="\\boldsymbol{\\Theta}", [8]="\\mathbf{I}", [9]="\\mathbf{K}",
+  [10]="\\boldsymbol{\\Lambda}", [11]="\\mathbf{M}", [12]="\\mathbf{N}", [13]="\\boldsymbol{\\Xi}", [14]="\\mathbf{O}",
+  [15]="\\boldsymbol{\\Pi}", [16]="\\mathbf{P}", [17]="\\boldsymbol{\\varTheta}", [18]="\\boldsymbol{\\Sigma}", [19]="\\mathbf{T}",
+  [20]="\\boldsymbol{\\Upsilon}", [21]="\\boldsymbol{\\Phi}", [22]="\\mathbf{X}", [23]="\\boldsymbol{\\Psi}", [24]="\\boldsymbol{\\Omega}"
+}
+local GREEK_LOWER = {
+  [0]="\\alpha", [1]="\\beta", [2]="\\gamma", [3]="\\delta", [4]="\\epsilon",
+  [5]="\\zeta", [6]="\\eta", [7]="\\theta", [8]="\\iota", [9]="\\kappa",
+  [10]="\\lambda", [11]="\\mu", [12]="\\nu", [13]="\\xi", [14]="o",
+  [15]="\\pi", [16]="\\rho", [17]="\\varsigma", [18]="\\sigma", [19]="\\tau",
+  [20]="\\upsilon", [21]="\\phi", [22]="\\chi", [23]="\\psi", [24]="\\omega",
+  [25]="\\partial", [26]="\\varepsilon", [27]="\\vartheta",
+  [28]="\\varkappa", [29]="\\varphi", [30]="\\varrho", [31]="\\varpi"
+}
+
+local function cleanup_boldsymbol(s)
+  if not s:find("\\boldsymbol", 1, true) and not s:find("\\bm", 1, true) then return s end
+  s = s:gsub("\\boldsymbol%s*\\boldsymbol", "\\boldsymbol")
+  s = s:gsub("\\boldsymbol%s*\\bm", "\\bm")
+  s = s:gsub("\\bm%s*\\boldsymbol", "\\bm")
+  s = s:gsub("\\bm%s*\\bm", "\\bm")
+  s = s:gsub("\\boldsymbol%s*(\\mathbf%b{})", "%1")
+  s = s:gsub("\\boldsymbol%s*(\\bm%b{})", "%1")
+  s = s:gsub("\\bm%s*(\\mathbf%b{})", "%1")
+  s = s:gsub("\\boldsymbol%s*(\\[%a]+)", function(cmd)
+    if cmd == "\\mathbf" or cmd == "\\bm" or cmd == "\\boldsymbol" then return cmd end
+    return "\\boldsymbol{" .. cmd .. "}"
+  end)
+  s = s:gsub("\\boldsymbol%s*([^\n\r%s{%a\\])", "\\boldsymbol{%1}")
+  return s
+end
+
+-- Algorithmic projection of Unicode Mathematical Alphanumerics (Plane 1, U+1D400..U+1D7FF)
+-- into standard LaTeX math font commands (\mathbf, \mathit, \mathbb, \mathcal, \mathfrak).
+local function normalize_math_unicode(s)
+  if not s:find("[\240-\244]") then
+    return cleanup_boldsymbol(s)
+  end
+
+  local chars = {}
+  for ch in s:gmatch(utf8.charpattern) do
+    local cp = utf8.codepoint(ch)
+    local rep = nil
+
+    -- Bold Latin Upper (0x1D400 - 0x1D419)
+    if cp >= 0x1D400 and cp <= 0x1D419 then
+      rep = "\\mathbf{" .. string.char(cp - 0x1D400 + 65) .. "}"
+    -- Bold Latin Lower (0x1D41A - 0x1D433)
+    elseif cp >= 0x1D41A and cp <= 0x1D433 then
+      rep = "\\mathbf{" .. string.char(cp - 0x1D41A + 97) .. "}"
+    -- Italic Latin Upper (0x1D434 - 0x1D44D)
+    elseif cp >= 0x1D434 and cp <= 0x1D44D then
+      rep = string.char(cp - 0x1D434 + 65)
+    -- Italic Latin Lower (0x1D44E - 0x1D467)
+    elseif cp >= 0x1D44E and cp <= 0x1D467 then
+      rep = string.char(cp - 0x1D44E + 97)
+    -- Bold Italic Latin Upper (0x1D468 - 0x1D481)
+    elseif cp >= 0x1D468 and cp <= 0x1D481 then
+      rep = "\\bm{" .. string.char(cp - 0x1D468 + 65) .. "}"
+    -- Bold Italic Latin Lower (0x1D482 - 0x1D49B)
+    elseif cp >= 0x1D482 and cp <= 0x1D49B then
+      rep = "\\bm{" .. string.char(cp - 0x1D482 + 97) .. "}"
+    -- Script Upper (0x1D49C - 0x1D4B5)
+    elseif cp >= 0x1D49C and cp <= 0x1D4B5 then
+      rep = "\\mathcal{" .. string.char(cp - 0x1D49C + 65) .. "}"
+    -- Script Lower (0x1D4B6 - 0x1D4CF)
+    elseif cp >= 0x1D4B6 and cp <= 0x1D4CF then
+      rep = "\\mathcal{" .. string.char(cp - 0x1D4B6 + 97) .. "}"
+    -- Bold Script Upper (0x1D4D0 - 0x1D4E9)
+    elseif cp >= 0x1D4D0 and cp <= 0x1D4E9 then
+      rep = "\\bm{\\mathcal{" .. string.char(cp - 0x1D4D0 + 65) .. "}}"
+    -- Bold Script Lower (0x1D4EA - 0x1D503)
+    elseif cp >= 0x1D4EA and cp <= 0x1D503 then
+      rep = "\\bm{\\mathcal{" .. string.char(cp - 0x1D4EA + 97) .. "}}"
+    -- Fraktur Upper (0x1D504 - 0x1D51D)
+    elseif cp >= 0x1D504 and cp <= 0x1D51D then
+      rep = "\\mathfrak{" .. string.char(cp - 0x1D504 + 65) .. "}"
+    -- Fraktur Lower (0x1D51E - 0x1D537)
+    elseif cp >= 0x1D51E and cp <= 0x1D537 then
+      rep = "\\mathfrak{" .. string.char(cp - 0x1D51E + 97) .. "}"
+    -- Blackboard Bold Upper (0x1D538 - 0x1D551)
+    elseif cp >= 0x1D538 and cp <= 0x1D551 then
+      rep = "\\mathbb{" .. string.char(cp - 0x1D538 + 65) .. "}"
+    -- Blackboard Bold Lower (0x1D552 - 0x1D56B)
+    elseif cp >= 0x1D552 and cp <= 0x1D56B then
+      rep = "\\mathbb{" .. string.char(cp - 0x1D552 + 97) .. "}"
+    -- Bold Fraktur Upper (0x1D56C - 0x1D585)
+    elseif cp >= 0x1D56C and cp <= 0x1D585 then
+      rep = "\\bm{\\mathfrak{" .. string.char(cp - 0x1D56C + 65) .. "}}"
+    -- Bold Fraktur Lower (0x1D586 - 0x1D59F)
+    elseif cp >= 0x1D586 and cp <= 0x1D59F then
+      rep = "\\bm{\\mathfrak{" .. string.char(cp - 0x1D586 + 97) .. "}}"
+    -- Sans-serif Upper (0x1D5A0 - 0x1D5B9)
+    elseif cp >= 0x1D5A0 and cp <= 0x1D5B9 then
+      rep = "\\mathsf{" .. string.char(cp - 0x1D5A0 + 65) .. "}"
+    -- Sans-serif Lower (0x1D5BA - 0x1D5D3)
+    elseif cp >= 0x1D5BA and cp <= 0x1D5D3 then
+      rep = "\\mathsf{" .. string.char(cp - 0x1D5BA + 97) .. "}"
+    -- Monospace Upper (0x1D670 - 0x1D689)
+    elseif cp >= 0x1D670 and cp <= 0x1D689 then
+      rep = "\\mathtt{" .. string.char(cp - 0x1D670 + 65) .. "}"
+    -- Monospace Lower (0x1D68A - 0x1D6A3)
+    elseif cp >= 0x1D68A and cp <= 0x1D6A3 then
+      rep = "\\mathtt{" .. string.char(cp - 0x1D68A + 97) .. "}"
+    -- Bold Greek Upper (0x1D6A8 - 0x1D6C0)
+    elseif cp >= 0x1D6A8 and cp <= 0x1D6C0 then
+      rep = GREEK_UPPER[cp - 0x1D6A8]
+    -- Bold Greek Lower (0x1D6C2 - 0x1D6E1)
+    elseif cp >= 0x1D6C2 and cp <= 0x1D6E1 then
+      local g = GREEK_LOWER[cp - 0x1D6C2]
+      if g then
+        rep = "\\bm{" .. g .. "}"
+      end
+    -- Bold Digits (0x1D7CE - 0x1D7D7)
+    elseif cp >= 0x1D7CE and cp <= 0x1D7D7 then
+      rep = "\\mathbf{" .. string.char(cp - 0x1D7CE + 48) .. "}"
+    -- Double-struck Digits (0x1D7D8 - 0x1D7E1)
+    elseif cp >= 0x1D7D8 and cp <= 0x1D7E1 then
+      rep = "\\mathbb{" .. string.char(cp - 0x1D7D8 + 48) .. "}"
+    -- Sans-serif Bold Upper (0x1D756 - 0x1D76F)
+    elseif cp >= 0x1D756 and cp <= 0x1D76F then
+      rep = "\\mathbf{\\mathsf{" .. string.char(cp - 0x1D756 + 65) .. "}}"
+    -- Sans-serif Bold Lower (0x1D770 - 0x1D789)
+    elseif cp >= 0x1D770 and cp <= 0x1D789 then
+      rep = "\\mathbf{\\mathsf{" .. string.char(cp - 0x1D770 + 97) .. "}}"
+    -- Monospace Digits (0x1D7F6 - 0x1D7FF)
+    elseif cp >= 0x1D7F6 and cp <= 0x1D7FF then
+      rep = "\\mathtt{" .. string.char(cp - 0x1D7F6 + 48) .. "}"
+    end
+
+    chars[#chars + 1] = rep or ch
+  end
+
+  return cleanup_boldsymbol(table.concat(chars))
+end
+
 local function bold_greek(s)
   if not s:find("\\math", 1, true) then return s end
   return convert(s, nil)
@@ -1650,6 +1991,8 @@ end
 -- Matches anywhere in display math to allow preceding/trailing text, spaces, or comments.
 local function math_fix(el)
   local changed = false
+  local text = normalize_math_unicode(el.text)
+  if text ~= el.text then el = pandoc.Math(el.mathtype, text); changed = true end
   local fixed = bold_greek(el.text)
   if fixed ~= el.text then el = pandoc.Math(el.mathtype, fixed); changed = true end
   if el.mathtype ~= "DisplayMath" then return changed and el or nil end
@@ -1935,13 +2278,23 @@ end
 -- (pandoc usually reads it as a RawInline inside a paragraph; sometimes as a RawBlock.)
 local function rawblock_super(el)
   if not el.format:match("^%a*tex$") then return nil end
-  local env = el.text:match("^%s*\\begin%s*{(%a+)%*?}")
-  if not (env and REGISTRY.MATH_ENVS[env]) then return nil end
-  local new, hit = scripts_in_math(el.text)
-  if not hit then return nil end
-  State.super_fixes = State.super_fixes + 1
-  if el.t == "RawBlock" then return pandoc.RawBlock(el.format, new) end
-  return pandoc.RawInline(el.format, new)
+  local changed = false
+  local text = normalize_math_unicode(el.text)
+  if text ~= el.text then changed = true end
+  local env = text:match("^%s*\\begin%s*{(%a+)%*?}")
+  if env and REGISTRY.MATH_ENVS[env] then
+    local new, hit = scripts_in_math(text)
+    if hit then
+      text = new
+      changed = true
+      State.super_fixes = State.super_fixes + 1
+    end
+  end
+  if changed then
+    if el.t == "RawBlock" then return pandoc.RawBlock(el.format, text) end
+    return pandoc.RawInline(el.format, text)
+  end
+  return nil
 end
 
 -- ----------------------------------------------------------------------
@@ -2126,9 +2479,28 @@ local function table_fix(t)
 end
 
 local BOX_CLASSES = word_set("tcolorbox vbox marginbox box callout note warning tip important danger info")
-local BOX_PALETTE = { "blue", "teal", "orange", "purple", "green", "red", "magenta", "olive", "cyan", "violet" }
 if not pcall(math.randomseed) then
   math.randomseed(os.time() + math.floor((os.clock() or 0) * 1000000))
+end
+
+local tree_counter = 0
+
+-- Converts HSL (H in [0, 1), S in [0, 1], L in [0, 1]) to a 6-digit uppercase Hex RGB string
+local function hsl_to_hex(h, s, l)
+  local function hue2rgb(p, q, t)
+    if t < 0 then t = t + 1 end
+    if t > 1 then t = t - 1 end
+    if t < 1/6 then return p + (q - p) * 6 * t end
+    if t < 1/2 then return q end
+    if t < 2/3 then return p + (q - p) * (2/3 - t) * 6 end
+    return p
+  end
+  local q = l < 0.5 and l * (1 + s) or l + s - l * s
+  local p = 2 * l - q
+  local r = hue2rgb(p, q, h + 1/3)
+  local g = hue2rgb(p, q, h)
+  local b = hue2rgb(p, q, h - 1/3)
+  return string.format("%02X%02X%02X", math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
 end
 
 local function is_box_div(el)
@@ -2140,9 +2512,11 @@ local function is_box_div(el)
   return false
 end
 
--- Generational box color assignment:
+-- Generational box color assignment via dynamic random color code generation:
 -- 1. Members of the same generation (depth) in a box tree share the exact same color.
--- 2. No two generations in the same tree can share a color (child, parent, and grandfather never collide).
+-- 2. Strict tree-wide ancestor divergence: when generating a color for a generation,
+--    it checks if any parent or grandfather contains the same or similar seed/hue;
+--    if it does, it regenerates until a distinct color is produced.
 local function assign_box_colors(blocks, tree_state, depth)
   if not blocks then return end
   for _, b in ipairs(blocks) do
@@ -2150,7 +2524,13 @@ local function assign_box_colors(blocks, tree_state, depth)
       local current_tree = tree_state
       local current_depth = depth or 1
       if not current_tree then
-        current_tree = { gen_colors = {}, used_colors = {} }
+        tree_counter = tree_counter + 1
+        current_tree = {
+          id = tree_counter,
+          gen_colors = {},
+          gen_hexes = {},
+          ancestor_hues = {},
+        }
         current_depth = 1
       end
 
@@ -2170,30 +2550,61 @@ local function assign_box_colors(blocks, tree_state, depth)
       if current_tree.gen_colors[current_depth] then
         col = current_tree.gen_colors[current_depth]
         b.attributes["color"] = col
+        b.attributes["hex"] = current_tree.gen_hexes[current_depth]
       elseif col and col ~= "" then
         current_tree.gen_colors[current_depth] = col
-        current_tree.used_colors[col] = true
         b.attributes["color"] = col
       else
-        local candidates = {}
-        for _, c in ipairs(BOX_PALETTE) do
-          if not current_tree.used_colors[c] then
-            candidates[#candidates + 1] = c
+        -- Algorithmic random color generation with ancestor collision check:
+        -- Minimum angular distance on the color wheel between child and any ancestor
+        local min_dist = math.max(25, math.floor(360 / math.max(current_depth + 1, 6)))
+        local chosen_hue = nil
+        for attempt = 1, 200 do
+          local candidate_hue = math.random(0, 359)
+          local collision = false
+          for anc_d = 1, current_depth - 1 do
+            local anc_hue = current_tree.ancestor_hues[anc_d]
+            if anc_hue then
+              local diff = math.abs(candidate_hue - anc_hue)
+              local circ = math.min(diff, 360 - diff)
+              if circ < min_dist then
+                collision = true
+                break
+              end
+            end
+          end
+          if not collision then
+            chosen_hue = candidate_hue
+            break
           end
         end
-        if #candidates == 0 then
-          local parent_col = current_tree.gen_colors[current_depth - 1]
-          for _, c in ipairs(BOX_PALETTE) do
-            if c ~= parent_col then candidates[#candidates + 1] = c end
-          end
+
+        if not chosen_hue then
+          local parent_hue = current_tree.ancestor_hues[current_depth - 1] or 0
+          chosen_hue = math.floor((parent_hue + 137.5) % 360)
         end
-        col = candidates[math.random(#candidates)]
-        current_tree.gen_colors[current_depth] = col
-        current_tree.used_colors[col] = true
-        b.attributes["color"] = col
+
+        current_tree.ancestor_hues[current_depth] = chosen_hue
+        local hex = hsl_to_hex(chosen_hue / 360, 0.72, 0.36)
+        local col_name = string.format("genboxT%dD%d", current_tree.id, current_depth)
+
+        State.hoisted[#State.hoisted + 1] = string.format("\\definecolor{%s}{HTML}{%s}", col_name, hex)
+        current_tree.gen_colors[current_depth] = col_name
+        current_tree.gen_hexes[current_depth] = hex
+        b.attributes["color"] = col_name
+        b.attributes["hex"] = hex
       end
 
-      assign_box_colors(b.content, current_tree, current_depth + 1)
+      local child_tree = {
+        id = current_tree.id,
+        gen_colors = current_tree.gen_colors,
+        gen_hexes = current_tree.gen_hexes,
+        ancestor_hues = {},
+      }
+      for d = 1, current_depth do
+        child_tree.ancestor_hues[d] = current_tree.ancestor_hues[d]
+      end
+      assign_box_colors(b.content, child_tree, current_depth + 1)
     elseif b.content then
       assign_box_colors(b.content, tree_state, depth)
     end
@@ -2209,6 +2620,7 @@ local function div_fix(el)
   local env = el.attributes["lenv"]
   local opt = ""
   local title_arg = ""
+  local box_color = el.attributes["color"]
   if env then
     opt = State.env_opts[tonumber(el.attributes["lopt"] or "")] or ""
     if env == "marginbox" then
@@ -2318,7 +2730,7 @@ local function div_fix(el)
       elseif color == "cyan" then
         opts[#opts + 1] = "color=ProcessBlue"
       elseif color == "violet" then
-        opts[#opts + 1] = "color=RoyalPurple"
+        opts[#opts + 1] = "color=Violet"
       else
         opts[#opts + 1] = "color=" .. color
       end
@@ -2341,6 +2753,8 @@ local function div_fix(el)
     if #opts > 0 then
       opt = "[" .. table.concat(opts, ",") .. "]"
     end
+  elseif el.classes:includes("htmlsvg") or el.classes:includes("svg") then
+    env = "htmlsvg"
   else
     return nil
   end
@@ -2352,6 +2766,12 @@ local function div_fix(el)
     else
       begin_str = begin_str .. "{}"
     end
+  end
+  local box_hex = el.attributes["hex"]
+  if box_hex and box_hex ~= "" then
+    begin_str = begin_str .. "\\hypertarget{boxcol:" .. box_hex .. "}{}"
+  elseif box_color and box_color ~= "" then
+    begin_str = begin_str .. "\\hypertarget{boxcol:" .. box_color .. "}{}"
   end
   local out = { pandoc.RawBlock("latex", begin_str) }
   for _, b in ipairs(el.content) do out[#out + 1] = b end
@@ -2368,8 +2788,43 @@ local function math_pipeline(el)
   return math_super(r or el) or r
 end
 
+local function bold_inline_math_in_strong(el)
+  local changed = false
+  local out = {}
+  for _, inline in ipairs(el.content) do
+    if inline.t == "Math" and inline.mathtype == "InlineMath" and not bad_math(inline.text) then
+      local t = inline.text:match("^%s*(.-)%s*$")
+      if t ~= "" and not t:match("^\\mathbf%s*%b{}$") and not t:match("^\\boldsymbol%s*%b{}$") and not t:match("^\\bm%s*%b{}$") then
+        out[#out + 1] = pandoc.Math("InlineMath", "\\mathbf{" .. t .. "}")
+        changed = true
+      else
+        out[#out + 1] = inline
+      end
+    elseif inline.content then
+      local sub = inline:walk({
+        Math = function(m)
+          if m.mathtype == "InlineMath" and not bad_math(m.text) then
+            local t = m.text:match("^%s*(.-)%s*$")
+            if t ~= "" and not t:match("^\\mathbf%s*%b{}$") and not t:match("^\\boldsymbol%s*%b{}$") and not t:match("^\\bm%s*%b{}$") then
+              changed = true
+              return pandoc.Math("InlineMath", "\\mathbf{" .. t .. "}")
+            end
+          end
+          return nil
+        end
+      })
+      out[#out + 1] = sub
+    else
+      out[#out + 1] = inline
+    end
+  end
+  if changed then return pandoc.Strong(out) end
+  return nil
+end
+
 local AST_PASSES = {
   { name = "tables",  filter = { Table = table_fix } },
+  { name = "strong_math", filter = { Strong = bold_inline_math_in_strong } },
   { name = "inlines", filter = {
       Math      = math_pipeline,
       Image     = image_fix,
@@ -2456,22 +2911,52 @@ local function calculate_whiteboard_width(doc)
   local max_cols = 0
   local max_depth = 0
   local table_expanded = false
+  local box_expanded = false
+  local content_expanded = false
 
   local function scan_blocks(blocks, depth)
     if not blocks then return end
     for _, b in ipairs(blocks) do
       if b.tag == "RawBlock" and b.format == "latex" then
         if b.text:match("\\begin%s*{tcolorbox") or b.text:match("\\begin%s*{marginbox") or b.text:match("\\begin%s*{quote") then
-          depth = depth + 1
+          local current_depth = depth + 1
+          if current_depth > max_depth then max_depth = current_depth end
+          local box_needed = floor_width + math.max(0, current_depth - 1) * 1.5
+          if box_needed > max_needed then
+            max_needed = box_needed
+            box_expanded = true
+          end
+          depth = current_depth
         elseif b.text:match("\\end%s*{tcolorbox") or b.text:match("\\end%s*{marginbox") or b.text:match("\\end%s*{quote") then
           depth = math.max(0, depth - 1)
         end
       elseif is_box_div(b) then
-        scan_blocks(b.content, depth + 1)
+        local current_depth = depth + 1
+        if current_depth > max_depth then max_depth = current_depth end
+        local box_needed = floor_width + math.max(0, current_depth - 1) * 1.5
+        if box_needed > max_needed then
+          max_needed = box_needed
+          box_expanded = true
+        end
+        scan_blocks(b.content, current_depth)
       elseif b.tag == "Div" then
         scan_blocks(b.content, depth)
       elseif b.tag == "BlockQuote" then
-        scan_blocks(b.content, depth + 1)
+        local current_depth = depth + 1
+        if current_depth > max_depth then max_depth = current_depth end
+        scan_blocks(b.content, current_depth)
+      elseif b.tag == "CodeBlock" then
+        local max_line_len = 0
+        for line in b.text:gmatch("[^\r\n]+") do
+          if #line > max_line_len then max_line_len = #line end
+        end
+        if max_line_len > 70 then
+          local code_needed = 1.0 + (depth * 0.60) + (max_line_len * 0.11)
+          if code_needed > max_needed then
+            max_needed = code_needed
+            content_expanded = true
+          end
+        end
       elseif b.tag == "Table" then
         local num_cols = #(b.colspecs or {})
         if num_cols == 0 and b.head and b.head.rows and #b.head.rows > 0 then
@@ -2533,7 +3018,7 @@ local function calculate_whiteboard_width(doc)
           if needed > max_needed then
             max_needed = needed
             max_cols = num_cols
-            max_depth = depth
+            max_depth = math.max(max_depth, depth)
             table_expanded = true
           end
         end
@@ -2556,6 +3041,10 @@ local function calculate_whiteboard_width(doc)
   doc.meta.whiteboard_width = pandoc.MetaString(string.format("%.2fin", final_width))
   if table_expanded then
     warn(string.format("whiteboard width expanded to %.2fin to accommodate %d-column table at box nesting depth %d", final_width, max_cols, max_depth))
+  elseif box_expanded then
+    warn(string.format("whiteboard width expanded to %.2fin to accommodate box nesting depth %d", final_width, max_depth))
+  elseif content_expanded or final_width > floor_width then
+    warn(string.format("whiteboard width expanded to %.2fin to accommodate content width", final_width))
   end
 end
 
@@ -2569,8 +3058,12 @@ local function apply_page_layout(doc)
   elseif layout == "whiteboard" then
     doc.meta.whiteboard_layout = pandoc.MetaBool(true)
     calculate_whiteboard_width(doc)
+  elseif layout == "whiteboard_html" then
+    doc.meta.whiteboard_layout = pandoc.MetaBool(true)
+    doc.meta.whiteboard_html = pandoc.MetaBool(true)
+    calculate_whiteboard_width(doc)
   else
-    warn("unsupported page-layout '" .. layout .. "'; using A4 (supported values: presentation, whiteboard)")
+    warn("unsupported page-layout '" .. layout .. "'; using A4 (supported values: presentation, whiteboard, whiteboard_html)")
   end
 end
 
@@ -2690,6 +3183,7 @@ local function load_cleaned_input(doc)
 end
 
 function Pandoc(doc)
+  tree_counter = 0
   doc = load_cleaned_input(doc)                                  -- Stage A
   assign_box_colors(doc.blocks, nil)                             -- Stage B box color hierarchy
   for _, pass in ipairs(AST_PASSES) do doc = doc:walk(pass.filter) end   -- Stage B

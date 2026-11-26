@@ -18,6 +18,9 @@ Keep this folder structure together:
             markdown-normalizer.lua
             code-fence-runner.lua
             error-annotator.lua
+            html-collapsible-boxes.lua
+            tex-to-html-preprocessor.lua
+            latex.css
         documentation\
             rendering-rules.md
             installation-and-usage.md
@@ -37,7 +40,8 @@ file from documentation\ puts its PDF there. The config folder contains only the
 template and filters.
 
 Required tool files: compile.bat and setup.bat in the root, plus custom.tex,
-markdown-normalizer.lua, code-fence-runner.lua, and error-annotator.lua inside config.
+markdown-normalizer.lua, code-fence-runner.lua, error-annotator.lua,
+html-collapsible-boxes.lua, tex-to-html-preprocessor.lua, and latex.css inside config.
 
 Best use
 --------
@@ -61,8 +65,9 @@ What to install
    This script automatically:
    - Verifies or installs Pandoc via winget.
    - Verifies or installs MiKTeX / XeLaTeX via winget.
+   - Verifies or installs Node.js & npm via winget or the official MSI installer.
    - Pre-installs and configures required LaTeX packages with automatic on-the-fly downloads enabled (`initexmf --set-config-value [MPM]AutoInstall=1`).
-   - Checks (and NEVER installs) optional language runtimes (Python + numpy/matplotlib, GCC, G++, Java) and reports their readiness.
+   - Checks (and NEVER installs) optional language runtimes (Python + numpy/matplotlib, GCC, G++, Java, and Mermaid CLI `mmdc`) and reports their readiness.
 
 1. Pandoc
    Required to read Markdown, run the Lua filters, and produce LaTeX.
@@ -101,17 +106,22 @@ What to install
    package, XeLaTeX may report an undefined command; install that package or
    remove the command.
 
-PDF page layout
----------------
-The default PDF size is A4. To create wide 16:9 landscape pages with 0.5-inch
-margins, add this YAML metadata block at the start of an input:
+PDF page layout & HTML whiteboard
+---------------------------------
+The default PDF size is A4. Supported `page-layout` YAML presets are:
 
     ```yaml
-    page-layout: presentation
+    page-layout: presentation    # 16:9 landscape (13.33in x 7.5in, 0.5in margins)
+    # or:
+    page-layout: whiteboard      # continuous dynamic-height canvas; width scales (11in–100in)
+    # or:
+    page-layout: whiteboard_html # HTML-only interactive whiteboard for modern browsers (skips PDF)
     ```
 
-This changes page dimensions, not the document into a Beamer slide deck.
-Unsupported page-layout values produce a warning and keep the A4 layout.
+Presentation mode changes page dimensions, not the document into a Beamer slide
+deck. `whiteboard` and `whiteboard_html` automatically expand document width for
+multi-column tables, nested margin/color boxes, and wide code blocks; in
+`whiteboard_html`, that expanded width is also applied to the HTML canvas (`--whiteboard-width` / `--document-width`) alongside MathJax math and collapsible boxes. Unsupported `page-layout` values produce a warning and keep the A4 layout.
 
 Title rule
 ----------

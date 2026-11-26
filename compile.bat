@@ -13,7 +13,7 @@ REM XeLaTeX runs in a temporary directory, with up to three reference passes.
 
 echo.
 echo ==========================================
-echo    Markdown + LaTeX  ->  PDF
+echo    Markdown + LaTeX  -^>  PDF
 echo ==========================================
 echo If you want to terminate the job, press Ctrl + C
 echo.
@@ -27,10 +27,14 @@ set "SCRIPT_DIR=%~dp0"
 set "CONFIG_DIR=%SCRIPT_DIR%config"
 set "BASENAME=%~dp1%~n1"
 set "PDF_OUTPUT=%BASENAME%.pdf"
+set "HTML_OUTPUT=%BASENAME%.html"
 set "PANDOC_INPUTS="
 set "TEMPLATE=%CONFIG_DIR%\custom.tex"
 set "NORMALIZER_FILTER=%CONFIG_DIR%\markdown-normalizer.lua"
 set "CODE_FENCE_FILTER=%CONFIG_DIR%\code-fence-runner.lua"
+set "HTML_BOX_FILTER=%CONFIG_DIR%\html-collapsible-boxes.lua"
+set "LATEX_CSS=%CONFIG_DIR%\latex.css"
+set "HTML_PREPROCESSOR=%CONFIG_DIR%\tex-to-html-preprocessor.lua"
 set "ANNOTATOR_SCRIPT=%CONFIG_DIR%\error-annotator.lua"
 if not defined PYTHON set "PYTHON=py"
 if not defined C_COMPILER set "C_COMPILER=gcc"
@@ -70,6 +74,7 @@ REM Temporary working folder (deleted at the end)
 set "WORK=%TEMP%\md2pdf_%RANDOM%%RANDOM%"
 
 set "TEX_OUTPUT=%WORK%\%~n1.tex"
+set "HTML_TEX=%WORK%\%~n1_html.tex"
 set "WORK_PDF=%WORK%\%~n1.pdf"
 set "LOG_FILE=%WORK%\%~n1.log"
 
@@ -140,7 +145,6 @@ cd /d "%INPUT_DIR%"
 mkdir "%WORK%" >nul 2>&1
 
 echo Inputs: %PANDOC_INPUTS%
-echo PDF   : "%PDF_OUTPUT%"
 echo.
 
 REM =========================================================
@@ -173,6 +177,16 @@ if errorlevel 1 (
 set "WB_WIDTH_MAX="
 findstr /C:"WHITEBOARD_WIDTH_MAX_REACHED" "%TEX_OUTPUT%" >nul 2>&1
 if not errorlevel 1 set "WB_WIDTH_MAX=1"
+
+set "WB_HTML_LAYOUT="
+findstr /C:"WHITEBOARD_HTML_LAYOUT" "%TEX_OUTPUT%" >nul 2>&1
+if not errorlevel 1 set "WB_HTML_LAYOUT=1"
+if "%WB_HTML_LAYOUT%"=="1" (
+    echo HTML  : "%HTML_OUTPUT%"
+    goto CREATE_HTML
+) else (
+    echo PDF   : "%PDF_OUTPUT%"
+)
 
 REM =========================================================
 REM XELATEX  (all build files go to the temp folder)
@@ -296,6 +310,29 @@ if errorlevel 1 (
     echo Close it in any PDF viewer and check that the folder is writable.
     goto CLEANUP_FAIL
 )
+:CREATE_HTML
+if "%WB_HTML_LAYOUT%"=="1" (
+    echo.
+    echo ==========================================
+    echo              CREATING HTML
+    echo ==========================================
+    if exist "%HTML_PREPROCESSOR%" (
+        texlua "%HTML_PREPROCESSOR%" "%TEX_OUTPUT%" "%HTML_TEX%" "%MD2PDF_CACHE%"
+    )
+    if not exist "%HTML_TEX%" (
+        copy /Y "%TEX_OUTPUT%" "%HTML_TEX%" >nul
+    )
+    pandoc "%HTML_TEX%" -f latex -t html5 --mathjax="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js" --embed-resources --standalone --css="%LATEX_CSS%" --lua-filter="%HTML_BOX_FILTER%" -o "%HTML_OUTPUT%"
+    if errorlevel 1 (
+        color 0E
+        echo.
+        echo ==========================================
+        echo            HTML CREATION FAILED
+        echo ==========================================
+        goto CLEANUP_FAIL
+    )
+)
+
 rmdir /s /q "%WORK%" >nul 2>&1
 
 echo.
@@ -303,7 +340,11 @@ echo ==========================================
 echo           CONVERSION COMPLETED
 echo ==========================================
 echo.
-echo PDF: "%PDF_OUTPUT%"
+if "%WB_HTML_LAYOUT%"=="1" (
+    if exist "%HTML_OUTPUT%" echo HTML: "%HTML_OUTPUT%"
+) else (
+    echo PDF: "%PDF_OUTPUT%"
+)
 if "%WB_WIDTH_MAX%"=="1" (
     echo Note: Whiteboard width reached maximum ceiling ^(100in^).
 )

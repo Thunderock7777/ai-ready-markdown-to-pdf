@@ -359,10 +359,68 @@ Version 1.4.2 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-25 | Disambiguate inner unadorned code fences in pass_box_fences via global fence census | source +77 / -8 | 85 / 500
+  2026-11-25 | Map marginbox violet preset to distinct LaTeX Violet preventing RoyalPurple collision | source +1 / -1 | 86 / 500
+  2026-11-26 | Replace fence census with inside-out center-to-surface reduction logic in pass_box_fences | source +81 / -82 | 249 / 500
+  2026-11-26 | Algorithmic random color generation with ancestor collision check and regeneration | source +73 / -19 | 341 / 500
+  2026-11-26 | Add whiteboard_html layout preset with final-step LaTeX-to-HTML conversion, LaTeX.css styling, and hierarchical collapsible nested details boxes | source +134 / -1 | 476 / 500
+  2026-11-26 | Exact box color fidelity for HTML details boxes via LaTeX hypertarget metadata transfer | source +55 / -17 | 514 / 500 (cycle limit reached, versioned as 1.4.3 PATCH)
 
-For each later accepted change, append one entry in this format:
+Version 1.4.3 cycle
+  Starting count: 0 / 500
 
-  YYYY-MM-DD | commit-or-change-id | short description | source +added / -deleted | cumulative / 500
+Change ledger
+  2026-11-26 | XeLaTeX-to-SVG compilation pipeline safety net for HTML export (TikZ, CircuiTikZ, chemfig, quantikz, forest, and htmlsvg fence/env), algorithmic Plane-1 Unicode math normalization, and offline MathJax shield | source +704 / -68 | 772 / 500 (cycle limit exceeded, versioned as 1.5.0 MINOR)
+
+Version 1.5.0 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-26 | Automatic build-time MathJax incompatibility detector and SVG fallback routing for display math, inline math, and complex environments | source +104 / -0 | 104 / 500
+  2026-11-26 | Cross-device HTML portability: responsive equation/table scroll wrappers, touch hit targets, automatic system dark mode, floating reading toolbar, and smart print stylesheet | source +403 / -4 | 511 / 500 (cycle limit reached, versioned as 1.5.1 PATCH)
+
+Version 1.5.1 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-26 | Add mandatory Node.js and npm automated verification and installation to setup.bat | source +72 / -12 | 84 / 500
+  2026-11-26 | Self-contained zero-external-network HTML math via native MathML and progressive polyfill | source +33 / -14 | 131 / 500
+  2026-11-26 | Universal MathML token and fallback layout: enforce horizontal token flow and pure CSS fraction/script layout | source +50 / -8 | 189 / 500
+  2026-11-26 | Expand HTML canvas max-width to min(96vw, 1320px) and optimize nested box padding for deep nesting width | source +49 / -4 | 242 / 500
+  2026-11-26 | Revert mobile MathML hacks and restore desktop Chrome MathJax engine | source +29 / -118 | 271 / 500
+  2026-11-26 | Dynamic whiteboard canvas expansion in HTML: scale document width from box nesting depth and content | source +81 / -12 | 352 / 500
+  2026-11-26 | Enforce full whiteboard canvas width expansion beyond viewport in latex.css (and print reset) | source +5 / -2 | 359 / 500
+  2026-11-26 | Remove leftover mobile viewport media queries in latex.css and sync README and architecture docs with PDF/HTML whiteboard behavior | source +0 / -41 | 400 / 500
+  2026-11-26 | Comprehensive bold math normalization (\mathbf lowercase Greek, symbols, operators, trig/log functions, Strong inline math) and MathJax \checkmark macro | source +184 / -13 | 597 / 500 (cycle limit reached, versioned as 1.5.2 PATCH)
+
+Version 1.5.2 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-26 | Switch HTML MathJax to self-contained tex-svg-full.js so embedded builds retain built-in boldsymbol, ams, and offline glyph paths | source +11 / -3 | 14 / 500
+  2026-11-26 | Make page-layout: whiteboard_html HTML-only in compile.bat by skipping full-document XeLaTeX PDF generation | source +19 / -4 | 37 / 500
+  2026-11-26 | Add top red incompatible-viewer warning banner (#viewerCompatWarning) with ES5 capability & MathJax verification in whiteboard_html | source +113 / -3 | 153 / 500
+  2026-11-26 | Add Option A container-anchored PDF-style annotations (Pen, Highlighter, Sticky Notes, Eraser, Undo/Clear, Save HTML self-contained export, draft auto-save, print preservation) | source +833 / -26 | 1012 / 500 (cycle limit exceeded, versioned as 1.6.0 MINOR)
+
+Version 1.6.0 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-26 | Add cursor line-by-line highlighting, in-place Save HTML overwrite + Save As modal window, and beforeprint/afterprint full box expansion for Ctrl+P | source +507 / -2 | 509 / 500 (cycle limit reached, versioned as 1.6.1 PATCH)
+
+Version 1.6.1 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-26 | Move unified PDF-viewer-style toolbar to pinned top bar (#floatingToolbar top:0) with Print button and automatic body top-padding offset sync | source +22 / -41 | 63 / 500
+  2026-11-26 | Unwrap Pandoc Highlighting/Shaded code blocks to verbatim/lstlisting in tex-to-html-preprocessor.lua (clearing fvextra verbatim redefinitions) so HTML renders proper pre/code with intact indentation and line breaks | source +131 / -0 | 194 / 500
+  2026-11-26 | Add html/htm interactive attachment fence for whiteboard_html (inline HTML or .html path resolution, recursive local CSS/JS/ES-module/image inlining, non-fatal missing-asset warnings, PDF placeholder, and Blob new-tab launcher) | source +787 / -1 | 982 / 500 (cycle limit exceeded, versioned as 1.7.0 MINOR)
+
+Version 1.7.0 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  (no changes yet)
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

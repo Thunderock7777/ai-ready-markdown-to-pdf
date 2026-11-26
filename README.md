@@ -5,7 +5,7 @@ Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
 Java, and Mermaid can run during the build with universal caching and approval controls,
 while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.4.2**.
+**Current project version: 1.7.0**.
 
 > **Paste an AI chat response and compile it directly.** A copied response from
 > ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses
@@ -34,7 +34,7 @@ while LaTeX fences render source snippets without executing them.
 - **CommonMark Code Span Parsing**: Inline code span matching strictly follows CommonMark: backslashes do not escape closing backticks (e.g. `` `C:\Windows\` `` closes cleanly without corrupting subsequent text passes).
 - **Robust Environment & Math Normalization**: Theorem-like environments support arbitrary re-entrant nesting (`\begin{theorem}...\begin{quote}...\end{quote}...\end{theorem}`) via an environment stack. Display math (`$$...$$`) unwraps `\begin{align}` even when preceded or followed by text or comments, and inline currency amounts (e.g. `$50 (base_fee = $30)`) are strictly isolated from math delimiter heuristics.
 - **Localized XeLaTeX Error Recovery**: Neutralizes localized LaTeX document errors with red `[!!!]` badges in the PDF and yellow console diagnostics instead of crashing the build.
-- **Page Layout & Title Controls**: Toggle between standard A4 and 16:9 presentation layout, or hide the horizontal title divider rule using YAML front matter.
+- **Page Layout & Title Controls**: Switch between standard A4 (`default`), 16:9 `presentation`, continuous dynamically sized `whiteboard` PDFs, or `whiteboard_html` (HTML-only output skipping PDF generation, producing a MathJax-powered interactive HTML whiteboard for modern browsers like Edge, Chrome, Firefox, and Safari matching the dynamically expanded canvas width), and optionally hide the horizontal title divider rule using YAML front matter.
 - **Non-Destructive Processing**: Source files are never modified; generated PDFs are saved beside the primary input file.
 
 ## Best use
@@ -68,7 +68,10 @@ your-tool-folder/
     ├── custom.tex
     ├── markdown-normalizer.lua
     ├── code-fence-runner.lua
-    └── error-annotator.lua
+    ├── error-annotator.lua
+    ├── html-collapsible-boxes.lua
+    ├── tex-to-html-preprocessor.lua
+    └── latex.css
 ```
 
 The compiler creates `md2pdf_cache/` beside `compile.bat`. It is safe to remove
@@ -102,8 +105,9 @@ setup.bat
 The script will:
 1. Verify or install **Pandoc** (via `winget` if missing).
 2. Verify or install **XeLaTeX** (MiKTeX via `winget` if missing).
-3. Pre-install and configure all required **LaTeX packages** with automatic on-the-fly downloads enabled.
-4. Check (and **never install**) optional runtimes: Python (with NumPy/Matplotlib), GCC (C), G++ (C++), and Java.
+3. Verify or install **Node.js & npm** (via `winget` or official LTS installer if missing).
+4. Pre-install and configure all required **LaTeX packages** with automatic on-the-fly downloads enabled.
+5. Check (and **never install**) optional runtimes: Python (with NumPy/Matplotlib), GCC (C), G++ (C++), Java, and Mermaid CLI (`mmdc`).
 
 ## Quick start
 
@@ -163,11 +167,14 @@ The answer is **42**, and inline math works: $a^2 + b^2 = c^2$.
 | x | 10 |
 ```
 
-The PDF uses A4 by default. To use a 16:9 landscape page with 0.5-inch margins,
-add this YAML metadata block at the start of the input:
+The PDF uses A4 by default. Supported `page-layout` presets in the YAML metadata block are:
 
 ```yaml
-page-layout: presentation
+page-layout: presentation   # 16:9 widescreen landscape (13.33in x 7.5in)
+# or:
+page-layout: whiteboard     # dynamic height (up to 100in) & auto-expanded width (11in–100in)
+# or:
+page-layout: whiteboard_html # HTML-only interactive browser whiteboard (skips PDF)
 ```
 
 Other `page-layout` values are unsupported; they produce a warning and use A4.

@@ -120,7 +120,8 @@ The integral ∫ from 0 to ∞ of $e^{-x}\,dx = 1$.
 * **Elimination of Traditional `--- ... ---`:** Standard Markdown frontmatter (`---`) is deliberately disabled. This ensures that hyphens, horizontal divider rules, and negative numbers can never be misparsed as broken YAML headers.
 * **Supported Layout Presets:**
   * `page-layout: presentation`: Switches page geometry from standard portrait A4 to 16:9 widescreen landscape (13.33 in $\times$ 7.5 in, 0.5 in margins) with scaled headings.
-  * `page-layout: whiteboard`: Generates a continuous canvas page (with 0.5 in margins) whose height dynamically and precisely expands to fit all content (two-pass `.aux` height auto-calibration up to a 100 in ceiling). When content exceeds the 100 in height limit, it cleanly starts a new whiteboard canvas page. Width is flexible with a minimum floor of 11.0 in (little less than the presentation layout) and an upper safety ceiling of 100.0 in (matching the 100-inch height limit); it automatically expands when multi-column tables or nested color boxes require extra horizontal clearance to prevent table column overlap or cramping. Authors may also supply an explicit override via `page-width:` or `whiteboard-width:` (e.g. `16in`), strictly enforced between the 11.0 in floor and 100.0 in ceiling. Boxes are breakable across page boundaries so content flows cleanly when hitting the height limit without clipping or TeX dimension overflow. Strict manual pagebreak prohibition is enforced: any manual page break (`\newpage`, `\pagebreak`, `\clearpage`, `\cleardoublepage`, `\eject`, `\tcbbreak`, `::: {.pagebreak}`) in Markdown or LaTeX code fences is automatically converted into an elegant horizontal canvas section divider line.
+  * `page-layout: whiteboard`: Generates a continuous canvas page (with 0.5 in margins) whose height dynamically and precisely expands to fit all content (two-pass `.aux` height auto-calibration up to a 100 in ceiling). When content exceeds the 100 in height limit, it cleanly starts a new whiteboard canvas page. Width is flexible with a minimum floor of 11.0 in and an upper safety ceiling of 100.0 in (matching the 100-inch height limit); it automatically expands when multi-column tables, nested color/margin boxes (`11.0 + (depth - 1) * 1.5` in), or wide code blocks (`> 70` chars per line) require extra horizontal clearance to prevent column overlap or cramping. Authors may also supply an explicit override via `page-width:` or `whiteboard-width:` (e.g. `16in`), strictly enforced between the 11.0 in floor and 100.0 in ceiling. Boxes are breakable across page boundaries so content flows cleanly when hitting the height limit without clipping or TeX dimension overflow. Strict manual pagebreak prohibition is enforced: any manual page break (`\newpage`, `\pagebreak`, `\clearpage`, `\cleardoublepage`, `\eject`, `\tcbbreak`, `::: {.pagebreak}`) in Markdown or LaTeX code fences is automatically converted into an elegant horizontal canvas section divider line.
+  * `page-layout: whiteboard_html`: Skips full-document XeLaTeX PDF generation and converts the generated LaTeX directly into a standalone, interactive HTML document (`.html`) tailored for modern web browsers (Edge, Chrome, Firefox, Safari) using Vincent Dörig's `LaTeX.css` and MathJax (`tex-svg-full.js`, bundling `boldsymbol`, `ams`, `physics`, and SVG glyph paths so inlined builds work cleanly without autoload/font failures). The HTML whiteboard canvas mirrors the dynamic width expansion logic: `html-collapsible-boxes.lua` extracts the `% WHITEBOARD_WIDTH:` calculated by `markdown-normalizer.lua` (or falls back to AST box nesting depth) and injects `--whiteboard-width` / `--document-width` CSS variables, expanding `body` horizontally even past narrow viewports so nested boxes and wide multi-column tables retain full reading room. Nested `marginbox`/`tcolorbox`/`vbox` environments start collapsed as interactive HTML5 `<details>` and `<summary>` elements with hierarchical progressive disclosure (clicking any parent reveals only its immediate children, preserving exact titles or `'Click for more info'`, and using the exact box colors). Vector graphics (`tikzpicture`, `circuitikz`, `chemfig`, `quantikz`, `forest`) and `\begin{htmlsvg}...\end{htmlsvg}` blocks are preprocessed via XeLaTeX-to-SVG (`dvisvgm --no-fonts`) and embedded as inline base64 SVGs (while `whiteboard` keeps them as native LaTeX in PDF). Also includes horizontal scroll wrappers on wide formulas/tables/code blocks, automatic system dark mode (`@media (prefers-color-scheme: dark)`), a pinned top PDF-viewer-style toolbar (**Expand/Collapse All**, **Cursor/Pen/Highlight/Note/Eraser**, swatches & stroke size, **Undo/Clear**, **Print**, **Save HTML**, **Save As**, **Theme**, **Scroll to Top**) with Option A container-anchored PDF-style annotations (**Pen**, cursor line-by-line **Highlight**, movable **Sticky Notes**, **Eraser**, **Undo/Clear**, auto-saved browser drafts via `localStorage`, **Save HTML** in-place overwrite/main-file save + IndexedDB handle caching, and **Save As** modal window export that bakes `#wbAnnotationsData` into a self-contained `.html` file using `.wb-flow-section` / `.marginbox-body` `data-wb-annot-id` anchors so expanding/collapsing boxes never misaligns annotations), a print stylesheet (`@media print` + `beforeprint`/`afterprint` hooks) that expands all collapsible `<details>` boxes to full height across pages, keeps ink strokes, highlights, and notes printable, and resets `body` width to `100%` when printing or saving as PDF, and an automatic compatibility guard (`#viewerCompatWarning`) that stays hidden in modern browsers with zero flash while displaying a top red alert banner if opened in a restricted viewer (JavaScript disabled/stripped, missing `<details>` or CSS custom property support, blocked stylesheets, or MathJax initialization failure).
   * `title-rule: false`: Disables the horizontal decorative rule rendered beneath the document title block.
   * `header-left: "..."`: Sets the running header on the top left of every page (defaults to "Notes").
 * **Verbatim Listing Mode (`run=false`):** When you need to display YAML code in your document without applying it to the document's settings, add `run=false`. The pre-processor ignores it as metadata and leaves it as a syntax-highlighted code block.
@@ -240,7 +241,45 @@ Hello World!
 
 ---
 
-### 3.4. Python (`python`, `py`, `python3`, `py3`)
+### 3.4. HTML SVG Safety Net Fence (`htmlsvg`, `svg`) & Automatic MathJax Fallback
+
+#### How It Renders Under the Hood
+* **Dedicated Safety Net Fence:** Code fences tagged ````htmlsvg```` or ````svg```` provide a universal safety net for complex LaTeX tables, diagrams, and arbitrary formulas where web math/HTML parsers (like MathJax) fail or lack package support.
+* **Dual-Engine Behavior:**
+  * **XeLaTeX PDF:** Renders natively as pure LaTeX within an isolated group (`{\begingroup...\par\endgroup}`) via the `\newenvironment{htmlsvg}{}{}` passthrough in `custom.tex`. Zero performance penalty, full vector fidelity, and crisp selectable text.
+  * **Whiteboard HTML:** When compiling with `page-layout: whiteboard_html`, `tex-to-html-preprocessor.lua` intercepts the block, compiles the snippet with standalone XeLaTeX (`xelatex -no-pdf` + `dvisvgm --no-fonts`), and converts it to a clean vector SVG. The SVG is cached by MD5 hash in `md2pdf_cache` and embedded directly into the standalone HTML document (`data:image/svg+xml;base64,...`).
+* **Automatic Build-Time Fallback (Method 1 Heuristic Analysis):** In addition to manual ````htmlsvg```` fences, `tex-to-html-preprocessor.lua` inspects all display math (`\[...\]`), inline math (`\(...\)`), and LaTeX environments during HTML export. Any block containing constructs unsupported by MathJax (e.g. TikZ `\draw`/`\node`, nested `tabular`, `\diagbox`, `\chemfig`, quantum circuits `\qw`/`\gate`, TeX layout primitives like `\raisebox`) is automatically detected at compile time and routed to SVG generation, while standard mathematical formulas remain lightweight native MathJax.
+* **Algorithmic Unicode Math Normalization:** Plane-1 Unicode math symbols (such as bold vectors, Greek operators, and superscripts) within the fence or math blocks are automatically normalized before compilation.
+
+#### Examples
+
+**Complex LaTeX Table Rendered Natively in PDF and as SVG in HTML:**
+````markdown
+```htmlsvg
+\begin{tabular}{llr}
+\toprule
+\multicolumn{2}{c}{General Quantum Operator} & Commutator \\
+\midrule
+Position \& Momentum & $[\hat{x}, \hat{p}]$ & $i\hbar$ \\
+Potential \& Momentum & $[𝐕(𝐱),\boldsymbol𝚷]$ & $\mathbf{0}$ \\
+\bottomrule
+\end{tabular}
+```
+````
+
+---
+
+### 3.4b. Interactive HTML Launcher Fence (`html`, `htm`)
+
+#### How It Renders Under the Hood
+* **Whiteboard HTML Only:** Follows the same control attributes as ````latex```` fences (`run=false` keeps a plain source listing, `show=true` shows source + launcher, `title="..."` / `label="..."` customizes the title). Active only when `page-layout: whiteboard_html` is enabled; in PDF layouts (`default`, `presentation`, `whiteboard`), it emits a styled `[Interactive HTML: ...]` placeholder quote instead.
+* **File Path or Inline HTML:** If the fence contains a single `.html` / `.htm` file path (absolute or relative to the input `.txt`/`.md` folder), `code-fence-runner.lua` reads that file automatically; if the file is missing, it logs a warning and renders a non-fatal error badge without aborting the build. Otherwise, the fence body itself is embedded as HTML.
+* **Recursive Local Asset Bundling:** Automatically resolves local `<link rel="stylesheet" href="...">`, inline `<style>` / CSS `@import` and `url(...)` (fonts/background images), `<img src="...">` / `<source src="...">` / SVG `<image>` assets (as Base64 `data:` URIs), `<script src="...">`, and static ES module imports (`import ... from './sub.js'` in `<script type="module">` as `data:text/javascript;base64,...` modules). Any missing local assets log a console warning and appear in an amber banner on the card while still letting the HTML open normally.
+* **New-Tab Launch:** Embeds the bundled HTML as Base64 inside `<script type="text/plain" class="wb-html-b64">` and renders a `.wb-html-card` button (`Open in New Tab ↗`) that constructs an on-click UTF-8 `Blob` URL (`text/html`) and opens it in a fresh browser tab (surviving **Save HTML** / **Save As** exports).
+
+---
+
+### 3.5. Python (`python`, `py`, `python3`, `py3`)
 
 #### How It Renders Under the Hood
 * **Execution & Launcher:** Python blocks are executed via the Windows Python launcher (`py`). The active working directory is scoped to the directory of the first input file.

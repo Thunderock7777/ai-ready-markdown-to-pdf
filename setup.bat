@@ -10,12 +10,14 @@ echo =========================================================
 echo This installer will:
 echo   1. Verify or install Pandoc [document converter]
 echo   2. Verify or install LaTeX / XeLaTeX [PDF engine]
-echo   3. Pre-install and configure all required LaTeX packages
-echo   4. Check [NOT install] optional language runtimes:
+echo   3. Verify or install Node.js ^& npm [JavaScript runtime ^& package manager]
+echo   4. Pre-install and configure all required LaTeX packages
+echo   5. Check [NOT install] optional language runtimes:
 echo      - Python and plotting packages
 echo      - C Compiler [gcc]
 echo      - C++ Compiler [g++]
 echo      - Java Runtime [java/javac]
+echo      - Mermaid CLI [mmdc]
 echo =========================================================
 echo.
 
@@ -28,10 +30,10 @@ if not errorlevel 1 (
 )
 
 REM ==========================================
-REM [1/4] CHECKING PANDOC
+REM [1/5] CHECKING PANDOC
 REM ==========================================
 echo ==========================================
-echo [1/4] CHECKING PANDOC
+echo [1/5] CHECKING PANDOC
 echo ==========================================
 
 where pandoc >nul 2>&1
@@ -70,10 +72,10 @@ if not errorlevel 1 (
 echo.
 
 REM ==========================================
-REM [2/4] CHECKING LATEX (XeLaTeX)
+REM [2/5] CHECKING LATEX (XeLaTeX)
 REM ==========================================
 echo ==========================================
-echo [2/4] CHECKING LATEX [XeLaTeX]
+echo [2/5] CHECKING LATEX [XeLaTeX]
 echo ==========================================
 
 where xelatex >nul 2>&1
@@ -113,10 +115,65 @@ if not errorlevel 1 (
 echo.
 
 REM ==========================================
-REM [3/4] CONFIGURING LATEX PACKAGES
+REM [3/5] CHECKING NODE.JS & NPM
 REM ==========================================
 echo ==========================================
-echo [3/4] CONFIGURING LATEX PACKAGES
+echo [3/5] CHECKING NODE.JS ^& NPM
+echo ==========================================
+
+where node >nul 2>&1
+if errorlevel 1 (
+    if exist "%ProgramFiles%\nodejs\node.exe" set "PATH=!PATH!;%ProgramFiles%\nodejs"
+    if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" set "PATH=!PATH!;%LOCALAPPDATA%\Programs\nodejs"
+    if exist "%APPDATA%\npm" set "PATH=!PATH!;%APPDATA%\npm"
+)
+
+where node >nul 2>&1
+if not errorlevel 1 (
+    set "NODE_VER="
+    for /f "tokens=*" %%v in ('node --version 2^>nul') do (
+        if not defined NODE_VER set "NODE_VER=%%v"
+    )
+    set "NPM_VER="
+    for /f "tokens=*" %%v in ('npm --version 2^>nul') do (
+        if not defined NPM_VER set "NPM_VER=%%v"
+    )
+    echo   [OK] Node.js is installed: !NODE_VER! [npm: !NPM_VER!]
+) else (
+    echo   [MISSING] Node.js is not installed.
+    if defined HAS_WINGET (
+        echo   Installing Node.js LTS via winget...
+        winget install --exact --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements
+        if exist "%ProgramFiles%\nodejs\node.exe" set "PATH=!PATH!;%ProgramFiles%\nodejs;%APPDATA%\npm"
+        if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" set "PATH=!PATH!;%LOCALAPPDATA%\Programs\nodejs;%APPDATA%\npm"
+        where node >nul 2>&1
+        if not errorlevel 1 (
+            echo   [SUCCESS] Node.js has been installed successfully!
+        ) else (
+            echo   [NOTE] Node.js was installed. Please reopen terminal if not recognized.
+        )
+    ) else (
+        echo   [INFO] Winget not found. Downloading Node.js LTS installer via PowerShell...
+        powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object Net.WebClient).DownloadFile('https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi', '%TEMP%\nodejs_installer.msi')"
+        if exist "%TEMP%\nodejs_installer.msi" (
+            echo   Running Node.js installer silently...
+            msiexec /i "%TEMP%\nodejs_installer.msi" /qn /norestart
+            del "%TEMP%\nodejs_installer.msi" >nul 2>&1
+            if exist "%ProgramFiles%\nodejs\node.exe" set "PATH=!PATH!;%ProgramFiles%\nodejs;%APPDATA%\npm"
+            echo   [SUCCESS] Node.js installed!
+        ) else (
+            echo   [ERROR] Could not download Node.js installer automatically.
+            echo   Please download and install Node.js LTS from: https://nodejs.org/
+        )
+    )
+)
+echo.
+
+REM ==========================================
+REM [4/5] CONFIGURING LATEX PACKAGES
+REM ==========================================
+echo ==========================================
+echo [4/5] CONFIGURING LATEX PACKAGES
 echo ==========================================
 
 where initexmf >nul 2>&1
@@ -168,11 +225,11 @@ if "!CONFIGURED_PACKAGES!"=="0" (
 echo.
 
 REM ==========================================
-REM [4/4] CHECKING OPTIONAL LANGUAGE RUNTIMES
+REM [5/5] CHECKING OPTIONAL LANGUAGE RUNTIMES
 REM (These are NOT installed automatically)
 REM ==========================================
 echo ==========================================
-echo [4/4] CHECKING OPTIONAL LANGUAGE RUNTIMES
+echo [5/5] CHECKING OPTIONAL LANGUAGE RUNTIMES
 echo [These are NOT installed automatically]
 echo ==========================================
 
@@ -279,10 +336,12 @@ where pandoc >nul 2>&1
 set "PANDOC_OK=%errorlevel%"
 where xelatex >nul 2>&1
 set "XELATEX_OK=%errorlevel%"
+where node >nul 2>&1
+set "NODE_OK=%errorlevel%"
 
-if "%PANDOC_OK%"=="0" if "%XELATEX_OK%"=="0" (
+if "%PANDOC_OK%"=="0" if "%XELATEX_OK%"=="0" if "%NODE_OK%"=="0" (
     color 0A
-    echo Core requirements are READY! You can now convert Markdown to PDF.
+    echo Core requirements are READY! You can now convert Markdown to PDF and HTML.
     echo.
     echo To compile notes:
     echo   - Drag and drop your .md or .txt file onto compile.bat
@@ -295,6 +354,7 @@ if "%PANDOC_OK%"=="0" if "%XELATEX_OK%"=="0" (
     echo Setup encountered pending items.
     if not "%PANDOC_OK%"=="0" echo - Pandoc could not be verified on PATH.
     if not "%XELATEX_OK%"=="0" echo - XeLaTeX could not be verified on PATH.
+    if not "%NODE_OK%"=="0" echo - Node.js could not be verified on PATH.
     echo Please restart your command prompt or install missing tools manually.
 )
 echo.

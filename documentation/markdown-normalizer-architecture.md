@@ -505,7 +505,14 @@ Function reference: AST and finalization
 Math and Unicode
   wrap_greek(inner, kind) -> LaTeX text
     Wraps recognized capital Greek commands in the appropriate bold/upright/
-    italic math command when nested inside selected math font groups.
+    italic math command when nested inside selected math font groups. Inside
+    `\mathbf` (`kind == "bf"`), also wraps lowercase Greek, unbolded math symbols,
+    trig/log operators (`\mathop{\mathbf{...}}\nolimits`), and safe bare
+    operators/relations/delimiters while skipping `\text`/`\operatorname`/sizing
+    prefixes (`\left`, `\big`, etc.) and `\sqrt[n]` optional brackets.
+  bold_inline_math_in_strong(Strong element) -> Strong element or nil
+    Wraps safe inline `Math` nodes inside Markdown `Strong` (`**...**`) in
+    `\mathbf{...}` so bold-wrapped formulas render bold in both PDF and HTML.
   convert(text, kind) -> text
     Recursively scans balanced \mathbf/\mathrm/\mathit groups, transforms
     supported Greek commands, and leaves other or unbalanced groups alone.
@@ -588,9 +595,18 @@ Document-level processing and finalization
   report_scrub_counts()
     Writes citation and emoji removal summaries when their counters are
     nonzero.
+  parse_dimension_in_inches(val) -> number or nil
+    Parses a user-supplied `whiteboard-width` or `page-width` dimension (`in`,
+    `cm`, `mm`, `pt`, or unitless inches) into inches.
+  calculate_whiteboard_width(doc)
+    Computes `doc.meta.whiteboard_width` (11.00in floor to 100.00in ceiling,
+    rounded up to 0.25in increments) from user overrides, multi-column table
+    widths at box nesting depth, standalone box nesting depth (`11.0 + (depth - 1) * 1.5` in),
+    and wide CodeBlock lines (>70 chars), setting `whiteboard_width_max` if clamped.
   apply_page_layout(doc)
-    Maps the supported `page-layout: presentation` and `page-layout: whiteboard`
-    YAML values to template flags; other supplied values warn and leave default A4 active.
+    Maps the supported `page-layout: presentation`, `page-layout: whiteboard`, and `page-layout: whiteboard_html`
+    YAML values to template flags and triggers `calculate_whiteboard_width(doc)` for
+    whiteboard presets; other supplied values warn and leave default A4 active.
   apply_title_rule(doc)
     Maps YAML boolean `title-rule` to the template flag, defaulting to true;
     non-boolean values warn and retain the visible title rule.

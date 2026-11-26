@@ -3061,7 +3061,30 @@ local function apply_page_layout(doc)
   elseif layout == "whiteboard_html" then
     doc.meta.whiteboard_layout = pandoc.MetaBool(true)
     doc.meta.whiteboard_html = pandoc.MetaBool(true)
-    calculate_whiteboard_width(doc)
+    local box_val = doc.meta["html-box-mode"]
+    local box_mode = box_val and pandoc.utils.stringify(box_val):match("^%s*(.-)%s*$"):lower() or "popup"
+    if box_mode ~= "popup" and box_mode ~= "inline" then
+      warn("unsupported html-box-mode '" .. box_mode .. "'; using popup (supported: popup, inline)")
+      box_mode = "popup"
+    end
+    doc.meta.html_box_mode = pandoc.MetaString(box_mode)
+    if box_mode == "inline" or doc.meta["page-width"] or doc.meta["whiteboard-width"] then
+      calculate_whiteboard_width(doc)
+    end
+    local assets_val = doc.meta["html-assets"]
+    local assets_mode = assets_val and pandoc.utils.stringify(assets_val):match("^%s*(.-)%s*$"):lower() or "offline"
+    if assets_mode ~= "cdn" and assets_mode ~= "offline" then
+      warn("unsupported html-assets '" .. assets_mode .. "'; using offline (supported: offline, cdn)")
+      assets_mode = "offline"
+    end
+    doc.meta.html_assets = pandoc.MetaString(assets_mode)
+    local cdn_val = doc.meta["html-cdn-base"]
+    if cdn_val then
+      local base = pandoc.utils.stringify(cdn_val):match("^%s*(.-)%s*$"):gsub("/+$", "")
+      if base ~= "" then
+        doc.meta.html_cdn_base = pandoc.MetaString(base)
+      end
+    end
   else
     warn("unsupported page-layout '" .. layout .. "'; using A4 (supported values: presentation, whiteboard, whiteboard_html)")
   end

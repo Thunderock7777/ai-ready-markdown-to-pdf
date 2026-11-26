@@ -420,7 +420,34 @@ Version 1.7.0 cycle
   Starting count: 0 / 500
 
 Change ledger
-  (no changes yet)
+  2026-11-26 | Add dirty Save HTML indicator, beforeunload close guard, and on-leave/status-click unsaved-annotations popup menu (#wbUnsavedPopup) | source +170 / -11 | 181 / 500
+  2026-11-26 | Add instant CSS hover tooltips (.wb-has-tip) on Save HTML and Save As explaining local update vs standalone sharing | source +42 / -2 | 225 / 500 (versioned as 1.7.1 PATCH)
+
+Version 1.7.1 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-26 | Add accent-tinted bottom ▲ Collapse button (.marginbox-footer / .wb-box-collapse-btn) inside every expanded box generation with off-screen header scroll recovery | source +68 / -3 | 71 / 500
+  2026-11-26 | Add offline Markmap Tree View (config/graph-markdown-extractor.lua, config/markmap/package.json + build-graph.js, setup.bat installer, L1 default view, cream typography, 60/40 draggable VS Code-style Split View sash, L1-L3/All depth, Search+zoom, Export .svg, New Tab, exact item-level Jump ↗) and leftmost PDF-style Table of Contents drawer (#btnToggleToc / #wbTocDrawer, rightmost Expand All) | source +2671 / -27 | 2742 / 500 (pending release; exceeds 500-line cycle budget -> next MINOR 1.8.0)
+  2026-11-26 | Shrink whiteboard_html size in both offline and repo-linked CDN modes: gzip-compress #wbGraphData (v:2) + lazy-loaded #wbVendorGz (v:1, DecompressionStream), extract viewer runtime to config/wb-viewer.js, commit static config/markmap/vendor/ assets, add html-assets: offline|cdn + html-cdn-base YAML options, and add CDN offline/reconnect warning banner (#wbCdnOfflineBanner + Reload Page button) | source +1005 / -1172 (modified tracked source) + new config/wb-viewer.js, config/graph-markdown-extractor.lua, config/markmap/ | versioned as 1.8.0 MINOR
+
+Version 1.8.0 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-26 | Center bottom ▲ Collapse button (.marginbox-footer) horizontally inside collapsible boxes | source +1 / -1 | 2 / 500
+  2026-11-27 | Render Tree View ↗ jump buttons as unclipped SVG badges (<g class="wb-mm-jump wb-mm-jump-svg">) outside foreignObject, strip inline jump buttons from build-graph.js, and await KaTeX CSS load in CDN mode | source +108 / -36 | 146 / 500 (versioned as 1.8.1 PATCH)
+
+Version 1.8.1 cycle
+  Starting count: 0 / 500
+
+Change ledger
+  2026-11-27 | Replace inline nested box width expansion with responsive floating breadcrumb box modal (#wbBoxModalBackdrop, Split View right-pane scoping, Expand All/print inline fallback, html-box-mode: popup|inline), lock main-page scroll while modal open, keep TOC accessible above/beside modal, remove redundant bottom ▲ Collapse button, and add mobile/tablet responsive CSS | source +580 / -61 | 641 / 500 (versioned as 1.8.2 PATCH)
+
+Version 1.8.2 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

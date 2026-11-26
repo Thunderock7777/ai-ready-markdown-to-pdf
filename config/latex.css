@@ -139,13 +139,14 @@ body {
   font-family: 'Latin Modern', 'Latin Modern Roman', 'Computer Modern', 'TeX Gyre Termes', Georgia, Cambria, 'Times New Roman', Times, serif;
   line-height: 1.8;
 
-  width: var(--document-width, var(--whiteboard-width, 1320px));
-  min-width: var(--document-width, var(--whiteboard-width, 1320px));
-  max-width: none;
+  width: min(100%, var(--document-width, min(94vw, 68rem)));
+  min-width: 0;
+  max-width: 100%;
   min-height: 100vh;
   margin: 0 auto;
   padding: 3.8rem 1.25rem 1.5rem 1.25rem;
   box-sizing: border-box;
+  overflow-wrap: break-word;
 
   counter-reset: theorem definition sidenote-counter;
 
@@ -849,6 +850,233 @@ details.vbox > .marginbox-body {
   padding: 8px 10px;
 }
 
+/* Floating Breadcrumb Box Window (Default for whiteboard_html) */
+body.wb-boxes-inline {
+  width: var(--document-width, var(--whiteboard-width, 1320px));
+  min-width: var(--document-width, var(--whiteboard-width, 1320px));
+  max-width: none;
+}
+
+body:not(.wb-boxes-inline) details.marginbox > .marginbox-body,
+body:not(.wb-boxes-inline) details.tcolorbox > .marginbox-body,
+body:not(.wb-boxes-inline) details.vbox > .marginbox-body {
+  display: none;
+}
+
+body:not(.wb-boxes-inline) details.marginbox > summary::after,
+body:not(.wb-boxes-inline) details.tcolorbox > summary::after,
+body:not(.wb-boxes-inline) details.vbox > summary::after {
+  content: "Open ↗";
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  flex-shrink: 0;
+  opacity: 0.88;
+}
+
+body:not(.wb-boxes-inline) details.marginbox > summary:hover::after,
+body:not(.wb-boxes-inline) details.tcolorbox > summary:hover::after,
+body:not(.wb-boxes-inline) details.vbox > summary:hover::after {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.wb-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.wb-box-modal-backdrop {
+  position: fixed;
+  top: var(--wb-toolbar-h, 52px);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 8800;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.54);
+  backdrop-filter: blur(3px);
+  box-sizing: border-box;
+}
+
+.wb-box-modal-backdrop.is-open {
+  display: flex;
+}
+
+html.wb-modal-open,
+body.wb-modal-open {
+  overflow: hidden !important;
+}
+
+@media (min-width: 900px) {
+  body.wb-graph-open.wb-graph-split .wb-box-modal-backdrop {
+    left: var(--wb-split-w, 40vw);
+  }
+  body.wb-toc-open:not(.wb-graph-open) .wb-box-modal-backdrop {
+    left: 310px;
+  }
+}
+
+.wb-box-modal {
+  width: min(100%, 940px);
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1.5px solid var(--modal-box-col, #1A9E39);
+  border-top: 5px solid var(--modal-box-col, #1A9E39);
+  background: var(--body-bg-color, #ffffff);
+  color: var(--body-color, hsl(0, 5%, 10%));
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.36);
+  overflow: hidden;
+}
+
+.wb-box-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--modal-box-col, #1A9E39);
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  flex-shrink: 0;
+}
+
+.wb-box-modal-breadcrumbs {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.wb-box-crumb {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.wb-box-crumb-ellipsis {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  letter-spacing: 1px;
+}
+
+.wb-box-crumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.wb-box-crumb.is-current {
+  background: rgba(255, 255, 255, 0.94);
+  color: #111827;
+  border-color: transparent;
+  cursor: default;
+  font-weight: 700;
+}
+
+.wb-box-crumb-sep {
+  opacity: 0.82;
+  font-size: 0.85rem;
+  flex: 0 0 auto;
+  user-select: none;
+}
+
+.wb-box-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.wb-box-modal-actions button {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.3;
+}
+
+.wb-box-modal-actions button:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.wb-box-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  padding: 14px 18px 20px 18px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.wb-box-modal-body > .marginbox-body {
+  display: block !important;
+  position: relative;
+  padding: 0;
+  overflow: visible;
+}
+
+body.latex-dark .wb-box-modal {
+  background: var(--body-bg-color, #1e1e1e);
+  color: var(--body-color, #e5e7eb);
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not(.latex-light) .wb-box-modal {
+    background: var(--body-bg-color, #1e1e1e);
+    color: var(--body-color, #e5e7eb);
+  }
+}
+
+@media (max-width: 640px) {
+  .wb-box-modal-backdrop {
+    padding: 8px;
+  }
+  .wb-box-modal-header {
+    padding: 8px 10px;
+  }
+  .wb-box-modal-breadcrumbs {
+    flex-wrap: wrap;
+    max-height: 3.9em;
+    overflow: hidden;
+  }
+  .wb-box-modal-body {
+    padding: 10px 12px 16px 12px;
+  }
+}
+
 /* ==========================================================================
    MathJax Display & Responsive Math Formatting
    ========================================================================== */
@@ -1128,6 +1356,144 @@ body.latex-light img[src^="data:image/svg+xml"] {
   background: #16a34a !important;
   color: #ffffff !important;
   border-color: #15803d !important;
+}
+
+.wb-annot-save-btn.is-dirty {
+  box-shadow: 0 0 0 2px #f59e0b;
+}
+
+.wb-has-tip {
+  position: relative;
+}
+
+.wb-tip-left:hover::after,
+.wb-tip-left:focus-visible::after {
+  right: auto !important;
+  left: 0 !important;
+}
+
+.wb-has-tip:hover::after,
+.wb-has-tip:focus-visible::after {
+  content: attr(data-wb-tip);
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  white-space: nowrap;
+  background: #111827;
+  color: #f9fafb;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 0.74rem;
+  font-weight: 500;
+  line-height: 1.3;
+  padding: 5px 9px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
+  pointer-events: none;
+  z-index: 10025;
+}
+
+body.latex-dark .wb-has-tip:hover::after,
+body.latex-dark .wb-has-tip:focus-visible::after {
+  background: #f9fafb;
+  color: #111827;
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not(.latex-light) .wb-has-tip:hover::after,
+  body:not(.latex-light) .wb-has-tip:focus-visible::after {
+    background: #f9fafb;
+    color: #111827;
+    border-color: rgba(0, 0, 0, 0.14);
+  }
+}
+
+.wb-unsaved-popup {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  z-index: 10015;
+  display: none;
+  width: min(320px, calc(100vw - 32px));
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #f59e0b;
+  border-left: 5px solid #f59e0b;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.wb-unsaved-popup.is-open {
+  display: block;
+}
+
+.wb-unsaved-popup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+
+.wb-unsaved-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.wb-unsaved-popup-msg {
+  margin: 0 0 10px 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #4b5563;
+}
+
+.wb-unsaved-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wb-unsaved-popup-actions button {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #f3f4f6;
+  color: #111827;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wb-unsaved-popup-actions button.primary {
+  background: #16a34a;
+  color: #ffffff;
+  border-color: #15803d;
+}
+
+body.latex-dark .wb-unsaved-popup {
+  background: #1f2937;
+  color: #f3f4f6;
+}
+
+body.latex-dark .wb-unsaved-popup-msg {
+  color: #d1d5db;
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not(.latex-light) .wb-unsaved-popup {
+    background: #1f2937;
+    color: #f3f4f6;
+  }
+  body:not(.latex-light) .wb-unsaved-popup-msg {
+    color: #d1d5db;
+  }
 }
 
 .wb-annot-save-btn:hover {
@@ -1478,12 +1844,706 @@ body.latex-dark .wb-html-error {
   font: inherit;
 }
 
+/* Interactive Markmap Graph View */
+.wb-graph-btn.is-active {
+  background: var(--wb-accent, #2563eb) !important;
+  color: #ffffff !important;
+  border-color: var(--wb-accent, #2563eb) !important;
+}
+
+.wb-graph-workspace {
+  display: none;
+  position: fixed;
+  top: var(--wb-toolbar-h, 52px);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 950;
+  flex-direction: column;
+  background: #0f172a;
+  color: #f5eedc;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+body.wb-graph-open .wb-graph-workspace {
+  display: flex;
+}
+
+body.wb-graph-open.wb-graph-full {
+  overflow: hidden;
+}
+
+body.wb-graph-open.wb-graph-split .wb-graph-workspace {
+  right: auto;
+  width: var(--wb-split-w, 40vw);
+  border-right: 1px solid rgba(148, 163, 184, 0.32);
+  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.25);
+}
+
+.wb-graph-splitter {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 20;
+  touch-action: none;
+  background: transparent;
+}
+
+.wb-graph-splitter::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 2px;
+  background: transparent;
+  transition: background-color 0.12s ease, width 0.12s ease, left 0.12s ease;
+}
+
+.wb-graph-splitter:hover::after,
+.wb-graph-splitter.is-dragging::after {
+  left: 1px;
+  width: 3px;
+  background: #007fd4;
+}
+
+@media (min-width: 900px) {
+  body.wb-graph-open.wb-graph-split .wb-graph-splitter {
+    display: block;
+  }
+  body.wb-graph-open.wb-graph-split {
+    margin-left: var(--wb-split-w, 40vw) !important;
+    width: calc(100vw - var(--wb-split-w, 40vw) - 2rem) !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - var(--wb-split-w, 40vw) - 2rem) !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  body.wb-graph-open.wb-graph-split .wb-graph-search-wrap input {
+    width: 140px;
+  }
+}
+
+body.wb-is-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+@media (max-width: 899px) {
+  #btnGraphModeSplit,
+  #wbGraphSplitter {
+    display: none !important;
+  }
+}
+
+.wb-graph-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #1e293b;
+  color: #f5eedc;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.24);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+}
+
+.wb-graph-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.wb-graph-header button,
+.wb-graph-footer button {
+  padding: 4px 9px;
+  border-radius: 5px;
+  border: 1px solid rgba(245, 238, 220, 0.26);
+  background: #0f172a;
+  color: #f5eedc;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  line-height: 1.3;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.wb-graph-header button:hover,
+.wb-graph-footer button:hover {
+  background: #1d4ed8;
+  border-color: #60a5fa;
+  color: #ffffff;
+}
+
+.wb-graph-header button.is-active {
+  background: #2563eb;
+  border-color: #60a5fa;
+  color: #ffffff;
+}
+
+.wb-graph-header button:disabled,
+.wb-graph-footer button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.wb-graph-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(245, 238, 220, 0.22);
+  margin: 0 3px;
+}
+
+.wb-graph-search-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wb-graph-search-wrap input {
+  width: 170px;
+  max-width: 36vw;
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(245, 238, 220, 0.30);
+  background: #0f172a;
+  color: #f5eedc;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.wb-graph-search-wrap input::placeholder {
+  color: rgba(245, 238, 220, 0.55);
+}
+
+.wb-graph-search-wrap input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.25);
+}
+
+.wb-graph-count {
+  min-width: 40px;
+  text-align: center;
+  font-size: 12px;
+  color: #e2d8be;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-graph-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  background: #0f172a;
+  --markmap-circle-open-bg: #0f172a;
+  --markmap-text-color: #f5eedc;
+  --markmap-code-bg: rgba(245, 238, 220, 0.14);
+  --markmap-code-color: #fde68a;
+  --markmap-a-color: #93c5fd;
+  --markmap-a-hover-color: #bfdbfe;
+}
+
+#wbGraphWorkspace svg#wbGraphSvg.markmap,
+#wbGraphSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --markmap-circle-open-bg: #0f172a !important;
+  --markmap-text-color: #f5eedc !important;
+  --markmap-code-bg: rgba(245, 238, 220, 0.14) !important;
+  --markmap-code-color: #fde68a !important;
+  color: #f5eedc !important;
+}
+
+#wbGraphSvg.markmap .markmap-foreign,
+#wbGraphSvg.markmap .markmap-foreign > div,
+#wbGraphSvg.markmap .markmap-foreign .wb-mm-node {
+  color: #f5eedc !important;
+}
+
+#wbGraphSvg.markmap .katex,
+#wbGraphSvg.markmap .katex * {
+  color: #f5eedc;
+}
+
+#wbGraphSvg .wb-mm-node {
+  display: inline;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+#wbGraphSvg .wb-mm-node:hover {
+  background: rgba(96, 165, 250, 0.22);
+}
+
+#wbGraphSvg g.markmap-node.wb-mm-selected > foreignObject .wb-mm-node {
+  background: rgba(59, 130, 246, 0.34);
+  outline: 1.5px solid #60a5fa;
+}
+
+#wbGraphSvg g.markmap-node.wb-mm-match > foreignObject .wb-mm-node {
+  background: rgba(250, 204, 21, 0.26);
+  outline: 1px solid #facc15;
+}
+
+#wbGraphSvg g.markmap-node.wb-mm-current-match > foreignObject .wb-mm-node {
+  background: rgba(249, 115, 22, 0.36);
+  outline: 2px solid #fb923c;
+}
+
+#wbGraphSvg foreignObject .wb-mm-jump {
+  display: none !important;
+}
+
+#wbGraphSvg g.wb-mm-jump-svg {
+  cursor: pointer;
+}
+
+#wbGraphSvg g.wb-mm-jump-svg .wb-mm-jump-bg {
+  fill: rgba(59, 130, 246, 0.24);
+  stroke: rgba(147, 197, 253, 0.58);
+  stroke-width: 1;
+  transition: fill 0.12s, stroke 0.12s;
+}
+
+#wbGraphSvg g.wb-mm-jump-svg .wb-mm-jump-ico {
+  fill: #f5eedc;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  pointer-events: none;
+  user-select: none;
+}
+
+#wbGraphSvg g.wb-mm-jump-svg:hover .wb-mm-jump-bg,
+#wbGraphSvg g.markmap-node.wb-mm-selected g.wb-mm-jump-svg .wb-mm-jump-bg {
+  fill: #2563eb;
+  stroke: #93c5fd;
+}
+
+#wbGraphSvg g.wb-mm-jump-svg:hover .wb-mm-jump-ico,
+#wbGraphSvg g.markmap-node.wb-mm-selected g.wb-mm-jump-svg .wb-mm-jump-ico {
+  fill: #ffffff;
+}
+
+.wb-graph-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 14px;
+  background: #1e293b;
+  color: #f5eedc;
+  border-top: 1px solid rgba(148, 163, 184, 0.24);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12.5px;
+}
+
+.wb-graph-sel-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 240px;
+}
+
+.wb-graph-sel-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #f5eedc;
+  font-weight: 500;
+}
+
+.wb-graph-jump-main {
+  background: #2563eb !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.wb-graph-jump-main:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+}
+
+.wb-graph-hint-text {
+  color: #d6ceb8;
+  font-size: 12px;
+}
+
+@keyframes wbJumpFlashAnim {
+  0% { box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.55); background-color: rgba(37, 99, 235, 0.12); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+
+.wb-jump-flash {
+  animation: wbJumpFlashAnim 1.8s ease-out;
+  border-radius: 6px;
+}
+
+/* Graph View keeps deep-slate canvas with cream typography across themes */
+
+/* PDF-Style Table of Contents Sidebar Drawer */
+.wb-toc-btn.is-active {
+  background: var(--wb-accent, #2563eb) !important;
+  color: #ffffff !important;
+  border-color: var(--wb-accent, #2563eb) !important;
+}
+
+.wb-toc-drawer {
+  display: none;
+  position: fixed;
+  top: var(--wb-toolbar-h, 52px);
+  left: 0;
+  bottom: 0;
+  width: 310px;
+  max-width: 86vw;
+  z-index: 8900;
+  flex-direction: column;
+  background: #f8fafc;
+  color: #0f172a;
+  border-right: 1px solid rgba(15, 23, 42, 0.16);
+  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.10);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+}
+
+body.wb-toc-open .wb-toc-drawer {
+  display: flex;
+}
+
+@media (min-width: 900px) {
+  body.wb-toc-open:not(.wb-graph-open) {
+    margin-left: 318px !important;
+  }
+}
+
+.wb-toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.wb-toc-title {
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+.wb-toc-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wb-toc-actions button {
+  padding: 3px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1.25;
+}
+
+.wb-toc-actions button:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.wb-toc-filter-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+.wb-toc-filter-wrap input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(15, 23, 42, 0.22);
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.wb-toc-filter-wrap input:focus {
+  border-color: #2563eb;
+}
+
+.wb-toc-filter-wrap button {
+  padding: 3px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.wb-toc-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 6px 6px 18px 6px;
+}
+
+.wb-toc-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  line-height: 1.35;
+  transition: background-color 0.1s;
+}
+
+.wb-toc-row:hover {
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.wb-toc-row.is-active {
+  background: rgba(37, 99, 235, 0.16);
+  font-weight: 600;
+}
+
+.wb-toc-row.is-heading > .wb-toc-label {
+  font-weight: 600;
+}
+
+.wb-toc-caret {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin-top: 1px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.72;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+
+.wb-toc-caret:hover {
+  background: rgba(148, 163, 184, 0.25);
+  opacity: 1;
+}
+
+.wb-toc-caret.is-spacer {
+  visibility: hidden;
+  cursor: default;
+}
+
+.wb-toc-dot {
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 6px;
+  background: #3b82f6;
+}
+
+.wb-toc-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.wb-toc-children.is-collapsed {
+  display: none;
+}
+
+body.latex-dark .wb-toc-drawer {
+  background: #0f172a;
+  color: #f5eedc;
+  border-right-color: rgba(148, 163, 184, 0.24);
+}
+
+body.latex-dark .wb-toc-header {
+  background: #1e293b;
+  border-bottom-color: rgba(148, 163, 184, 0.24);
+}
+
+body.latex-dark .wb-toc-actions button,
+body.latex-dark .wb-toc-filter-wrap button,
+body.latex-dark .wb-toc-filter-wrap input {
+  background: #0f172a;
+  color: #f5eedc;
+  border-color: rgba(245, 238, 220, 0.28);
+}
+
+body.latex-dark .wb-toc-filter-wrap {
+  border-bottom-color: rgba(148, 163, 184, 0.2);
+}
+
+body.latex-dark .wb-toc-row:hover {
+  background: rgba(96, 165, 250, 0.18);
+}
+
+body.latex-dark .wb-toc-row.is-active {
+  background: rgba(59, 130, 246, 0.30);
+}
+
+body.latex-dark .wb-toc-drawer .katex,
+body.latex-dark .wb-toc-drawer .katex * {
+  color: #f5eedc;
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not(.latex-light) .wb-toc-drawer {
+    background: #0f172a;
+    color: #f5eedc;
+    border-right-color: rgba(148, 163, 184, 0.24);
+  }
+  body:not(.latex-light) .wb-toc-header {
+    background: #1e293b;
+    border-bottom-color: rgba(148, 163, 184, 0.24);
+  }
+  body:not(.latex-light) .wb-toc-actions button,
+  body:not(.latex-light) .wb-toc-filter-wrap button,
+  body:not(.latex-light) .wb-toc-filter-wrap input {
+    background: #0f172a;
+    color: #f5eedc;
+    border-color: rgba(245, 238, 220, 0.28);
+  }
+  body:not(.latex-light) .wb-toc-filter-wrap {
+    border-bottom-color: rgba(148, 163, 184, 0.2);
+  }
+  body:not(.latex-light) .wb-toc-row:hover {
+    background: rgba(96, 165, 250, 0.18);
+  }
+  body:not(.latex-light) .wb-toc-row.is-active {
+    background: rgba(59, 130, 246, 0.30);
+  }
+  body:not(.latex-light) .wb-toc-drawer .katex,
+  body:not(.latex-light) .wb-toc-drawer .katex * {
+    color: #f5eedc;
+  }
+}
+
+/* Responsive Mobile & Small-Tablet Adjustments */
+@media (max-width: 720px) {
+  .floating-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 5px 8px;
+    gap: 4px;
+  }
+  .floating-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  .wb-toolbar-group {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+  .floating-toolbar button {
+    padding: 5px 8px;
+    font-size: 0.78rem;
+  }
+  .floating-toolbar .wb-has-tip::before,
+  .floating-toolbar .wb-has-tip::after {
+    display: none !important;
+  }
+  .wb-graph-header {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+  .wb-graph-header::-webkit-scrollbar {
+    display: none;
+  }
+  .wb-graph-group {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+  .wb-graph-header button {
+    padding: 4px 7px;
+    font-size: 11.5px;
+  }
+  .wb-graph-search-wrap input {
+    width: 115px;
+    max-width: 38vw;
+  }
+  .wb-graph-footer {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  h1 {
+    font-size: 1.75rem;
+    line-height: 1.25;
+  }
+  h2 {
+    font-size: 1.38rem;
+  }
+  h3 {
+    font-size: 1.16rem;
+  }
+  details.marginbox > summary,
+  details.tcolorbox > summary,
+  details.vbox > summary {
+    padding: 9px 11px;
+    font-size: 0.9rem;
+  }
+  pre {
+    padding: 0.75rem 0.9rem;
+    font-size: 80%;
+  }
+  .wb-unsaved-popup {
+    left: 10px;
+    right: 10px;
+    max-width: none;
+    width: auto;
+  }
+  .wb-toc-drawer {
+    width: min(86vw, 310px);
+  }
+  .wb-graph-hint-text {
+    display: none;
+  }
+}
+
 /* 4. Print Stylesheet (@media print) */
 @media print {
   body {
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
+    margin-left: 0 !important;
     padding: 0 !important;
     color: #000 !important;
     background: #fff !important;
@@ -1492,6 +2552,10 @@ body.latex-dark .wb-html-error {
   .floating-toolbar,
   .wb-annot-toolbar,
   .wb-save-modal,
+  .wb-unsaved-popup,
+  .wb-box-modal-backdrop,
+  .wb-graph-workspace,
+  .wb-toc-drawer,
   .wb-sticky-note-del {
     display: none !important;
   }

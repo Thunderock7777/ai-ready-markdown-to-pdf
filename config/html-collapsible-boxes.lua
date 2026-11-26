@@ -1,24 +1,24 @@
 -- html-collapsible-boxes.lua
 -- Pandoc Lua filter for LaTeX-to-HTML conversion (whiteboard_html layout).
 -- Transforms LaTeX marginbox and tcolorbox environments into HTML5 <details> and <summary>
--- elements with progressive hierarchical collapse:
--- 1. If a box has a title, the summary bar displays that title.
--- 2. If untitled, the summary bar displays the custom prompt "Click for more info".
--- 3. Clicking any box opens ONLY its immediate children; grandchildren and deeper stay collapsed.
--- 4. Dynamic hex colors are mapped directly from box attributes or \definecolor in the .tex file.
+-- elements with progressive hierarchical collapse, dynamic width, Option A annotations,
+-- Tree View (Markmap), PDF-style Table of Contents, and offline/CDN asset modes.
 
 local hex_map = {}
 local whiteboard_width_css = nil
+local html_assets = "offline"
+local html_box_mode = "popup"
+local html_cdn_base = "https://cdn.jsdelivr.net/gh/Thunderock7777/ai-ready-markdown-to-pdf@main"
 local max_box_depth = 1
 local annot_box_counter = 0
 local annot_sec_counter = 0
 local html_embed_counter = 0
 
+local B64_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 local B64_REV = {}
 do
-  local alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-  for i = 1, #alpha do
-    B64_REV[alpha:byte(i)] = i - 1
+  for i = 1, #B64_ALPHA do
+    B64_REV[B64_ALPHA:byte(i)] = i - 1
   end
 end
 
@@ -28,7 +28,7 @@ local function b64decode(data)
   local vals = {}
   for i = 1, #data do
     local b = data:byte(i)
-    if b == 61 then -- '='
+    if b == 61 then
       vals[#vals + 1] = -1
     elseif B64_REV[b] then
       vals[#vals + 1] = B64_REV[b]
@@ -37,18 +37,36 @@ local function b64decode(data)
       local v1, v2, v3, v4 = vals[1], vals[2], vals[3], vals[4]
       vals = {}
       if v1 >= 0 and v2 >= 0 then
-        local c1 = v1 * 4 + math.floor(v2 / 16)
-        out[#out + 1] = string.char(c1)
+        out[#out + 1] = string.char(v1 * 4 + math.floor(v2 / 16))
         if v3 >= 0 then
-          local c2 = ((v2 % 16) * 16) + math.floor(v3 / 4)
-          out[#out + 1] = string.char(c2)
+          out[#out + 1] = string.char(((v2 % 16) * 16) + math.floor(v3 / 4))
           if v4 >= 0 then
-            local c3 = ((v3 % 4) * 64) + v4
-            out[#out + 1] = string.char(c3)
+            out[#out + 1] = string.char(((v3 % 4) * 64) + v4)
           end
         end
       end
     end
+  end
+  return table.concat(out)
+end
+
+local function b64encode(data)
+  if not data or data == "" then return "" end
+  local out = {}
+  local len = #data
+  for i = 1, len, 3 do
+    local b1 = data:byte(i)
+    local b2 = (i + 1 <= len) and data:byte(i + 1) or nil
+    local b3 = (i + 2 <= len) and data:byte(i + 2) or nil
+    local n = b1 * 65536 + (b2 or 0) * 256 + (b3 or 0)
+    local c1 = math.floor(n / 262144) % 64 + 1
+    local c2 = math.floor(n / 4096) % 64 + 1
+    local c3 = math.floor(n / 64) % 64 + 1
+    local c4 = n % 64 + 1
+    out[#out + 1] = B64_ALPHA:sub(c1, c1)
+      .. B64_ALPHA:sub(c2, c2)
+      .. (b2 and B64_ALPHA:sub(c3, c3) or "=")
+      .. (b3 and B64_ALPHA:sub(c4, c4) or "=")
   end
   return table.concat(out)
 end
@@ -59,6 +77,52 @@ end
 
 local function is_box_div(el)
   return el.tag == "Div" and (el.classes:includes("marginbox") or el.classes:includes("tcolorbox") or el.classes:includes("vbox"))
+end
+
+local function read_text_file(p)
+  if not p or p == "" then return nil end
+  local f = io.open(p, "rb")
+  if not f then return nil end
+  local c = f:read("*a")
+  f:close()
+  return c
+end
+
+local function load_viewer_js()
+  local cfg_dir = os.getenv("MD2PDF_CONFIG_DIR")
+  if cfg_dir and cfg_dir ~= "" then
+    cfg_dir = cfg_dir:gsub("[\\/]+$", "")
+    local js = read_text_file(cfg_dir .. "/wb-viewer.js")
+    if js and js ~= "" then return js end
+  end
+  if PANDOC_SCRIPT_FILE then
+    local dir = PANDOC_SCRIPT_FILE:match("^(.*)[\\/][^\\/]+$")
+    if dir then
+      local js = read_text_file(dir .. "/wb-viewer.js")
+      if js and js ~= "" then return js end
+    end
+  end
+  return nil
+end
+
+local function load_graph_bundle()
+  local json_path = os.getenv("MD2PDF_GRAPH_JSON")
+  if not json_path or json_path == "" then
+    return nil
+  end
+  local payload_json = read_text_file(json_path)
+  if not payload_json or payload_json == "" then return nil end
+
+  local vendor_json = nil
+  local vendor_path = os.getenv("MD2PDF_GRAPH_VENDOR")
+  if vendor_path and vendor_path ~= "" then
+    vendor_json = read_text_file(vendor_path)
+  end
+
+  return {
+    payload_json = payload_json,
+    vendor_json = vendor_json
+  }
 end
 
 local function transform_html_embed(el)
@@ -140,7 +204,47 @@ local function load_tex_metadata()
   if wb then
     whiteboard_width_css = wb
   end
+  local box_mode = content:match("%% HTML_BOX_MODE:%s*(%S+)")
+  if box_mode and (box_mode == "popup" or box_mode == "inline") then
+    html_box_mode = box_mode
+  end
+  local assets = content:match("%% HTML_ASSETS:%s*(%S+)")
+  if assets and (assets == "cdn" or assets == "offline") then
+    html_assets = assets
+  end
+  local cdn = content:match("%% HTML_CDN_BASE:%s*([^\r\n]+)")
+  if cdn then
+    cdn = cdn:match("^%s*(.-)%s*$"):gsub("/+$", "")
+    if cdn ~= "" then html_cdn_base = cdn end
+  end
 end
+
+local MIME_BY_EXT = {
+  png = "image/png",
+  jpg = "image/jpeg",
+  jpeg = "image/jpeg",
+  gif = "image/gif",
+  webp = "image/webp",
+  svg = "image/svg+xml"
+}
+
+local function inline_local_image(el)
+  if html_assets ~= "cdn" or not el.src or el.src == "" then
+    return nil
+  end
+  if el.src:match("^https?://") or el.src:match("^data:") or el.src:match("^//") then
+    return nil
+  end
+  local ext = (el.src:match("%.([%a%d]+)$") or ""):lower()
+  local mime = MIME_BY_EXT[ext]
+  if not mime then return nil end
+  local bytes = read_text_file(el.src)
+  if not bytes then return nil end
+  el.src = "data:" .. mime .. ";base64," .. b64encode(bytes)
+  return el
+end
+
+local process_block_sequence
 
 local function transform_div(el, depth)
   if not (el.classes:includes("marginbox") or el.classes:includes("tcolorbox") or el.classes:includes("vbox")) then
@@ -197,13 +301,12 @@ local function transform_div(el, depth)
   local box_annot_id = "box-" .. tostring(annot_box_counter)
 
   local processed_body = process_block_sequence(body_blocks, depth + 1)
-
-  local safe_title = title:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;")
+  local safe_title = escape_html(title)
 
   local open_html = string.format([[
-<details class="marginbox" style="--box-col: %s;">
+<details class="marginbox" id="wb-%s" style="--box-col: %s;">
   <summary class="marginbox-header">%s</summary>
-  <div class="marginbox-body" data-wb-annot-id="%s">]], color_hex, safe_title, box_annot_id)
+  <div class="marginbox-body" data-wb-annot-id="%s">]], box_annot_id, color_hex, safe_title, box_annot_id)
 
   local close_html = [[
   </div>
@@ -217,7 +320,7 @@ local function transform_div(el, depth)
   return res
 end
 
-function process_block_sequence(blocks, depth)
+process_block_sequence = function(blocks, depth)
   local out = {}
   local flow_buf = {}
 
@@ -255,13 +358,21 @@ function Pandoc(doc)
   annot_box_counter = 0
   annot_sec_counter = 0
   html_embed_counter = 0
+
+  if html_assets == "cdn" then
+    doc = doc:walk({ Image = inline_local_image })
+  end
+
   local new_blocks = process_block_sequence(doc.blocks, 0)
   local doc_id = compute_doc_id(doc)
 
-  -- Determine dynamic whiteboard width from tex metadata or box nesting depth
   if not whiteboard_width_css then
-    local needed_in = 11.0 + math.max(0, max_box_depth - 1) * 1.5
-    whiteboard_width_css = string.format("%.2fin", needed_in)
+    if html_box_mode == "inline" then
+      local needed_in = 11.0 + math.max(0, max_box_depth - 1) * 1.5
+      whiteboard_width_css = string.format("%.2fin", needed_in)
+    else
+      whiteboard_width_css = "min(94vw, 68rem)"
+    end
   end
 
   local header_includes = doc.meta["header-includes"] or pandoc.MetaList({})
@@ -269,8 +380,44 @@ function Pandoc(doc)
     header_includes = pandoc.MetaList({ header_includes })
   end
 
+  local cdn_css_tag = ""
+  local cdn_head_script = ""
+  if html_assets == "cdn" then
+    cdn_css_tag = string.format('<link id="wbCdnCssLink" rel="stylesheet" href="%s/config/latex.css" onerror="window.__wbCdnCssErr=true;if(window.__wbShowCdnOffline)window.__wbShowCdnOffline(\'Failed to load CDN stylesheet (latex.css)\',false);" />\n', escape_html(html_cdn_base))
+    cdn_head_script = [[
+<script>
+window.__wbIsCdnMode = true;
+window.__wbShowCdnOffline = function(reason, isMidSession) {
+  try {
+    var b = document.getElementById('wbCdnOfflineBanner');
+    var t = document.getElementById('wbCdnOfflineTitle');
+    var d = document.getElementById('wbCdnOfflineMsg');
+    var r = document.getElementById('wbCdnOfflineReason');
+    if (!b) { window.__wbPendingCdnBanner = { reason: reason || '', mid: !!isMidSession }; return; }
+    b.style.display = 'flex';
+    b.style.background = isMidSession ? '#92400e' : '#b91c1c';
+    b.style.borderColor = isMidSession ? '#78350f' : '#7f1d1d';
+    if (t) t.textContent = isMidSession ? 'Connection Lost (CDN Mode): ' : 'Internet Connection Required (CDN Mode): ';
+    if (d) {
+      d.textContent = isMidSession
+        ? 'You are currently offline. Already-loaded notes, Table of Contents, Pen/Highlighter/Notes, Save HTML, Save As, and Print continue working. Turn on Wi-Fi, Ethernet, or Mobile Data if you need uncached equations or Tree View, then click Reload.'
+        : 'Please turn on Wi-Fi, Ethernet, or Mobile Data so this CDN HTML file can load its stylesheet, math renderer, and interactive viewer, then click Reload.';
+    }
+    if (r) r.textContent = reason ? ('Detail: ' + reason) : '';
+  } catch (e) {}
+};
+window.__wbHideCdnOffline = function() {
+  try {
+    var b = document.getElementById('wbCdnOfflineBanner');
+    if (b) b.style.display = 'none';
+  } catch (e) {}
+};
+</script>
+]]
+  end
+
   local head_html = string.format([==[
-<style id="wbBaseVars">
+%s%s<style id="wbBaseVars">
 :root {
   --whiteboard-width: %s;
   --document-width: var(--whiteboard-width);
@@ -323,12 +470,29 @@ window.MathJax = {
     processHtmlClass: 'tex2jax_process'
   }
 };
-</script>]==], whiteboard_width_css)
+</script>]==], cdn_css_tag, cdn_head_script, whiteboard_width_css)
 
   header_includes[#header_includes + 1] = pandoc.MetaBlocks({ pandoc.RawBlock("html", head_html) })
   doc.meta["header-includes"] = header_includes
 
-  local compat_banner_html = [[
+  local cdn_banner_html = ""
+  if html_assets == "cdn" then
+    cdn_banner_html = [[
+<div id="wbCdnOfflineBanner" role="status" aria-live="polite" style="display:none; position:sticky; top:54px; z-index:9500; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:#b91c1c; color:#ffffff; border:2px solid #7f1d1d; border-radius:8px; padding:12px 16px; margin:12px auto 16px auto; max-width:960px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:14px; line-height:1.45; box-shadow:0 6px 18px rgba(0,0,0,0.22);">
+  <div style="flex:1 1 320px; min-width:220px;">
+    <strong id="wbCdnOfflineTitle">Internet Connection Required (CDN Mode): </strong>
+    <span id="wbCdnOfflineMsg">Please turn on Wi-Fi, Ethernet, or Mobile Data so this CDN HTML file can load its stylesheet, math renderer, and interactive viewer, then click Reload.</span>
+    <div id="wbCdnOfflineReason" style="margin-top:4px; font-size:12px; opacity:0.9;"></div>
+  </div>
+  <div style="display:flex; align-items:center; gap:8px; flex:0 0 auto;">
+    <button id="btnCdnReload" type="button" onclick="window.location.reload();" style="background:#ffffff; color:#111827; border:none; border-radius:6px; padding:7px 14px; font-weight:700; font-size:13px; cursor:pointer;">&#x21bb; Reload Page</button>
+    <button id="btnCdnDismiss" type="button" onclick="if(window.__wbHideCdnOffline)window.__wbHideCdnOffline();" style="background:rgba(255,255,255,0.16); color:#ffffff; border:1px solid rgba(255,255,255,0.38); border-radius:6px; padding:6px 10px; font-size:12px; cursor:pointer;">Dismiss</button>
+  </div>
+</div>
+]]
+  end
+
+  local compat_banner_html = cdn_banner_html .. [[
 <div id="viewerCompatWarning" class="viewer-compat-warning" role="alert" style="display:block; background:#b91c1c; color:#ffffff; border:3px solid #7f1d1d; border-radius:6px; padding:14px 18px; margin:12px auto 20px auto; max-width:960px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:15px; line-height:1.45; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
   <strong>Incompatible HTML Viewer Detected:</strong> This interactive whiteboard HTML requires a modern web browser (such as Chrome, Edge, Firefox, or Safari) with JavaScript, HTML5 collapsible boxes, CSS styles, and MathJax enabled. Built-in file previewers or restricted HTML viewers cannot render equations, styles, or collapsible boxes properly—please open this file in a web browser.
   <div id="viewerCompatReason" style="margin-top:6px; font-size:13px; color:#fee2e2;"></div>
@@ -341,16 +505,127 @@ window.MathJax = {
   include_before[#include_before + 1] = pandoc.MetaBlocks({ pandoc.RawBlock("html", compat_banner_html) })
   doc.meta["include-before"] = include_before
 
-  -- Floating reading, compatibility & Option A annotation toolbar
-  local annot_data_html = string.format('<script type="application/json" id="wbAnnotationsData" data-wb-doc-id="%s">{"v":1,"updatedAt":0,"containers":{}}</script>', doc_id)
+  local graph_bundle = load_graph_bundle()
+  local toc_btn_html = ""
+  local graph_btn_html = ""
+  local graph_workspace_html = ""
+  if graph_bundle then
+    toc_btn_html = '<button id="btnToggleToc" type="button" class="wb-toc-btn wb-has-tip wb-tip-left" data-wb-tip="Table of Contents" title="Table of Contents" aria-label="Toggle Table of Contents">TOC</button>\n    <span class="wb-annot-sep"></span>\n    '
+    graph_btn_html = '<button id="btnToggleGraph" type="button" class="wb-graph-btn" title="Open interactive Markmap Tree View" aria-label="Toggle Tree View">Tree View</button>\n    <span class="wb-annot-sep"></span>\n    '
+    local vendor_tag = ""
+    if html_assets ~= "cdn" and graph_bundle.vendor_json then
+      vendor_tag = '<script type="application/json" id="wbVendorGz">' .. graph_bundle.vendor_json .. '</script>\n'
+    end
+    local data_attrs = string.format('id="wbGraphData" data-wb-assets="%s" data-wb-cdn-base="%s"', escape_html(html_assets), escape_html(html_cdn_base))
+    graph_workspace_html = [===[
+<aside id="wbTocDrawer" class="wb-toc-drawer" aria-label="Table of Contents">
+  <div class="wb-toc-header">
+    <span class="wb-toc-title">Table of Contents</span>
+    <div class="wb-toc-actions">
+      <button id="btnTocExpandAll" type="button" title="Expand all sections">⊞</button>
+      <button id="btnTocCollapseAll" type="button" title="Collapse subsections">⊟</button>
+      <button id="btnTocClose" type="button" title="Close Table of Contents (Esc)">✕</button>
+    </div>
+  </div>
+  <div class="wb-toc-filter-wrap">
+    <input id="wbTocFilter" type="search" placeholder="Filter sections..." aria-label="Filter Table of Contents" />
+    <button id="btnTocFilterClear" type="button" title="Clear filter">×</button>
+  </div>
+  <div id="wbTocList" class="wb-toc-list" role="tree"></div>
+</aside>
+<section id="wbGraphWorkspace" class="wb-graph-workspace" aria-label="Interactive Markmap Tree View">
+  <div id="wbGraphSplitter" class="wb-graph-splitter" role="separator" aria-orientation="vertical" title="Drag to resize Split View (double-click to reset 60/40)"></div>
+  <div class="wb-graph-header">
+    <div class="wb-graph-group">
+      <button id="btnGraphModeFull" type="button" class="is-active" title="Full-screen Tree View">Full</button>
+      <button id="btnGraphModeSplit" type="button" title="Side-by-side Split View (Tree + Notes)">Split</button>
+      <span class="wb-graph-sep"></span>
+      <button type="button" class="wb-graph-depth is-active" data-depth="1" title="Expand level 1 branches">L1</button>
+      <button type="button" class="wb-graph-depth" data-depth="2" title="Expand level 2 branches">L2</button>
+      <button type="button" class="wb-graph-depth" data-depth="3" title="Expand level 3 branches">L3</button>
+      <button type="button" class="wb-graph-depth" data-depth="0" title="Expand all branches">All</button>
+      <span class="wb-graph-sep"></span>
+      <span class="wb-graph-search-wrap">
+        <input id="wbGraphSearch" type="search" placeholder="Search nodes..." aria-label="Search Tree View nodes" />
+        <button id="btnGraphSearchClear" type="button" title="Clear search">×</button>
+        <button id="btnGraphMatchPrev" type="button" title="Previous match" disabled>◀</button>
+        <button id="btnGraphMatchNext" type="button" title="Next match" disabled>▶</button>
+        <span id="wbGraphMatchCount" class="wb-graph-count">0 / 0</span>
+      </span>
+    </div>
+    <div class="wb-graph-group">
+      <button id="btnGraphZoomOut" type="button" title="Zoom out">−</button>
+      <button id="btnGraphFit" type="button" title="Fit mindmap to screen">Fit</button>
+      <button id="btnGraphZoomIn" type="button" title="Zoom in">+</button>
+      <span class="wb-graph-sep"></span>
+      <button id="btnGraphExportSvg" type="button" title="Download interactive mindmap as .svg">Export .svg</button>
+      <button id="btnGraphNewTab" type="button" title="Open interactive Markmap in a new browser tab">New Tab ↗</button>
+      <button id="btnGraphClose" type="button" title="Close Tree View (Esc)">Close ✕</button>
+    </div>
+  </div>
+  <div class="wb-graph-stage" id="wbGraphStage">
+    <svg id="wbGraphSvg"></svg>
+  </div>
+  <div class="wb-graph-footer">
+    <div class="wb-graph-sel-info">
+      <span id="wbGraphSelLabel" class="wb-graph-sel-label">Click any node or its ↗ button to jump to notes</span>
+      <button id="btnGraphJumpSelected" type="button" class="wb-graph-jump-main" disabled title="Jump to selected node in notes">Jump to Note ↗</button>
+    </div>
+    <span class="wb-graph-hint-text">○ Fold/unfold • Node click selects • Dedicated ↗ button jumps (opens collapsed boxes)</span>
+  </div>
+</section>
+<script type="application/json" ]===] .. data_attrs .. '>' .. graph_bundle.payload_json .. '</script>\n' .. vendor_tag
+  end
+
+  local viewer_script_html = ""
+  if html_assets == "cdn" then
+    viewer_script_html = string.format([[<script id="wbCdnViewerJs" src="%s/config/wb-viewer.js" onerror="window.__wbCdnViewerErr=true;if(window.__wbShowCdnOffline)window.__wbShowCdnOffline('Failed to load interactive viewer script (wb-viewer.js)',false);"></script>
+<script>
+(function() {
+  if (!window.__wbIsCdnMode) return;
+  if (window.__wbPendingCdnBanner) {
+    window.__wbShowCdnOffline(window.__wbPendingCdnBanner.reason, window.__wbPendingCdnBanner.mid);
+  }
+  function checkInitialCdn() {
+    var errs = [];
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) errs.push('Browser is offline');
+    if (window.__wbCdnCssErr) errs.push('CDN stylesheet (latex.css) failed to download');
+    if (window.__wbCdnViewerErr || !window.__wbViewerLoaded) errs.push('CDN viewer script (wb-viewer.js) failed to download');
+    if (errs.length && window.__wbShowCdnOffline) {
+      window.__wbShowCdnOffline(errs.join('; '), false);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', checkInitialCdn);
+  } else {
+    checkInitialCdn();
+  }
+  window.addEventListener('offline', function() {
+    var missingCore = !!(window.__wbCdnCssErr || window.__wbCdnViewerErr || !window.__wbViewerLoaded);
+    if (window.__wbShowCdnOffline) {
+      window.__wbShowCdnOffline('Network connection turned off', !missingCore);
+    }
+  });
+  window.addEventListener('online', function() {
+    var missingCore = !!(window.__wbCdnCssErr || window.__wbCdnViewerErr || !window.__wbViewerLoaded);
+    if (!missingCore && window.__wbHideCdnOffline) {
+      window.__wbHideCdnOffline();
+    } else if (window.__wbShowCdnOffline) {
+      window.__wbShowCdnOffline('Internet restored — click Reload Page to load CDN styles and viewer scripts', false);
+    }
+  });
+})();
+</script>]], escape_html(html_cdn_base))
+  else
+    local viewer_js = load_viewer_js() or ""
+    viewer_script_html = "<script>\n" .. viewer_js .. "\n</script>"
+  end
+
+  local annot_data_html = string.format('<script type="application/json" id="wbAnnotationsData" data-wb-doc-id="%s" data-wb-box-mode="%s">{"v":1,"updatedAt":0,"containers":{}}</script>', doc_id, escape_html(html_box_mode))
   local toolbar_html = annot_data_html .. [===[
 <div class="floating-toolbar" id="floatingToolbar" role="toolbar" aria-label="Document Controls">
   <div class="wb-toolbar-group">
-    <button id="btnToggleBoxes" type="button" title="Expand or collapse all boxes" aria-label="Toggle all boxes">
-      <span id="toggleBoxesIcon">⊞</span> <span id="toggleBoxesLabel">Expand All</span>
-    </button>
-    <span class="wb-annot-sep"></span>
-    <button id="btnToolCursor" type="button" class="is-active" title="Select / Read mode (Esc)">Cursor</button>
+    ]===] .. toc_btn_html .. [===[<button id="btnToolCursor" type="button" class="is-active" title="Select / Read mode (Esc)">Cursor</button>
     <button id="btnToolPen" type="button" title="Freehand Pen">Pen</button>
     <button id="btnToolHighlight" type="button" title="Cursor Line-by-Line Highlight">Highlight</button>
     <button id="btnToolNote" type="button" title="Drop Sticky Note">Note</button>
@@ -369,14 +644,18 @@ window.MathJax = {
   <div class="wb-toolbar-group">
     <span id="wbAnnotStatus" class="wb-annot-status"></span>
     <button id="btnPrintDoc" type="button" title="Print / Save as PDF (Ctrl+P)" aria-label="Print document">Print</button>
-    <button id="btnAnnotSave" type="button" class="wb-annot-save-btn" title="Overwrite main HTML (or save with main filename)">Save HTML</button>
-    <button id="btnAnnotSaveAs" type="button" title="Save annotated HTML as...">Save As</button>
+    <button id="btnAnnotSave" type="button" class="wb-annot-save-btn wb-has-tip" data-wb-tip="For local storage &amp; updating this file, use Save HTML" title="For local storage &amp; updating this file, use Save HTML">Save HTML</button>
+    <button id="btnAnnotSaveAs" type="button" class="wb-has-tip" data-wb-tip="For sharing a standalone HTML file, use Save As" title="For sharing a standalone HTML file, use Save As">Save As</button>
     <span class="wb-annot-sep"></span>
-    <button id="btnToggleTheme" type="button" title="Switch theme" aria-label="Toggle dark/light theme">
+    ]===] .. graph_btn_html .. [===[<button id="btnToggleTheme" type="button" title="Switch theme" aria-label="Toggle dark/light theme">
       <span id="toggleThemeIcon">🌓</span> Theme
     </button>
     <button id="btnScrollTop" type="button" title="Scroll to top" aria-label="Scroll to top">
       ↑ Top
+    </button>
+    <span class="wb-annot-sep"></span>
+    <button id="btnToggleBoxes" type="button" title="Expand or collapse all boxes" aria-label="Toggle all boxes">
+      <span id="toggleBoxesIcon">⊞</span> <span id="toggleBoxesLabel">Expand All</span>
     </button>
   </div>
 </div>
@@ -393,1055 +672,32 @@ window.MathJax = {
     </div>
   </div>
 </div>
-<script>
-(function() {
-  // Capture pristine HTML before MathJax or overlays mutate the DOM
-  var pristineHtmlSnapshot = '';
-  try {
-    pristineHtmlSnapshot = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-  } catch (e) {}
-
-  // 0. Viewer Compatibility Verification (ES5-safe)
-  function showCompatWarning(reasons) {
-    try {
-      if (document.documentElement && document.documentElement.classList) {
-        document.documentElement.classList.remove('wb-compat-ok');
-      }
-      var banner = document.getElementById('viewerCompatWarning');
-      if (banner) {
-        banner.style.display = 'block';
-      }
-      var reasonEl = document.getElementById('viewerCompatReason');
-      if (reasonEl && reasons && reasons.length) {
-        reasonEl.textContent = 'Detected issue: ' + reasons.join('; ') + '.';
-      }
-    } catch (e) {}
-  }
-
-  if (window.__wbCompatFailure && window.__wbCompatFailure.length) {
-    showCompatWarning(window.__wbCompatFailure);
-  }
-
-  function checkMathStartup(mjx) {
-    if (!mjx || !mjx.startup || !mjx.startup.promise) {
-      return false;
-    }
-    mjx.startup.promise.then(function() {
-      if (document.querySelector('.math') && !document.querySelector('mjx-container')) {
-        showCompatWarning(['MathJax loaded but failed to render equations']);
-      }
-    }, function() {
-      showCompatWarning(['MathJax failed to initialize equations in this viewer']);
-    });
-    return true;
-  }
-
-  function verifyStylesAndMath() {
-    var issues = [];
-    try {
-      if (window.getComputedStyle) {
-        var wb = (window.getComputedStyle(document.documentElement).getPropertyValue('--whiteboard-width') || '').replace(/^\s+|\s+$/g, '');
-        if (!wb) {
-          issues.push('Document CSS variables and layout stylesheets were blocked or stripped');
-        }
-      }
-    } catch (e) {
-      issues.push('Unable to verify document CSS support');
-    }
-
-    if (document.querySelector('.math') && !checkMathStartup(window.MathJax)) {
-      setTimeout(function() {
-        if (!checkMathStartup(window.MathJax) && document.querySelector('.math') && !document.querySelector('mjx-container')) {
-          showCompatWarning(['MathJax equation engine could not load (scripts or network may be blocked)']);
-        }
-      }, 1500);
-    }
-
-    if (issues.length) {
-      showCompatWarning(issues);
-    }
-  }
-
-  if (document.readyState === 'complete') {
-    verifyStylesAndMath();
-  } else if (window.addEventListener) {
-    window.addEventListener('load', verifyStylesAndMath);
-  }
-
-  // 1. Box Expand / Collapse Toggle
-  var btnBoxes = document.getElementById('btnToggleBoxes');
-  var lblBoxes = document.getElementById('toggleBoxesLabel');
-  var icoBoxes = document.getElementById('toggleBoxesIcon');
-  var allExpanded = false;
-
-  if (btnBoxes) {
-    btnBoxes.addEventListener('click', function() {
-      allExpanded = !allExpanded;
-      var boxes = document.querySelectorAll('details.marginbox, details.tcolorbox, details.vbox');
-      boxes.forEach(function(d) { d.open = allExpanded; });
-      if (lblBoxes) lblBoxes.textContent = allExpanded ? 'Collapse All' : 'Expand All';
-      if (icoBoxes) icoBoxes.textContent = allExpanded ? '⊟' : '⊞';
-      syncAllLayerSizes();
-    });
-  }
-
-  // 2. Theme Toggle (Auto -> Dark -> Light -> Auto)
-  var btnTheme = document.getElementById('btnToggleTheme');
-  var currentTheme = 'auto';
-  try {
-    currentTheme = localStorage.getItem('latex-theme') || 'auto';
-  } catch (e) {}
-
-  function applyTheme(theme) {
-    document.body.classList.remove('latex-dark', 'latex-light');
-    if (theme === 'dark') document.body.classList.add('latex-dark');
-    if (theme === 'light') document.body.classList.add('latex-light');
-    try {
-      localStorage.setItem('latex-theme', theme);
-    } catch (e) {}
-    currentTheme = theme;
-  }
-
-  if (currentTheme !== 'auto') {
-    applyTheme(currentTheme);
-  }
-
-  if (btnTheme) {
-    btnTheme.addEventListener('click', function() {
-      if (currentTheme === 'auto') {
-        var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        applyTheme(isDark ? 'light' : 'dark');
-      } else if (currentTheme === 'dark') {
-        applyTheme('light');
-      } else {
-        applyTheme('auto');
-      }
-    });
-  }
-
-  // 3. Scroll to Top
-  var btnTop = document.getElementById('btnScrollTop');
-  if (btnTop) {
-    btnTop.addEventListener('click', function() {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  }
-
-  // 4. Option A Per-Container Annotations & Save HTML Engine
-  var SVG_NS = 'http://www.w3.org/2000/svg';
-  var dataEl = document.getElementById('wbAnnotationsData');
-  var docId = dataEl ? (dataEl.getAttribute('data-wb-doc-id') || 'wb-default') : 'wb-default';
-  var draftKey = 'wb-annot-draft:' + docId;
-  var annotState = { v: 1, updatedAt: 0, containers: {} };
-  var undoStack = [];
-  var activeTool = 'cursor';
-  var activeColor = '#dc2626';
-  var activeSize = 2.5;
-  var annotBarOpen = false;
-  var isDirty = false;
-  var statusEl = document.getElementById('wbAnnotStatus');
-
-  function setStatus(msg) {
-    if (statusEl) statusEl.textContent = msg || '';
-  }
-
-  function cloneState(st) {
-    return JSON.parse(JSON.stringify(st));
-  }
-
-  function pushUndo() {
-    undoStack.push(JSON.stringify(annotState));
-    if (undoStack.length > 60) undoStack.shift();
-  }
-
-  function saveDraft() {
-    annotState.updatedAt = Date.now();
-    isDirty = true;
-    try {
-      localStorage.setItem(draftKey, JSON.stringify(annotState));
-      setStatus('Unsaved draft');
-    } catch (e) {
-      setStatus('Edited');
-    }
-  }
-
-  function loadInitialAnnotations() {
-    var embedded = { v: 1, updatedAt: 0, containers: {} };
-    if (dataEl && dataEl.textContent) {
-      try {
-        var parsed = JSON.parse(dataEl.textContent);
-        if (parsed && parsed.containers) embedded = parsed;
-      } catch (e) {}
-    }
-    annotState = cloneState(embedded);
-    try {
-      var rawDraft = localStorage.getItem(draftKey);
-      if (rawDraft) {
-        var draft = JSON.parse(rawDraft);
-        if (draft && draft.containers && (draft.updatedAt || 0) > (embedded.updatedAt || 0)) {
-          annotState = draft;
-          isDirty = true;
-          setStatus('Draft restored');
-        }
-      }
-    } catch (e) {}
-  }
-
-  function getContainerData(cid) {
-    if (!annotState.containers[cid]) {
-      annotState.containers[cid] = { strokes: [], rects: [], notes: [] };
-    }
-    if (!annotState.containers[cid].strokes) annotState.containers[cid].strokes = [];
-    if (!annotState.containers[cid].rects) annotState.containers[cid].rects = [];
-    if (!annotState.containers[cid].notes) annotState.containers[cid].notes = [];
-    return annotState.containers[cid];
-  }
-
-  function pointsToPath(pts) {
-    if (!pts || !pts.length) return '';
-    if (pts.length === 1) {
-      return 'M ' + pts[0][0] + ' ' + pts[0][1] + ' L ' + (pts[0][0] + 0.1) + ' ' + pts[0][1];
-    }
-    var parts = ['M ' + pts[0][0] + ' ' + pts[0][1]];
-    for (var i = 1; i < pts.length; i++) {
-      parts.push('L ' + pts[i][0] + ' ' + pts[i][1]);
-    }
-    return parts.join(' ');
-  }
-
-  function ensureSvgLayer(container) {
-    var svg = null;
-    for (var i = 0; i < container.children.length; i++) {
-      var ch = container.children[i];
-      if (ch.classList && ch.classList.contains('wb-annot-layer')) {
-        svg = ch;
-        break;
-      }
-    }
-    if (!svg) {
-      svg = document.createElementNS(SVG_NS, 'svg');
-      svg.setAttribute('class', 'wb-annot-layer');
-      svg.setAttribute('aria-hidden', 'true');
-      container.appendChild(svg);
-    }
-    syncLayerSize(container, svg);
-    return svg;
-  }
-
-  function syncLayerSize(container, svg) {
-    if (!container || !svg) return;
-    var w = Math.max(container.scrollWidth || 0, container.clientWidth || 0);
-    var h = Math.max(container.scrollHeight || 0, container.clientHeight || 0);
-    if (w > 0) svg.style.width = w + 'px';
-    if (h > 0) svg.style.height = h + 'px';
-  }
-
-  function syncAllLayerSizes() {
-    var containers = document.querySelectorAll('[data-wb-annot-id]');
-    containers.forEach(function(c) {
-      for (var i = 0; i < c.children.length; i++) {
-        if (c.children[i].classList && c.children[i].classList.contains('wb-annot-layer')) {
-          syncLayerSize(c, c.children[i]);
-          break;
-        }
-      }
-    });
-  }
-
-  function createStrokeEl(cid, stroke) {
-    var p = document.createElementNS(SVG_NS, 'path');
-    p.setAttribute('class', 'wb-annot-stroke');
-    p.setAttribute('data-stroke-id', stroke.id);
-    p.setAttribute('d', pointsToPath(stroke.pts));
-    p.setAttribute('fill', 'none');
-    p.setAttribute('stroke', stroke.color);
-    p.setAttribute('stroke-width', String(stroke.width));
-    p.setAttribute('stroke-linecap', 'round');
-    p.setAttribute('stroke-linejoin', 'round');
-    p.setAttribute('stroke-opacity', String(stroke.opacity));
-    p.addEventListener('pointerdown', function(e) {
-      if (activeTool !== 'eraser') return;
-      e.stopPropagation();
-      eraseAnnotation(cid, stroke.id);
-    });
-    return p;
-  }
-
-  function createRectEl(cid, r) {
-    var rect = document.createElementNS(SVG_NS, 'rect');
-    rect.setAttribute('class', 'wb-annot-stroke wb-annot-rect');
-    rect.setAttribute('data-stroke-id', r.id);
-    rect.setAttribute('x', String(r.x));
-    rect.setAttribute('y', String(r.y));
-    rect.setAttribute('width', String(r.w));
-    rect.setAttribute('height', String(r.h));
-    rect.setAttribute('rx', '3');
-    rect.setAttribute('fill', r.color);
-    rect.setAttribute('fill-opacity', String(r.opacity || 0.35));
-    rect.addEventListener('pointerdown', function(e) {
-      if (activeTool !== 'eraser') return;
-      e.stopPropagation();
-      eraseAnnotation(cid, r.id);
-    });
-    return rect;
-  }
-
-  function eraseAnnotation(cid, itemId) {
-    var cdata = getContainerData(cid);
-    var lists = [cdata.strokes, cdata.rects];
-    for (var l = 0; l < lists.length; l++) {
-      var arr = lists[l];
-      for (var i = 0; i < arr.length; i++) {
-        if (arr[i].id === itemId) {
-          pushUndo();
-          arr.splice(i, 1);
-          saveDraft();
-          renderContainer(cid);
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  function createNoteEl(container, cid, note) {
-    var box = document.createElement('div');
-    box.className = 'wb-sticky-note';
-    box.setAttribute('data-note-id', note.id);
-    box.style.left = note.x + 'px';
-    box.style.top = note.y + 'px';
-
-    var bar = document.createElement('div');
-    bar.className = 'wb-sticky-note-bar';
-    bar.innerHTML = '<span>Note</span>';
-    var delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.className = 'wb-sticky-note-del';
-    delBtn.textContent = '×';
-    delBtn.title = 'Delete note';
-    delBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      pushUndo();
-      var cdata = getContainerData(cid);
-      cdata.notes = cdata.notes.filter(function(n) { return n.id !== note.id; });
-      saveDraft();
-      renderContainer(cid);
-    });
-    bar.appendChild(delBtn);
-
-    var ta = document.createElement('textarea');
-    ta.placeholder = 'Write note...';
-    ta.value = note.text || '';
-    var undoCaptured = false;
-    ta.addEventListener('input', function() {
-      if (!undoCaptured) {
-        pushUndo();
-        undoCaptured = true;
-      }
-      note.text = ta.value;
-      saveDraft();
-    });
-
-    // Dragging note inside its anchored container
-    bar.addEventListener('pointerdown', function(e) {
-      if (e.target === delBtn) return;
-      if (activeTool === 'eraser') {
-        delBtn.click();
-        return;
-      }
-      e.preventDefault();
-      e.stopPropagation();
-      pushUndo();
-      var startX = e.clientX;
-      var startY = e.clientY;
-      var origX = note.x;
-      var origY = note.y;
-      function onMove(ev) {
-        note.x = Math.max(0, Math.round(origX + (ev.clientX - startX)));
-        note.y = Math.max(0, Math.round(origY + (ev.clientY - startY)));
-        box.style.left = note.x + 'px';
-        box.style.top = note.y + 'px';
-      }
-      function onUp() {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        saveDraft();
-      }
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-    });
-
-    box.appendChild(bar);
-    box.appendChild(ta);
-    box.addEventListener('pointerdown', function(e) {
-      if (activeTool !== 'eraser') return;
-      e.preventDefault();
-      e.stopPropagation();
-      delBtn.click();
-    }, true);
-    container.appendChild(box);
-    return ta;
-  }
-
-  function renderContainer(cid) {
-    var container = document.querySelector('[data-wb-annot-id="' + cid + '"]');
-    if (!container) return;
-    for (var i = container.children.length - 1; i >= 0; i--) {
-      var ch = container.children[i];
-      if (ch.classList && (ch.classList.contains('wb-annot-layer') || ch.classList.contains('wb-sticky-note'))) {
-        container.removeChild(ch);
-      }
-    }
-    var cdata = getContainerData(cid);
-    if (cdata.rects.length > 0 || cdata.strokes.length > 0) {
-      var svg = ensureSvgLayer(container);
-      cdata.rects.forEach(function(r) {
-        svg.appendChild(createRectEl(cid, r));
-      });
-      cdata.strokes.forEach(function(st) {
-        svg.appendChild(createStrokeEl(cid, st));
-      });
-    }
-    cdata.notes.forEach(function(n) {
-      createNoteEl(container, cid, n);
-    });
-  }
-
-  function renderAllAnnotations() {
-    var containers = document.querySelectorAll('[data-wb-annot-id]');
-    containers.forEach(function(c) {
-      renderContainer(c.getAttribute('data-wb-annot-id'));
-    });
-  }
-
-  function setTool(tool) {
-    activeTool = tool;
-    document.body.classList.remove('wb-annot-draw', 'wb-annot-highlight', 'wb-annot-note', 'wb-annot-erase');
-    if (tool === 'pen') {
-      document.body.classList.add('wb-annot-draw');
-    } else if (tool === 'highlight') {
-      document.body.classList.add('wb-annot-highlight');
-    } else if (tool === 'note') {
-      document.body.classList.add('wb-annot-note');
-    } else if (tool === 'eraser') {
-      document.body.classList.add('wb-annot-erase');
-    }
-    var ids = { cursor: 'btnToolCursor', pen: 'btnToolPen', highlight: 'btnToolHighlight', note: 'btnToolNote', eraser: 'btnToolEraser' };
-    Object.keys(ids).forEach(function(k) {
-      var b = document.getElementById(ids[k]);
-      if (b) b.classList.toggle('is-active', k === tool);
-    });
-  }
-
-  // Drawing / Cursor line-by-line highlighting / Note / Drag-erase delegation
-  var drawingCtx = null;
-
-  function containerPoint(container, clientX, clientY) {
-    var rect = container.getBoundingClientRect();
-    var x = Math.round((clientX - rect.left + (container.scrollLeft || 0)) * 10) / 10;
-    var y = Math.round((clientY - rect.top + (container.scrollTop || 0)) * 10) / 10;
-    return [x, y];
-  }
-
-  function collectRangeRectsByContainer(range) {
-    var perContainer = {};
-    function pushRect(container, r) {
-      if (!container || !r || r.width < 2 || r.height < 2) return;
-      var cid = container.getAttribute('data-wb-annot-id');
-      if (!cid) return;
-      var crect = container.getBoundingClientRect();
-      var x = Math.round((r.left - crect.left + (container.scrollLeft || 0)) * 10) / 10;
-      var y = Math.round((r.top - crect.top + (container.scrollTop || 0)) * 10) / 10;
-      var w = Math.round(r.width * 10) / 10;
-      var h = Math.round(r.height * 10) / 10;
-      if (!perContainer[cid]) perContainer[cid] = [];
-      perContainer[cid].push({ x: x, y: y, w: w, h: h });
-    }
-
-    var root = range.commonAncestorContainer;
-    if (root && root.nodeType === 3 && root.parentNode) root = root.parentNode;
-    if (!root) return perContainer;
-
-    if (document.createTreeWalker && window.NodeFilter) {
-      var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null, false);
-      var node = walker.currentNode;
-      while (node) {
-        var parentEl = (node.nodeType === 3) ? node.parentNode : node;
-        if (parentEl && parentEl.closest && !parentEl.closest('.floating-toolbar, .wb-annot-toolbar, .wb-sticky-note, .wb-save-modal, summary.marginbox-header')) {
-          var container = parentEl.closest('[data-wb-annot-id]');
-          if (container) {
-            if (node.nodeType === 3 && /\S/.test(node.nodeValue || '') && (!range.intersectsNode || range.intersectsNode(node))) {
-              try {
-                var sub = document.createRange();
-                var startOff = (node === range.startContainer) ? range.startOffset : 0;
-                var endOff = (node === range.endContainer) ? range.endOffset : (node.nodeValue || '').length;
-                if (endOff > startOff) {
-                  sub.setStart(node, startOff);
-                  sub.setEnd(node, endOff);
-                  var rects = sub.getClientRects ? sub.getClientRects() : [];
-                  for (var ri = 0; ri < rects.length; ri++) pushRect(container, rects[ri]);
-                }
-              } catch (err) {}
-            } else if (node.nodeType === 1 && node.tagName === 'MJX-CONTAINER' && (!range.intersectsNode || range.intersectsNode(node))) {
-              pushRect(container, node.getBoundingClientRect());
-            }
-          }
-        }
-        node = walker.nextNode();
-      }
-    } else if (range.getClientRects && root.closest) {
-      var cFallback = root.closest('[data-wb-annot-id]');
-      var list = range.getClientRects();
-      for (var k = 0; k < list.length; k++) pushRect(cFallback, list[k]);
-    }
-
-    // Merge horizontal fragments on the same visual line cleanly
-    Object.keys(perContainer).forEach(function(cid) {
-      var items = perContainer[cid];
-      items.sort(function(a, b) {
-        if (Math.abs(a.y - b.y) > 4) return a.y - b.y;
-        return a.x - b.x;
-      });
-      var merged = [];
-      for (var i = 0; i < items.length; i++) {
-        var cur = items[i];
-        var prev = merged.length ? merged[merged.length - 1] : null;
-        if (prev && Math.abs(cur.y - prev.y) <= Math.max(6, Math.min(cur.h, prev.h) * 0.5) && cur.x <= prev.x + prev.w + 24) {
-          var minX = Math.min(prev.x, cur.x);
-          var maxX = Math.max(prev.x + prev.w, cur.x + cur.w);
-          var minY = Math.min(prev.y, cur.y);
-          var maxY = Math.max(prev.y + prev.h, cur.y + cur.h);
-          prev.x = minX;
-          prev.y = minY;
-          prev.w = Math.round((maxX - minX) * 10) / 10;
-          prev.h = Math.round((maxY - minY) * 10) / 10;
-        } else {
-          merged.push(cur);
-        }
-      }
-      perContainer[cid] = merged;
-    });
-    return perContainer;
-  }
-
-  function applyCursorHighlightFromSelection() {
-    if (activeTool !== 'highlight' || !window.getSelection) return false;
-    var sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return false;
-    var addedAny = false;
-    var allByContainer = {};
-    for (var rIdx = 0; rIdx < sel.rangeCount; rIdx++) {
-      var partMap = collectRangeRectsByContainer(sel.getRangeAt(rIdx));
-      Object.keys(partMap).forEach(function(cid) {
-        if (!allByContainer[cid]) allByContainer[cid] = [];
-        partMap[cid].forEach(function(box) { allByContainer[cid].push(box); });
-      });
-    }
-    var cids = Object.keys(allByContainer);
-    if (!cids.length) return false;
-    pushUndo();
-    var ts = Date.now();
-    var seq = 0;
-    cids.forEach(function(cid) {
-      var list = allByContainer[cid];
-      if (!list.length) return;
-      var cdata = getContainerData(cid);
-      list.forEach(function(b) {
-        seq += 1;
-        cdata.rects.push({
-          id: 'h-' + ts + '-' + seq + '-' + Math.floor(Math.random() * 100),
-          color: activeColor,
-          opacity: 0.35,
-          x: b.x,
-          y: b.y,
-          w: b.w,
-          h: b.h
-        });
-        addedAny = true;
-      });
-      renderContainer(cid);
-    });
-    if (addedAny) {
-      saveDraft();
-      try { sel.removeAllRanges(); } catch (e) {}
-    }
-    return addedAny;
-  }
-
-  document.addEventListener('pointerdown', function(e) {
-    if (activeTool === 'cursor' || activeTool === 'highlight') return;
-    var tgt = (e.target && e.target.nodeType === 3) ? e.target.parentNode : e.target;
-    if (tgt && tgt.closest && (tgt.closest('.floating-toolbar') || tgt.closest('.wb-annot-toolbar') || tgt.closest('.wb-save-modal') || tgt.closest('summary.marginbox-header') || tgt.closest('.wb-sticky-note'))) {
-      return;
-    }
-    var container = tgt && tgt.closest ? tgt.closest('[data-wb-annot-id]') : null;
-    if (!container) return;
-    var cid = container.getAttribute('data-wb-annot-id');
-    var pt = containerPoint(container, e.clientX, e.clientY);
-
-    if (activeTool === 'note') {
-      e.preventDefault();
-      pushUndo();
-      var nid = 'n-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-      var note = { id: nid, x: pt[0], y: pt[1], text: '' };
-      getContainerData(cid).notes.push(note);
-      saveDraft();
-      renderContainer(cid);
-      var newTa = container.querySelector('.wb-sticky-note[data-note-id="' + nid + '"] textarea');
-      if (newTa) newTa.focus();
-      setTool('cursor');
-      return;
-    }
-
-    if (activeTool === 'pen') {
-      e.preventDefault();
-      pushUndo();
-      var stroke = {
-        id: 's-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-        tool: 'pen',
-        color: activeColor,
-        width: activeSize,
-        opacity: 1,
-        pts: [pt]
-      };
-      var svg = ensureSvgLayer(container);
-      var pathEl = createStrokeEl(cid, stroke);
-      svg.appendChild(pathEl);
-      drawingCtx = { cid: cid, container: container, stroke: stroke, pathEl: pathEl };
-      if (container.setPointerCapture && e.pointerId !== undefined) {
-        try { container.setPointerCapture(e.pointerId); } catch (err) {}
-      }
-    }
-  });
-
-  document.addEventListener('pointermove', function(e) {
-    if (activeTool === 'eraser' && e.buttons === 1) {
-      var hit = document.elementFromPoint(e.clientX, e.clientY);
-      if (hit && hit.classList && hit.classList.contains('wb-annot-stroke')) {
-        var c = hit.closest('[data-wb-annot-id]');
-        if (c) eraseAnnotation(c.getAttribute('data-wb-annot-id'), hit.getAttribute('data-stroke-id'));
-      }
-      return;
-    }
-    if (!drawingCtx) return;
-    var pt = containerPoint(drawingCtx.container, e.clientX, e.clientY);
-    var pts = drawingCtx.stroke.pts;
-    var last = pts[pts.length - 1];
-    if (Math.abs(pt[0] - last[0]) + Math.abs(pt[1] - last[1]) < 1.5) return;
-    pts.push(pt);
-    drawingCtx.pathEl.setAttribute('d', pointsToPath(pts));
-  });
-
-  function finishPointer() {
-    if (activeTool === 'highlight') {
-      setTimeout(applyCursorHighlightFromSelection, 10);
-    }
-    if (!drawingCtx) return;
-    getContainerData(drawingCtx.cid).strokes.push(drawingCtx.stroke);
-    drawingCtx = null;
-    saveDraft();
-  }
-  document.addEventListener('pointerup', finishPointer);
-  document.addEventListener('mouseup', finishPointer);
-  document.addEventListener('pointercancel', finishPointer);
-
-  // Wire annotation toolbar UI
-  var toolButtons = [
-    ['btnToolCursor', 'cursor'],
-    ['btnToolPen', 'pen'],
-    ['btnToolHighlight', 'highlight'],
-    ['btnToolNote', 'note'],
-    ['btnToolEraser', 'eraser']
-  ];
-  toolButtons.forEach(function(pair) {
-    var el = document.getElementById(pair[0]);
-    if (el) {
-      el.addEventListener('click', function() {
-        setTool(pair[1]);
-        if (pair[1] === 'highlight' && activeColor === '#dc2626') {
-          var yellowSwatch = document.querySelector('.wb-annot-swatch[data-wb-color="#facc15"]');
-          if (yellowSwatch) yellowSwatch.click();
-        }
-      });
-    }
-  });
-
-  document.querySelectorAll('.wb-annot-swatch').forEach(function(sw) {
-    sw.addEventListener('click', function() {
-      activeColor = sw.getAttribute('data-wb-color') || '#dc2626';
-      document.querySelectorAll('.wb-annot-swatch').forEach(function(o) {
-        o.classList.toggle('is-selected', o === sw);
-      });
-      if (activeTool === 'cursor' || activeTool === 'eraser') setTool('pen');
-    });
-  });
-
-  var sizeSlider = document.getElementById('wbAnnotSize');
-  if (sizeSlider) {
-    sizeSlider.addEventListener('input', function() {
-      activeSize = parseFloat(sizeSlider.value) || 2.5;
-    });
-  }
-
-  var btnUndo = document.getElementById('btnAnnotUndo');
-  if (btnUndo) {
-    btnUndo.addEventListener('click', function() {
-      if (!undoStack.length) return;
-      try {
-        annotState = JSON.parse(undoStack.pop());
-        saveDraft();
-        renderAllAnnotations();
-      } catch (e) {}
-    });
-  }
-
-  var btnClear = document.getElementById('btnAnnotClear');
-  if (btnClear) {
-    btnClear.addEventListener('click', function() {
-      if (!confirm('Clear all ink strokes, highlights, and notes on this document?')) return;
-      pushUndo();
-      annotState = { v: 1, updatedAt: Date.now(), containers: {} };
-      saveDraft();
-      renderAllAnnotations();
-    });
-  }
-
-  function buildAnnotatedHtml() {
-    var payload = JSON.stringify(annotState).replace(/</g, '\\u003c');
-    var reData = /(<script\b[^>]*\bid=["']wbAnnotationsData["'][^>]*>)[\s\S]*?(<\/script>)/i;
-    var source = pristineHtmlSnapshot;
-    if (!source || !reData.test(source)) {
-      source = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-    }
-    source = source.replace(reData, function(_, openTag, closeTag) {
-      return openTag + payload + closeTag;
-    });
-    source = source.replace(/^(<!DOCTYPE html>\s*<html\b[^>]*?)\s*\bwb-compat-ok\b/i, '$1');
-    return source;
-  }
-
-  function getMainFileName() {
-    var fallback = (document.title || 'whiteboard').replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_') + '.html';
-    try {
-      var pathParts = window.location.pathname.split('/');
-      var curName = decodeURIComponent(pathParts[pathParts.length - 1] || '');
-      if (curName && /\.html?$/i.test(curName)) return curName;
-    } catch (e) {}
-    return fallback;
-  }
-
-  // IndexedDB handle cache so Save HTML can silently overwrite once handle is linked
-  var activeFileHandle = null;
-  function withHandleDb(fn) {
-    if (!window.indexedDB) return;
-    try {
-      var req = window.indexedDB.open('wbAnnotFileHandles', 1);
-      req.onupgradeneeded = function() {
-        var db = req.result;
-        if (!db.objectStoreNames.contains('handles')) db.createObjectStore('handles');
-      };
-      req.onsuccess = function() { fn(req.result); };
-    } catch (e) {}
-  }
-
-  withHandleDb(function(db) {
-    try {
-      var tx = db.transaction('handles', 'readonly');
-      var getReq = tx.objectStore('handles').get(docId);
-      getReq.onsuccess = function() {
-        if (getReq.result) activeFileHandle = getReq.result;
-      };
-    } catch (e) {}
-  });
-
-  function persistFileHandle(handle) {
-    activeFileHandle = handle;
-    withHandleDb(function(db) {
-      try {
-        var tx = db.transaction('handles', 'readwrite');
-        tx.objectStore('handles').put(handle, docId);
-      } catch (e) {}
-    });
-  }
-
-  function writeToHandle(handle, htmlOut) {
-    var ensurePerm = handle.requestPermission ? handle.requestPermission({ mode: 'readwrite' }) : Promise.resolve('granted');
-    return ensurePerm.then(function(state) {
-      if (state !== 'granted') throw new Error('Permission denied');
-      return handle.createWritable().then(function(writable) {
-        return writable.write(htmlOut).then(function() {
-          return writable.close();
-        });
-      });
-    });
-  }
-
-  function triggerDownload(htmlOut, fileName, msg) {
-    var blob = new Blob([htmlOut], { type: 'text/html;charset=utf-8' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function() {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 500);
-    try { localStorage.setItem(draftKey, JSON.stringify(annotState)); } catch (e) {}
-    isDirty = false;
-    setStatus(msg || ('Saved ' + fileName));
-  }
-
-  function markSavedSuccess(msg) {
-    try { localStorage.setItem(draftKey, JSON.stringify(annotState)); } catch (e) {}
-    isDirty = false;
-    setStatus(msg);
-  }
-
-  var btnSave = document.getElementById('btnAnnotSave');
-  if (btnSave) {
-    btnSave.addEventListener('click', function() {
-      annotState.updatedAt = Date.now();
-      var htmlOut = buildAnnotatedHtml();
-      var mainName = getMainFileName();
-
-      if (activeFileHandle) {
-        writeToHandle(activeFileHandle, htmlOut).then(function() {
-          markSavedSuccess('Overwrote ' + (activeFileHandle.name || mainName));
-        }).catch(function(err) {
-          if (err && err.name === 'AbortError') return;
-          activeFileHandle = null;
-          triggerDownload(htmlOut, mainName, 'Saved ' + mainName);
-        });
-        return;
-      }
-
-      if (window.showSaveFilePicker) {
-        window.showSaveFilePicker({
-          suggestedName: mainName,
-          types: [{ description: 'HTML Document', accept: { 'text/html': ['.html'] } }]
-        }).then(function(handle) {
-          persistFileHandle(handle);
-          return writeToHandle(handle, htmlOut);
-        }).then(function() {
-          markSavedSuccess('Overwrote ' + ((activeFileHandle && activeFileHandle.name) || mainName));
-        }).catch(function(err) {
-          if (err && err.name === 'AbortError') return;
-          triggerDownload(htmlOut, mainName, 'Downloaded ' + mainName);
-        });
-      } else {
-        triggerDownload(htmlOut, mainName, 'Saved ' + mainName);
-      }
-    });
-  }
-
-  // Save As small modal window
-  var saveAsModal = document.getElementById('wbSaveAsModal');
-  var saveAsInput = document.getElementById('wbSaveAsName');
-  var saveAsPickerBtn = document.getElementById('btnSaveAsPicker');
-  var saveAsConfirmBtn = document.getElementById('btnSaveAsConfirm');
-  var saveAsCancelBtn = document.getElementById('btnSaveAsCancel');
-  var btnSaveAs = document.getElementById('btnAnnotSaveAs');
-
-  function openSaveAsModal() {
-    if (!saveAsModal) return;
-    var mainName = getMainFileName();
-    if (saveAsInput) {
-      saveAsInput.value = mainName.replace(/\.html?$/i, '') + '_annotated.html';
-    }
-    saveAsModal.classList.add('is-open');
-    if (saveAsInput) {
-      saveAsInput.focus();
-      saveAsInput.select();
-    }
-  }
-
-  function closeSaveAsModal() {
-    if (saveAsModal) saveAsModal.classList.remove('is-open');
-  }
-
-  function normalizeHtmlFilename(val) {
-    var clean = (val || '').replace(/[\\/:*?"<>|]+/g, '_').replace(/^\s+|\s+$/g, '');
-    if (!clean) clean = getMainFileName();
-    if (!/\.html?$/i.test(clean)) clean += '.html';
-    return clean;
-  }
-
-  if (btnSaveAs) {
-    btnSaveAs.addEventListener('click', openSaveAsModal);
-  }
-  if (saveAsCancelBtn) {
-    saveAsCancelBtn.addEventListener('click', closeSaveAsModal);
-  }
-  if (saveAsModal) {
-    saveAsModal.addEventListener('click', function(e) {
-      if (e.target === saveAsModal) closeSaveAsModal();
-    });
-  }
-  if (saveAsConfirmBtn) {
-    saveAsConfirmBtn.addEventListener('click', function() {
-      annotState.updatedAt = Date.now();
-      var chosenName = normalizeHtmlFilename(saveAsInput ? saveAsInput.value : '');
-      var htmlOut = buildAnnotatedHtml();
-      closeSaveAsModal();
-      triggerDownload(htmlOut, chosenName, 'Saved As ' + chosenName);
-    });
-  }
-  if (saveAsPickerBtn) {
-    saveAsPickerBtn.addEventListener('click', function() {
-      annotState.updatedAt = Date.now();
-      var chosenName = normalizeHtmlFilename(saveAsInput ? saveAsInput.value : '');
-      var htmlOut = buildAnnotatedHtml();
-      if (window.showSaveFilePicker) {
-        window.showSaveFilePicker({
-          suggestedName: chosenName,
-          types: [{ description: 'HTML Document', accept: { 'text/html': ['.html'] } }]
-        }).then(function(handle) {
-          persistFileHandle(handle);
-          return writeToHandle(handle, htmlOut);
-        }).then(function() {
-          closeSaveAsModal();
-          markSavedSuccess('Saved As ' + ((activeFileHandle && activeFileHandle.name) || chosenName));
-        }).catch(function(err) {
-          if (err && err.name === 'AbortError') return;
-          closeSaveAsModal();
-          triggerDownload(htmlOut, chosenName, 'Saved As ' + chosenName);
-        });
-      } else {
-        closeSaveAsModal();
-        triggerDownload(htmlOut, chosenName, 'Saved As ' + chosenName);
-      }
-    });
-  }
-  if (saveAsInput) {
-    saveAsInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' && saveAsConfirmBtn) {
-        e.preventDefault();
-        saveAsConfirmBtn.click();
-      } else if (e.key === 'Escape') {
-        closeSaveAsModal();
-      }
-    });
-  }
-
-  document.addEventListener('keydown', function(e) {
-    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/i.test(e.target.tagName)) return;
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && undoStack.length > 0) {
-      e.preventDefault();
-      if (btnUndo) btnUndo.click();
-    } else if (e.key === 'Escape') {
-      if (saveAsModal && saveAsModal.classList.contains('is-open')) {
-        closeSaveAsModal();
-      } else if (activeTool !== 'cursor') {
-        setTool('cursor');
-      }
-    }
-  });
-
-  var btnPrint = document.getElementById('btnPrintDoc');
-  if (btnPrint) {
-    btnPrint.addEventListener('click', function() {
-      if (window.print) window.print();
-    });
-  }
-
-  function syncTopBarBodyOffset() {
-    try {
-      var bar = document.getElementById('floatingToolbar');
-      if (bar && bar.offsetHeight > 0 && document.body && document.body.style) {
-        document.body.style.paddingTop = (bar.offsetHeight + 16) + 'px';
-      }
-    } catch (e) {}
-  }
-
-  // Expand all collapsible boxes before Ctrl+P / print, restore afterward
-  function expandAllForPrint() {
-    var boxes = document.querySelectorAll('details.marginbox, details.tcolorbox, details.vbox');
-    boxes.forEach(function(d) {
-      if (!d.open && !d.hasAttribute('data-wb-print-was-closed')) {
-        d.setAttribute('data-wb-print-was-closed', '1');
-      }
-      d.open = true;
-    });
-    if (document.body && document.body.style) document.body.style.paddingTop = '0px';
-    syncAllLayerSizes();
-  }
-
-  function restoreAfterPrint() {
-    var boxes = document.querySelectorAll('details[data-wb-print-was-closed="1"]');
-    boxes.forEach(function(d) {
-      d.open = false;
-      d.removeAttribute('data-wb-print-was-closed');
-    });
-    syncTopBarBodyOffset();
-    syncAllLayerSizes();
-  }
-
-  window.addEventListener('beforeprint', expandAllForPrint);
-  window.addEventListener('afterprint', restoreAfterPrint);
-  if (window.matchMedia) {
-    var printMq = window.matchMedia('print');
-    var onPrintMq = function(ev) {
-      if (ev.matches) expandAllForPrint();
-      else restoreAfterPrint();
-    };
-    if (printMq.addEventListener) printMq.addEventListener('change', onPrintMq);
-    else if (printMq.addListener) printMq.addListener(onPrintMq);
-  }
-
-  document.querySelectorAll('details.marginbox, details.tcolorbox, details.vbox').forEach(function(d) {
-    d.addEventListener('toggle', function() {
-      setTimeout(syncAllLayerSizes, 20);
-    });
-  });
-  window.addEventListener('resize', function() {
-    syncTopBarBodyOffset();
-    syncAllLayerSizes();
-  });
-  window.addEventListener('load', function() {
-    syncTopBarBodyOffset();
-    syncAllLayerSizes();
-  });
-
-  syncTopBarBodyOffset();
-  loadInitialAnnotations();
-  renderAllAnnotations();
-
-  // 5. Embedded HTML Tab Launcher (creates on-click Blob URL and opens in new tab)
-  document.addEventListener('click', function(e) {
-    var tgt = (e.target && e.target.nodeType === 3) ? e.target.parentNode : e.target;
-    var btn = tgt && tgt.closest ? tgt.closest('.wb-html-launch') : null;
-    if (!btn) return;
-    var payloadId = btn.getAttribute('data-wb-html-target');
-    var payloadEl = payloadId ? document.getElementById(payloadId) : null;
-    if (!payloadEl) return;
-    try {
-      var b64 = (payloadEl.textContent || '').replace(/\s+/g, '');
-      var binStr = window.atob ? window.atob(b64) : '';
-      var bytes = new Uint8Array(binStr.length);
-      for (var i = 0; i < binStr.length; i++) {
-        bytes[i] = binStr.charCodeAt(i);
-      }
-      var blob = new Blob([bytes], { type: 'text/html;charset=utf-8' });
-      var url = URL.createObjectURL(blob);
-      var opened = window.open ? window.open(url, '_blank') : null;
-      if (!opened) {
-        var a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-      setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
-    } catch (err) {
-      alert('Unable to open embedded HTML in a new tab: ' + err);
-    }
-  });
-})();
-</script>]===]
+<div class="wb-unsaved-popup" id="wbUnsavedPopup" role="dialog" aria-live="polite" aria-label="Unsaved HTML Annotations">
+  <div class="wb-unsaved-popup-head">
+    <strong>Unsaved Annotations</strong>
+    <button id="btnPopupDismiss" type="button" class="wb-unsaved-close" title="Dismiss" aria-label="Dismiss">×</button>
+  </div>
+  <p class="wb-unsaved-popup-msg">Your browser draft is auto-saved, but the standalone HTML file has not been saved yet.</p>
+  <div class="wb-unsaved-popup-actions">
+    <button id="btnPopupSave" type="button" class="primary">Save HTML</button>
+    <button id="btnPopupSaveAs" type="button">Save As</button>
+    <button id="btnPopupLater" type="button">Later</button>
+  </div>
+</div>
+<div class="wb-box-modal-backdrop" id="wbBoxModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="wbBoxModalTitle">
+  <div class="wb-box-modal" id="wbBoxModal">
+    <div class="wb-box-modal-header" id="wbBoxModalHeader">
+      <nav class="wb-box-modal-breadcrumbs" id="wbBoxModalBreadcrumbs" aria-label="Box navigation"></nav>
+      <span id="wbBoxModalTitle" class="wb-sr-only">Box Details</span>
+      <div class="wb-box-modal-actions">
+        <button id="btnBoxModalBack" type="button" title="Back to parent box">← Back</button>
+        <button id="btnBoxModalClose" type="button" title="Close window (Esc)">✕</button>
+      </div>
+    </div>
+    <div class="wb-box-modal-body" id="wbBoxModalBody"></div>
+  </div>
+</div>
+]===] .. graph_workspace_html .. viewer_script_html
 
   new_blocks[#new_blocks + 1] = pandoc.RawBlock("html", toolbar_html)
 

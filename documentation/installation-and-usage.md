@@ -20,7 +20,13 @@ Keep this folder structure together:
             error-annotator.lua
             html-collapsible-boxes.lua
             tex-to-html-preprocessor.lua
+            graph-markdown-extractor.lua
             latex.css
+            wb-viewer.js
+            markmap\
+                package.json
+                build-graph.js
+                vendor\
         documentation\
             rendering-rules.md
             installation-and-usage.md
@@ -65,7 +71,7 @@ What to install
    This script automatically:
    - Verifies or installs Pandoc via winget.
    - Verifies or installs MiKTeX / XeLaTeX via winget.
-   - Verifies or installs Node.js & npm via winget or the official MSI installer.
+   - Verifies or installs Node.js & npm via winget or the official MSI installer, and installs the local `config\markmap` bundle (`d3`, `markmap-lib`, `markmap-view`) for offline `whiteboard_html` Tree View.
    - Pre-installs and configures required LaTeX packages with automatic on-the-fly downloads enabled (`initexmf --set-config-value [MPM]AutoInstall=1`).
    - Checks (and NEVER installs) optional language runtimes (Python + numpy/matplotlib, GCC, G++, Java, and Mermaid CLI `mmdc`) and reports their readiness.
 

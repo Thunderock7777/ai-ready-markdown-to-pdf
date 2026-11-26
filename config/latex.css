@@ -139,8 +139,9 @@ body {
   font-family: 'Latin Modern', 'Latin Modern Roman', 'Computer Modern', 'TeX Gyre Termes', Georgia, Cambria, 'Times New Roman', Times, serif;
   line-height: 1.8;
 
-  width: 100%;
-  max-width: var(--document-width, var(--whiteboard-width, 1320px));
+  width: var(--document-width, var(--whiteboard-width, 1320px));
+  min-width: var(--document-width, var(--whiteboard-width, 1320px));
+  max-width: none;
   min-height: 100vh;
   margin: 0 auto;
   padding: 1.5rem 1.25rem;
@@ -1084,6 +1085,8 @@ body.latex-light img[src^="data:image/svg+xml"] {
 /* 4. Print Stylesheet (@media print) */
 @media print {
   body {
+    width: 100% !important;
+    min-width: 0 !important;
     max-width: 100% !important;
     padding: 0 !important;
     color: #000 !important;

@@ -70,10 +70,7 @@ function extractJumpMetadata(node) {
         color,
         text: stripTags(content)
       };
-      // Append dedicated clickable jump button right inside node content so Markmap
-      // includes its width during SVG foreignObject layout measurement.
-      node.content = content +
-        '<button type="button" class="wb-mm-jump" tabindex="-1" title="Jump to this note">↗</button>';
+      node.content = content;
     }
   } else if (content) {
     wb = {

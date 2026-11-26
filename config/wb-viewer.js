@@ -1288,18 +1288,26 @@
           })());
         } else if (cdnMode) {
           steps.push((function() {
+            var cssReady = Promise.resolve();
             if (!document.getElementById('wbMarkmapKatexLink')) {
-              var lnk = document.createElement('link');
-              lnk.id = 'wbMarkmapKatexLink';
-              lnk.rel = 'stylesheet';
-              lnk.href = cdnBase + '/config/markmap/vendor/katex/katex.min.css';
-              document.head.appendChild(lnk);
+              cssReady = new Promise(function(resolve) {
+                var done = false;
+                var finish = function() { if (!done) { done = true; resolve(); } };
+                var lnk = document.createElement('link');
+                lnk.id = 'wbMarkmapKatexLink';
+                lnk.rel = 'stylesheet';
+                lnk.href = cdnBase + '/config/markmap/vendor/katex/katex.min.css';
+                lnk.onload = finish;
+                lnk.onerror = finish;
+                document.head.appendChild(lnk);
+                setTimeout(finish, 3000);
+              });
             }
-            var p = window.d3 ? Promise.resolve() : loadScriptSeq(cdnBase + '/config/markmap/vendor/d3.min.js');
-            return p.then(function() {
+            var scriptsReady = (window.d3 ? Promise.resolve() : loadScriptSeq(cdnBase + '/config/markmap/vendor/d3.min.js')).then(function() {
               if (window.markmap && window.markmap.Markmap) return;
               return loadScriptSeq(cdnBase + '/config/markmap/vendor/markmap-view.min.js');
             });
+            return Promise.all([cssReady, scriptsReady]);
           })());
         }
       }
@@ -1331,8 +1339,9 @@
     }
 
     function cloneWithDepth(node, depth, maxDepth) {
+      var rawHtml = String(node.content || '').replace(/<button[^>]*class="wb-mm-jump"[^>]*>[\s\S]*?<\/button>/gi, '');
       var copy = {
-        content: node.content,
+        content: rawHtml,
         children: [],
         payload: node.payload ? JSON.parse(JSON.stringify(node.payload)) : {}
       };
@@ -1348,10 +1357,66 @@
       return copy;
     }
 
+    function ensureSvgJumpBadge(gEl, d, spH) {
+      var wb = d && d.data && d.data.payload && d.data.payload.wb;
+      var want = !!(wb && wb.jtype);
+      var existing = null;
+      var ch = gEl.children || [];
+      for (var i = 0; i < ch.length; i++) {
+        if (ch[i].classList && ch[i].classList.contains('wb-mm-jump-svg')) {
+          existing = ch[i];
+          break;
+        }
+      }
+      if (!want) {
+        if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+        return;
+      }
+      var hasKids = !!(d.data.children && d.data.children.length);
+      var lineEndX = (typeof d.ySize === 'number') ? Math.max(24, d.ySize - spH) : 120;
+      var nodeH = (typeof d.xSize === 'number') ? d.xSize : 24;
+      var bx = Math.round(lineEndX + (hasKids ? 10 : 4));
+      var by = Math.max(0, Math.round(nodeH - 20));
+
+      if (!existing && document.createElementNS) {
+        var ns = 'http://www.w3.org/2000/svg';
+        existing = document.createElementNS(ns, 'g');
+        existing.setAttribute('class', 'wb-mm-jump wb-mm-jump-svg');
+        var titleEl = document.createElementNS(ns, 'title');
+        titleEl.textContent = 'Jump to this note';
+        var rectEl = document.createElementNS(ns, 'rect');
+        rectEl.setAttribute('class', 'wb-mm-jump-bg');
+        rectEl.setAttribute('x', '0');
+        rectEl.setAttribute('y', '0');
+        rectEl.setAttribute('width', '20');
+        rectEl.setAttribute('height', '18');
+        rectEl.setAttribute('rx', '4');
+        rectEl.setAttribute('ry', '4');
+        var txtEl = document.createElementNS(ns, 'text');
+        txtEl.setAttribute('class', 'wb-mm-jump-ico');
+        txtEl.setAttribute('x', '10');
+        txtEl.setAttribute('y', '13');
+        txtEl.setAttribute('text-anchor', 'middle');
+        txtEl.textContent = '↗';
+        existing.appendChild(titleEl);
+        existing.appendChild(rectEl);
+        existing.appendChild(txtEl);
+        if (existing.addEventListener) {
+          existing.addEventListener('mousedown', function(ev) { ev.stopPropagation(); });
+          existing.addEventListener('dblclick', function(ev) { ev.stopPropagation(); });
+        }
+        gEl.appendChild(existing);
+      }
+      if (existing) {
+        existing.setAttribute('transform', 'translate(' + bx + ',' + by + ')');
+      }
+    }
+
     function decorateNodes() {
       if (!mm || !mm.g) return;
       var matchSet = new Set(searchMatches);
       var activeMatch = (searchIndex >= 0 && searchIndex < searchMatches.length) ? searchMatches[searchIndex] : null;
+      var spH = (mm.options && mm.options.spacingHorizontal) || 92;
       mm.g.selectAll('g.markmap-node').each(function(d) {
         if (!d || !d.data) return;
         var isSel = (selectedNode && d.data === selectedNode);
@@ -1360,6 +1425,7 @@
         this.classList.toggle('wb-mm-selected', !!isSel);
         this.classList.toggle('wb-mm-match', !!isMatch);
         this.classList.toggle('wb-mm-current-match', !!isCurMatch);
+        ensureSvgJumpBadge(this, d, spH);
       });
     }
 
@@ -1726,10 +1792,10 @@
         activeTree = cloneWithDepth(payload.root, 0, currentDepth);
         var defaultColorFn = window.markmap.defaultColorFn;
         var opts = {
-          maxWidth: 320,
+          maxWidth: 340,
           duration: 240,
           paddingX: 10,
-          spacingHorizontal: 78,
+          spacingHorizontal: 92,
           spacingVertical: 6,
           autoFit: false,
           style: function(id) {
@@ -1748,6 +1814,7 @@
           var origRender = mm.renderData.bind(mm);
           mm.renderData = function(originData) {
             origRender(originData);
+            decorateNodes();
             setTimeout(decorateNodes, 10);
           };
           renderHookInstalled = true;
@@ -1864,7 +1931,7 @@
           var rect = svgEl.getBoundingClientRect();
           var vw = rect.width || 800;
           var vh = rect.height || 500;
-          var spH = (mm.options && mm.options.spacingHorizontal) || 78;
+          var spH = (mm.options && mm.options.spacingHorizontal) || 92;
           var nodeW = Math.max(80, (found.data.ySize || 160) - spH);
           var nodeH = Math.max(24, found.data.xSize || 32);
           var cx = (found.data.y || 0) + nodeW / 2;

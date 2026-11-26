@@ -391,6 +391,12 @@ Change ledger
   2026-11-26 | Dynamic whiteboard canvas expansion in HTML: scale document width from box nesting depth and content | source +81 / -12 | 352 / 500
   2026-11-26 | Enforce full whiteboard canvas width expansion beyond viewport in latex.css (and print reset) | source +5 / -2 | 359 / 500
   2026-11-26 | Remove leftover mobile viewport media queries in latex.css and sync README and architecture docs with PDF/HTML whiteboard behavior | source +0 / -41 | 400 / 500
+  2026-11-26 | Comprehensive bold math normalization (\mathbf lowercase Greek, symbols, operators, trig/log functions, Strong inline math) and MathJax \checkmark macro | source +184 / -13 | 597 / 500 (cycle limit reached, versioned as 1.5.2 PATCH)
+
+Version 1.5.2 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

@@ -505,7 +505,14 @@ Function reference: AST and finalization
 Math and Unicode
   wrap_greek(inner, kind) -> LaTeX text
     Wraps recognized capital Greek commands in the appropriate bold/upright/
-    italic math command when nested inside selected math font groups.
+    italic math command when nested inside selected math font groups. Inside
+    `\mathbf` (`kind == "bf"`), also wraps lowercase Greek, unbolded math symbols,
+    trig/log operators (`\mathop{\mathbf{...}}\nolimits`), and safe bare
+    operators/relations/delimiters while skipping `\text`/`\operatorname`/sizing
+    prefixes (`\left`, `\big`, etc.) and `\sqrt[n]` optional brackets.
+  bold_inline_math_in_strong(Strong element) -> Strong element or nil
+    Wraps safe inline `Math` nodes inside Markdown `Strong` (`**...**`) in
+    `\mathbf{...}` so bold-wrapped formulas render bold in both PDF and HTML.
   convert(text, kind) -> text
     Recursively scans balanced \mathbf/\mathrm/\mathit groups, transforms
     supported Greek commands, and leaves other or unbalanced groups alone.

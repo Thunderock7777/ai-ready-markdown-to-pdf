@@ -177,6 +177,27 @@ REGISTRY.MATH_ENVS = word_set("align alignat flalign equation gather multline eq
 -- Capital Greek letters that need protection inside \mathbf / \mathrm / \mathit.
 REGISTRY.GREEK_CAPITALS = word_set("Gamma Delta Theta Lambda Xi Pi Sigma Upsilon Phi Psi Omega")
 
+-- Lowercase Greek letters and math commands that \mathbf fails to bold in XeLaTeX and MathJax.
+REGISTRY.GREEK_LOWERS = word_set(
+  "alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa varkappa " ..
+  "lambda mu nu xi pi varpi rho varrho sigma varsigma tau upsilon phi varphi chi psi omega"
+)
+
+REGISTRY.BOLD_MATH_COMMANDS = word_set(
+  "hbar hslash ell partial nabla infty to rightarrow leftarrow leftrightarrow " ..
+  "Rightarrow Leftarrow Leftrightarrow implies iff equiv sim simeq approx cong propto " ..
+  "times cdot pm mp leq le geq ge neq ne ll gg langle rangle checkmark dagger star circ bullet setminus"
+)
+
+REGISTRY.BOLD_MATH_OPERATORS = word_set("cos sin tan cot sec csc ln log exp")
+
+REGISTRY.SKIP_BOLD_COMMANDS = word_set(
+  "text textrm textit textbf textsf texttt mbox hbox operatorname tag label " ..
+  "boldsymbol bm mathnormal mathrm mathit mathcal mathbb mathfrak mathsf mathtt"
+)
+
+REGISTRY.DELIMITER_PREFIXES = word_set("left right middle big Big bigg Bigg bigl Bigl biggl Biggl bigr Bigr biggr Biggr bigm Bigm biggm Biggm")
+
 -- Text-mode commands: Unicode scripts inside them become \textsuperscript / \textsubscript.
 REGISTRY.TEXT_COMMANDS = word_set("text textrm textit textbf textsf texttt mbox hbox")
 
@@ -1670,20 +1691,134 @@ local GREEK_WRAP = {
 }
 
 local function wrap_greek(inner, kind)
-  local out, pos = {}, 1
-  for p, name, e in inner:gmatch("()\\(%a+)()") do
-    local base = name:gsub("^var", "")
-    local before = inner:sub(math.max(1, p - 14), p - 1)
-    if (REGISTRY.GREEK_CAPITALS[name] or REGISTRY.GREEK_CAPITALS[base])
-       and not before:find("\\bo?l?d?s?y?m?b?o?l?%s*{%s*$")
-       and not before:find("\\bm%s*{%s*$")
-       and not before:find("\\mathnormal%s*{%s*$") then
-      out[#out + 1] = inner:sub(pos, p - 1)
-      out[#out + 1] = GREEK_WRAP[kind](name)
-      pos = e
+  if kind ~= "bf" then
+    local out, pos = {}, 1
+    for p, name, e in inner:gmatch("()\\(%a+)()") do
+      local base = name:gsub("^var", "")
+      local before = inner:sub(math.max(1, p - 14), p - 1)
+      if (REGISTRY.GREEK_CAPITALS[name] or REGISTRY.GREEK_CAPITALS[base])
+         and not before:find("\\bo?l?d?s?y?m?b?o?l?%s*{%s*$")
+         and not before:find("\\bm%s*{%s*$")
+         and not before:find("\\mathnormal%s*{%s*$") then
+        out[#out + 1] = inner:sub(pos, p - 1)
+        out[#out + 1] = GREEK_WRAP[kind](name)
+        pos = e
+      end
+    end
+    out[#out + 1] = inner:sub(pos)
+    return table.concat(out)
+  end
+
+  -- Inside \mathbf{...}, wrap Greek (capital + lowercase), unbolded math symbols/functions,
+  -- and bare math operators/relations/delimiters in \boldsymbol{...} so every symbol renders bold
+  -- in both XeLaTeX PDF and MathJax HTML without breaking layout primitives.
+  local out = {}
+  local pos, len = 1, #inner
+  local prev_nonspace = ""
+
+  local function last_nonspace_before(s, idx)
+    local j = idx - 1
+    while j >= 1 and s:sub(j, j):match("%s") do j = j - 1 end
+    return j >= 1 and s:sub(j, j) or ""
+  end
+
+  while pos <= len do
+    local ch = inner:sub(pos, pos)
+    if ch == "\\" then
+      local name_start, name_end, name = inner:find("^\\(%a+)", pos)
+      if name_start then
+        local base = name:gsub("^var", "")
+        if REGISTRY.SKIP_BOLD_COMMANDS[name] then
+          local open_pos = inner:find("^%s*{", name_end + 1)
+          if open_pos then
+            local close_pos = group_end(inner, open_pos)
+            if close_pos then
+              out[#out + 1] = inner:sub(pos, close_pos - 1)
+              pos = close_pos
+              prev_nonspace = "}"
+            else
+              out[#out + 1] = inner:sub(pos, name_end)
+              pos = name_end + 1
+              prev_nonspace = name:sub(-1)
+            end
+          else
+            out[#out + 1] = inner:sub(pos, name_end)
+            pos = name_end + 1
+            prev_nonspace = name:sub(-1)
+          end
+        elseif REGISTRY.DELIMITER_PREFIXES[name] then
+          -- Preserve sizing prefixes (\left(, \right), \big(, ...) and optional escaped/bare delimiter right after.
+          local after = name_end + 1
+          while after <= len and inner:sub(after, after):match("%s") do after = after + 1 end
+          if after <= len then
+            local dch = inner:sub(after, after)
+            if dch == "\\" and after + 1 <= len then
+              local _, cmd_end = inner:find("^\\[A-Za-z]+", after)
+              after = cmd_end and (cmd_end + 1) or (after + 2)
+            elseif dch:match("[%(%)%[%]|%.]") then
+              after = after + 1
+            end
+          end
+          out[#out + 1] = inner:sub(pos, after - 1)
+          prev_nonspace = inner:sub(after - 1, after - 1)
+          pos = after
+        elseif REGISTRY.BOLD_MATH_OPERATORS[name] and prev_nonspace ~= "^" and prev_nonspace ~= "_" then
+          out[#out + 1] = "\\mathop{\\mathbf{" .. name .. "}}\\nolimits"
+          pos = name_end + 1
+          prev_nonspace = name:sub(-1)
+        elseif (REGISTRY.GREEK_CAPITALS[name] or REGISTRY.GREEK_CAPITALS[base]
+                or REGISTRY.GREEK_LOWERS[name] or REGISTRY.BOLD_MATH_COMMANDS[name])
+               and prev_nonspace ~= "^" and prev_nonspace ~= "_" then
+          out[#out + 1] = "\\boldsymbol{\\" .. name .. "}"
+          pos = name_end + 1
+          prev_nonspace = "}"
+        elseif name == "sqrt" then
+          out[#out + 1] = "\\sqrt"
+          local after = name_end + 1
+          local ws_end, opt_start = inner:find("^%s*(%[)", after)
+          if opt_start then
+            local close_br = inner:find("%]", opt_start + 1)
+            if close_br then
+              out[#out + 1] = inner:sub(after, close_br)
+              pos = close_br + 1
+              prev_nonspace = "]"
+            else
+              pos = after
+              prev_nonspace = "t"
+            end
+          else
+            pos = after
+            prev_nonspace = "t"
+          end
+        else
+          out[#out + 1] = inner:sub(pos, name_end)
+          pos = name_end + 1
+          prev_nonspace = name:sub(-1)
+        end
+      else
+        -- Escaped symbol like \{, \}, \|, \, , \;
+        local esc = inner:sub(pos, math.min(len, pos + 1))
+        out[#out + 1] = esc
+        pos = pos + #esc
+        prev_nonspace = esc:sub(-1)
+      end
+    elseif ch:match("^[%+%-=<>|%(%)%[%]]$") and prev_nonspace ~= "^" and prev_nonspace ~= "_" then
+      -- Only wrap bare operators/delimiters when not immediately following a superscript/subscript token
+      local pns = last_nonspace_before(inner, pos)
+      if pns ~= "^" and pns ~= "_" then
+        out[#out + 1] = "\\boldsymbol{" .. ch .. "}"
+        prev_nonspace = "}"
+      else
+        out[#out + 1] = ch
+        prev_nonspace = ch
+      end
+      pos = pos + 1
+    else
+      out[#out + 1] = ch
+      if not ch:match("%s") then prev_nonspace = ch end
+      pos = pos + 1
     end
   end
-  out[#out + 1] = inner:sub(pos)
   return table.concat(out)
 end
 
@@ -2653,8 +2788,43 @@ local function math_pipeline(el)
   return math_super(r or el) or r
 end
 
+local function bold_inline_math_in_strong(el)
+  local changed = false
+  local out = {}
+  for _, inline in ipairs(el.content) do
+    if inline.t == "Math" and inline.mathtype == "InlineMath" and not bad_math(inline.text) then
+      local t = inline.text:match("^%s*(.-)%s*$")
+      if t ~= "" and not t:match("^\\mathbf%s*%b{}$") and not t:match("^\\boldsymbol%s*%b{}$") and not t:match("^\\bm%s*%b{}$") then
+        out[#out + 1] = pandoc.Math("InlineMath", "\\mathbf{" .. t .. "}")
+        changed = true
+      else
+        out[#out + 1] = inline
+      end
+    elseif inline.content then
+      local sub = inline:walk({
+        Math = function(m)
+          if m.mathtype == "InlineMath" and not bad_math(m.text) then
+            local t = m.text:match("^%s*(.-)%s*$")
+            if t ~= "" and not t:match("^\\mathbf%s*%b{}$") and not t:match("^\\boldsymbol%s*%b{}$") and not t:match("^\\bm%s*%b{}$") then
+              changed = true
+              return pandoc.Math("InlineMath", "\\mathbf{" .. t .. "}")
+            end
+          end
+          return nil
+        end
+      })
+      out[#out + 1] = sub
+    else
+      out[#out + 1] = inline
+    end
+  end
+  if changed then return pandoc.Strong(out) end
+  return nil
+end
+
 local AST_PASSES = {
   { name = "tables",  filter = { Table = table_fix } },
+  { name = "strong_math", filter = { Strong = bold_inline_math_in_strong } },
   { name = "inlines", filter = {
       Math      = math_pipeline,
       Image     = image_fix,

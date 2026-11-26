@@ -156,9 +156,11 @@ window.MathJax = {
       bm: ['\\boldsymbol{#1}', 1],
       bra: ['\\left\\langle{#1}\\right|', 1],
       ket: ['\\left|{#1}\\right\\rangle', 1],
-      braket: ['\\left\\langle{#1}\\middle|{#2}\\right\\rangle', 2],
-      checkmark: '\\unicode{x2713}'
+      braket: ['\\left\\langle{#1}\\middle|{#2}\\right\\rangle', 2]
     }
+  },
+  svg: {
+    fontCache: 'global'
   },
   options: {
     ignoreHtmlClass: 'tex2jax_ignore',

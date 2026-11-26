@@ -860,6 +860,7 @@ span.math.display {
 .math.display,
 div.math.display,
 span.math.display,
+mjx-container[display="true"],
 mjx-container[jax="CHTML"][display="true"],
 .MathJax_Display {
   max-width: 100% !important;
@@ -886,6 +887,11 @@ pre, code {
 img, svg {
   max-width: 100%;
   height: auto;
+}
+
+mjx-container svg {
+  max-width: none !important;
+  height: revert !important;
 }
 
 /* 2. Automatic System Dark Mode via prefers-color-scheme */

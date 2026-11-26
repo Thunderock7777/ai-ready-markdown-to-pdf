@@ -316,7 +316,7 @@ if "%WB_HTML_LAYOUT%"=="1" (
     if not exist "%HTML_TEX%" (
         copy /Y "%TEX_OUTPUT%" "%HTML_TEX%" >nul
     )
-    pandoc "%HTML_TEX%" -f latex -t html5 --mathjax --embed-resources --standalone --css="%LATEX_CSS%" --lua-filter="%HTML_BOX_FILTER%" -o "%HTML_OUTPUT%"
+    pandoc "%HTML_TEX%" -f latex -t html5 --mathjax="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js" --embed-resources --standalone --css="%LATEX_CSS%" --lua-filter="%HTML_BOX_FILTER%" -o "%HTML_OUTPUT%"
 )
 
 rmdir /s /q "%WORK%" >nul 2>&1

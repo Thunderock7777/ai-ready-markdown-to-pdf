@@ -2741,22 +2741,52 @@ local function calculate_whiteboard_width(doc)
   local max_cols = 0
   local max_depth = 0
   local table_expanded = false
+  local box_expanded = false
+  local content_expanded = false
 
   local function scan_blocks(blocks, depth)
     if not blocks then return end
     for _, b in ipairs(blocks) do
       if b.tag == "RawBlock" and b.format == "latex" then
         if b.text:match("\\begin%s*{tcolorbox") or b.text:match("\\begin%s*{marginbox") or b.text:match("\\begin%s*{quote") then
-          depth = depth + 1
+          local current_depth = depth + 1
+          if current_depth > max_depth then max_depth = current_depth end
+          local box_needed = floor_width + math.max(0, current_depth - 1) * 1.5
+          if box_needed > max_needed then
+            max_needed = box_needed
+            box_expanded = true
+          end
+          depth = current_depth
         elseif b.text:match("\\end%s*{tcolorbox") or b.text:match("\\end%s*{marginbox") or b.text:match("\\end%s*{quote") then
           depth = math.max(0, depth - 1)
         end
       elseif is_box_div(b) then
-        scan_blocks(b.content, depth + 1)
+        local current_depth = depth + 1
+        if current_depth > max_depth then max_depth = current_depth end
+        local box_needed = floor_width + math.max(0, current_depth - 1) * 1.5
+        if box_needed > max_needed then
+          max_needed = box_needed
+          box_expanded = true
+        end
+        scan_blocks(b.content, current_depth)
       elseif b.tag == "Div" then
         scan_blocks(b.content, depth)
       elseif b.tag == "BlockQuote" then
-        scan_blocks(b.content, depth + 1)
+        local current_depth = depth + 1
+        if current_depth > max_depth then max_depth = current_depth end
+        scan_blocks(b.content, current_depth)
+      elseif b.tag == "CodeBlock" then
+        local max_line_len = 0
+        for line in b.text:gmatch("[^\r\n]+") do
+          if #line > max_line_len then max_line_len = #line end
+        end
+        if max_line_len > 70 then
+          local code_needed = 1.0 + (depth * 0.60) + (max_line_len * 0.11)
+          if code_needed > max_needed then
+            max_needed = code_needed
+            content_expanded = true
+          end
+        end
       elseif b.tag == "Table" then
         local num_cols = #(b.colspecs or {})
         if num_cols == 0 and b.head and b.head.rows and #b.head.rows > 0 then
@@ -2818,7 +2848,7 @@ local function calculate_whiteboard_width(doc)
           if needed > max_needed then
             max_needed = needed
             max_cols = num_cols
-            max_depth = depth
+            max_depth = math.max(max_depth, depth)
             table_expanded = true
           end
         end
@@ -2841,6 +2871,10 @@ local function calculate_whiteboard_width(doc)
   doc.meta.whiteboard_width = pandoc.MetaString(string.format("%.2fin", final_width))
   if table_expanded then
     warn(string.format("whiteboard width expanded to %.2fin to accommodate %d-column table at box nesting depth %d", final_width, max_cols, max_depth))
+  elseif box_expanded then
+    warn(string.format("whiteboard width expanded to %.2fin to accommodate box nesting depth %d", final_width, max_depth))
+  elseif content_expanded or final_width > floor_width then
+    warn(string.format("whiteboard width expanded to %.2fin to accommodate content width", final_width))
   end
 end
 

@@ -92,6 +92,9 @@ $if(whiteboard_layout)$
 $if(whiteboard_html)$
 % WHITEBOARD_HTML_LAYOUT
 $endif$
+$if(whiteboard_width)$
+% WHITEBOARD_WIDTH: $whiteboard_width$
+$endif$
 $if(whiteboard_width_max)$
 % WHITEBOARD_WIDTH_MAX_REACHED
 \PackageWarning{whiteboard}{Whiteboard width reached maximum ceiling of 100in (clamped)}%

@@ -130,14 +130,21 @@ body.libertinus {
   text-align: justify;
 }
 
+:root {
+  --whiteboard-width: 1320px;
+  --document-width: var(--whiteboard-width);
+}
+
 body {
   font-family: 'Latin Modern', 'Latin Modern Roman', 'Computer Modern', 'TeX Gyre Termes', Georgia, Cambria, 'Times New Roman', Times, serif;
   line-height: 1.8;
 
-  max-width: min(96vw, 1320px);
+  width: 100%;
+  max-width: var(--document-width, var(--whiteboard-width, 1320px));
   min-height: 100vh;
   margin: 0 auto;
-  padding: 1.5rem 1rem;
+  padding: 1.5rem 1.25rem;
+  box-sizing: border-box;
 
   counter-reset: theorem definition sidenote-counter;
 

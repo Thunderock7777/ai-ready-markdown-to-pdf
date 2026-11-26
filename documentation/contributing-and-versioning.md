@@ -388,6 +388,7 @@ Change ledger
   2026-11-26 | Universal MathML token and fallback layout: enforce horizontal token flow and pure CSS fraction/script layout | source +50 / -8 | 189 / 500
   2026-11-26 | Expand HTML canvas max-width to min(96vw, 1320px) and optimize nested box padding for deep nesting width | source +49 / -4 | 242 / 500
   2026-11-26 | Revert mobile MathML hacks and restore desktop Chrome MathJax engine | source +29 / -118 | 271 / 500
+  2026-11-26 | Dynamic whiteboard canvas expansion in HTML: scale document width from box nesting depth and content | source +81 / -12 | 352 / 500
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

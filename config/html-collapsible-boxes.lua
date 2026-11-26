@@ -8,8 +8,10 @@
 -- 4. Dynamic hex colors are mapped directly from box attributes or \definecolor in the .tex file.
 
 local hex_map = {}
+local whiteboard_width_css = nil
+local max_box_depth = 1
 
-local function load_colors_from_tex()
+local function load_tex_metadata()
   local path = PANDOC_STATE and PANDOC_STATE.input_files and PANDOC_STATE.input_files[1]
   if not path then return end
   local f = io.open(path, "r")
@@ -19,11 +21,22 @@ local function load_colors_from_tex()
   for name, hex in content:gmatch("\\definecolor%s*{([%w_]+)}%s*{HTML}%s*{([%x]+)}") do
     hex_map[name] = "#" .. hex
   end
+  local wb = content:match("%% WHITEBOARD_WIDTH:%s*([%d%.]+in)")
+  if not wb then
+    wb = content:match("paperwidth%s*=%s*([%d%.]+in)")
+  end
+  if wb then
+    whiteboard_width_css = wb
+  end
 end
 
 local function transform_div(el, depth)
   if not (el.classes:includes("marginbox") or el.classes:includes("tcolorbox") or el.classes:includes("vbox")) then
     return el
+  end
+
+  if depth > max_box_depth then
+    max_box_depth = depth
   end
 
   local title = "Click for more info"
@@ -103,7 +116,7 @@ local function transform_div(el, depth)
 end
 
 function Pandoc(doc)
-  load_colors_from_tex()
+  load_tex_metadata()
   local new_blocks = {}
   for _, b in ipairs(doc.blocks) do
     if b.tag == "Div" and (b.classes:includes("marginbox") or b.classes:includes("tcolorbox") or b.classes:includes("vbox")) then
@@ -114,13 +127,24 @@ function Pandoc(doc)
     end
   end
 
-  -- MathJax configuration for robust LaTeX rendering in desktop Chrome
+  -- Determine dynamic whiteboard width from tex metadata or box nesting depth
+  if not whiteboard_width_css then
+    local needed_in = 11.0 + math.max(0, max_box_depth - 1) * 1.5
+    whiteboard_width_css = string.format("%.2fin", needed_in)
+  end
+
   local header_includes = doc.meta["header-includes"] or pandoc.MetaList({})
   if header_includes.t ~= "MetaList" then
     header_includes = pandoc.MetaList({ header_includes })
   end
 
-  local mathjax_config = pandoc.RawBlock("html", [==[
+  local head_html = string.format([==[
+<style>
+:root {
+  --whiteboard-width: %s;
+  --document-width: var(--whiteboard-width);
+}
+</style>
 <script>
 window.MathJax = {
   tex: {
@@ -140,8 +164,9 @@ window.MathJax = {
     processHtmlClass: 'tex2jax_process'
   }
 };
-</script>]==])
-  header_includes[#header_includes + 1] = pandoc.MetaBlocks({ mathjax_config })
+</script>]==], whiteboard_width_css)
+
+  header_includes[#header_includes + 1] = pandoc.MetaBlocks({ pandoc.RawBlock("html", head_html) })
   doc.meta["header-includes"] = header_includes
 
   -- Floating reading & navigation toolbar (Expand/Collapse All, Theme, Scroll Top)

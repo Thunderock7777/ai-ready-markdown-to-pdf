@@ -5,7 +5,7 @@ Pandoc, XeLaTeX, and two Lua filters. Executable code fences in Python, C, C++,
 Java, and Mermaid can run during the build with universal caching and approval controls,
 while LaTeX fences render source snippets without executing them.
 
-**Current project version: 1.7.1**.
+**Current project version: 1.8.0**.
 
 > **Paste an AI chat response and compile it directly.** A copied response from
 > ChatGPT, Gemini chat, or NotebookLM can be compiled as-is when it uses
@@ -34,7 +34,7 @@ while LaTeX fences render source snippets without executing them.
 - **CommonMark Code Span Parsing**: Inline code span matching strictly follows CommonMark: backslashes do not escape closing backticks (e.g. `` `C:\Windows\` `` closes cleanly without corrupting subsequent text passes).
 - **Robust Environment & Math Normalization**: Theorem-like environments support arbitrary re-entrant nesting (`\begin{theorem}...\begin{quote}...\end{quote}...\end{theorem}`) via an environment stack. Display math (`$$...$$`) unwraps `\begin{align}` even when preceded or followed by text or comments, and inline currency amounts (e.g. `$50 (base_fee = $30)`) are strictly isolated from math delimiter heuristics.
 - **Localized XeLaTeX Error Recovery**: Neutralizes localized LaTeX document errors with red `[!!!]` badges in the PDF and yellow console diagnostics instead of crashing the build.
-- **Page Layout & Title Controls**: Switch between standard A4 (`default`), 16:9 `presentation`, continuous dynamically sized `whiteboard` PDFs, or `whiteboard_html` (HTML-only output skipping PDF generation, producing a MathJax-powered interactive HTML whiteboard for modern browsers like Edge, Chrome, Firefox, and Safari matching the dynamically expanded canvas width — including an offline Markmap **Tree View** with Full/Split mode, L1/L2/L3/All depth controls, branch search, SVG export, and dedicated node `↗` jump buttons), and optionally hide the horizontal title divider rule using YAML front matter.
+- **Page Layout & Title Controls**: Switch between standard A4 (`default`), 16:9 `presentation`, continuous dynamically sized `whiteboard` PDFs, or `whiteboard_html` (HTML-only output skipping PDF generation, producing a MathJax-powered interactive HTML whiteboard for modern browsers like Edge, Chrome, Firefox, and Safari matching the dynamically expanded canvas width — including a leftmost PDF-style **Table of Contents** drawer, an interactive Markmap **Tree View** with Full/Split mode, draggable 60/40 sash, L1/L2/L3/All depth controls, branch search+zoom, SVG export, and exact item-level `↗` jump buttons, with both compact gzipped `offline` mode and repo-linked `html-assets: cdn` mode + offline reload guard), and optionally hide the horizontal title divider rule using YAML front matter.
 - **Non-Destructive Processing**: Source files are never modified; generated PDFs are saved beside the primary input file.
 
 ## Best use

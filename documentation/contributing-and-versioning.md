@@ -427,7 +427,7 @@ Version 1.7.1 cycle
   Starting count: 0 / 500
 
 Change ledger
-  (no changes yet)
+  2026-11-26 | Add accent-tinted bottom ▲ Collapse button (.marginbox-footer / .wb-box-collapse-btn) inside every expanded box generation with off-screen header scroll recovery | source +68 / -3 | 71 / 500
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

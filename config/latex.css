@@ -849,6 +849,48 @@ details.vbox > .marginbox-body {
   padding: 8px 10px;
 }
 
+.marginbox-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed color-mix(in srgb, var(--box-col, #1A9E39) 35%, transparent);
+  user-select: none;
+}
+
+.wb-box-collapse-btn {
+  background: color-mix(in srgb, var(--box-col, #1A9E39) 12%, transparent);
+  color: var(--box-col, #1A9E39);
+  border: 1px solid color-mix(in srgb, var(--box-col, #1A9E39) 45%, transparent);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.wb-box-collapse-btn:hover {
+  background: var(--box-col, #1A9E39);
+  color: #ffffff;
+}
+
+body.latex-dark .wb-box-collapse-btn {
+  background: color-mix(in srgb, var(--box-col, #1A9E39) 22%, #1c1c1c);
+  color: #f3f4f6;
+  border-color: var(--box-col, #1A9E39);
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not(.latex-light) .wb-box-collapse-btn {
+    background: color-mix(in srgb, var(--box-col, #1A9E39) 22%, #1c1c1c);
+    color: #f3f4f6;
+    border-color: var(--box-col, #1A9E39);
+  }
+}
+
 /* ==========================================================================
    MathJax Display & Responsive Math Formatting
    ========================================================================== */
@@ -1625,6 +1667,7 @@ body.latex-dark .wb-html-error {
   .wb-annot-toolbar,
   .wb-save-modal,
   .wb-unsaved-popup,
+  .marginbox-footer,
   .wb-sticky-note-del {
     display: none !important;
   }

@@ -206,6 +206,9 @@ local function transform_div(el, depth)
   <div class="marginbox-body" data-wb-annot-id="%s">]], color_hex, safe_title, box_annot_id)
 
   local close_html = [[
+  <div class="marginbox-footer">
+    <button type="button" class="wb-box-collapse-btn" title="Collapse this box">▲ Collapse</button>
+  </div>
   </div>
 </details>]]
 
@@ -901,7 +904,7 @@ window.MathJax = {
       var node = walker.currentNode;
       while (node) {
         var parentEl = (node.nodeType === 3) ? node.parentNode : node;
-        if (parentEl && parentEl.closest && !parentEl.closest('.floating-toolbar, .wb-annot-toolbar, .wb-sticky-note, .wb-save-modal, summary.marginbox-header')) {
+        if (parentEl && parentEl.closest && !parentEl.closest('.floating-toolbar, .wb-annot-toolbar, .wb-sticky-note, .wb-save-modal, summary.marginbox-header, .marginbox-footer')) {
           var container = parentEl.closest('[data-wb-annot-id]');
           if (container) {
             if (node.nodeType === 3 && /\S/.test(node.nodeValue || '') && (!range.intersectsNode || range.intersectsNode(node))) {
@@ -1005,7 +1008,7 @@ window.MathJax = {
   document.addEventListener('pointerdown', function(e) {
     if (activeTool === 'cursor' || activeTool === 'highlight') return;
     var tgt = (e.target && e.target.nodeType === 3) ? e.target.parentNode : e.target;
-    if (tgt && tgt.closest && (tgt.closest('.floating-toolbar') || tgt.closest('.wb-annot-toolbar') || tgt.closest('.wb-save-modal') || tgt.closest('summary.marginbox-header') || tgt.closest('.wb-sticky-note'))) {
+    if (tgt && tgt.closest && (tgt.closest('.floating-toolbar') || tgt.closest('.wb-annot-toolbar') || tgt.closest('.wb-save-modal') || tgt.closest('summary.marginbox-header') || tgt.closest('.marginbox-footer') || tgt.closest('.wb-sticky-note'))) {
       return;
     }
     var container = tgt && tgt.closest ? tgt.closest('[data-wb-annot-id]') : null;
@@ -1474,9 +1477,28 @@ window.MathJax = {
   loadInitialAnnotations();
   renderAllAnnotations();
 
-  // 5. Embedded HTML Tab Launcher (creates on-click Blob URL and opens in new tab)
+  // 5. Embedded HTML Tab Launcher & Per-Box Bottom Collapse Button
   document.addEventListener('click', function(e) {
     var tgt = (e.target && e.target.nodeType === 3) ? e.target.parentNode : e.target;
+    var colBtn = tgt && tgt.closest ? tgt.closest('.wb-box-collapse-btn') : null;
+    if (colBtn) {
+      var det = colBtn.closest('details.marginbox, details.tcolorbox, details.vbox');
+      if (det) {
+        det.open = false;
+        var sum = det.querySelector('summary');
+        if (sum && sum.getBoundingClientRect && window.scrollTo) {
+          var bar = document.getElementById('floatingToolbar');
+          var barH = bar ? (bar.offsetHeight || 0) : 0;
+          var sr = sum.getBoundingClientRect();
+          if (sr.top < barH + 8) {
+            var targetY = Math.max(0, (window.scrollY || window.pageYOffset || 0) + sr.top - barH - 12);
+            window.scrollTo({ top: targetY, behavior: 'smooth' });
+          }
+        }
+        setTimeout(syncAllLayerSizes, 20);
+      }
+      return;
+    }
     var btn = tgt && tgt.closest ? tgt.closest('.wb-html-launch') : null;
     if (!btn) return;
     var payloadId = btn.getAttribute('data-wb-html-target');

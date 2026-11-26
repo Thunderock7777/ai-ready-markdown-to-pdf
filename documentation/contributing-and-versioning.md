@@ -385,6 +385,7 @@ Version 1.5.1 cycle
 Change ledger
   2026-11-26 | Add mandatory Node.js and npm automated verification and installation to setup.bat | source +72 / -12 | 84 / 500
   2026-11-26 | Self-contained zero-external-network HTML math via native MathML and progressive polyfill | source +33 / -14 | 131 / 500
+  2026-11-26 | Fix inline MathML flow in mobile WebViews via strict inline display and semantics wrapper rules | source +17 / -5 | 153 / 500
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

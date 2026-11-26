@@ -819,16 +819,27 @@ details.vbox > .marginbox-body {
    ========================================================================== */
 
 /* 1. Responsive Math, Table, and Code Overflow Protection */
-math {
+math,
+math[display="inline"],
+math:not([display="block"]) {
+  display: inline !important;
   font-family: 'Latin Modern Math', 'STIX Two Math', 'Cambria Math', 'TeX Gyre Termes Math', 'KaTeX_Math', math, serif;
   font-size: 1.05em;
   direction: ltr;
+  vertical-align: baseline;
+}
+
+math[display="inline"] semantics,
+math:not([display="block"]) semantics,
+math[display="inline"] mrow,
+math:not([display="block"]) mrow {
+  display: inline !important;
 }
 
 math[display="block"] {
-  display: block;
+  display: block !important;
   text-align: center;
-  margin: 1.2rem auto;
+  margin: 1.2rem auto !important;
   max-width: 100% !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
@@ -836,8 +847,9 @@ math[display="block"] {
   padding: 0.5rem 0.25rem;
 }
 
-math[display="inline"] {
-  display: inline;
+math[display="block"] semantics,
+math[display="block"] mrow {
+  display: block;
 }
 
 mfrac {

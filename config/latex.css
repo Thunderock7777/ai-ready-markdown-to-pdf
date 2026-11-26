@@ -1130,6 +1130,138 @@ body.latex-light img[src^="data:image/svg+xml"] {
   border-color: #15803d !important;
 }
 
+.wb-annot-save-btn.is-dirty {
+  box-shadow: 0 0 0 2px #f59e0b;
+}
+
+.wb-has-tip {
+  position: relative;
+}
+
+.wb-has-tip:hover::after,
+.wb-has-tip:focus-visible::after {
+  content: attr(data-wb-tip);
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  white-space: nowrap;
+  background: #111827;
+  color: #f9fafb;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 0.74rem;
+  font-weight: 500;
+  line-height: 1.3;
+  padding: 5px 9px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
+  pointer-events: none;
+  z-index: 10025;
+}
+
+body.latex-dark .wb-has-tip:hover::after,
+body.latex-dark .wb-has-tip:focus-visible::after {
+  background: #f9fafb;
+  color: #111827;
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not(.latex-light) .wb-has-tip:hover::after,
+  body:not(.latex-light) .wb-has-tip:focus-visible::after {
+    background: #f9fafb;
+    color: #111827;
+    border-color: rgba(0, 0, 0, 0.14);
+  }
+}
+
+.wb-unsaved-popup {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  z-index: 10015;
+  display: none;
+  width: min(320px, calc(100vw - 32px));
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #f59e0b;
+  border-left: 5px solid #f59e0b;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.wb-unsaved-popup.is-open {
+  display: block;
+}
+
+.wb-unsaved-popup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+
+.wb-unsaved-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.wb-unsaved-popup-msg {
+  margin: 0 0 10px 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #4b5563;
+}
+
+.wb-unsaved-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wb-unsaved-popup-actions button {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #f3f4f6;
+  color: #111827;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wb-unsaved-popup-actions button.primary {
+  background: #16a34a;
+  color: #ffffff;
+  border-color: #15803d;
+}
+
+body.latex-dark .wb-unsaved-popup {
+  background: #1f2937;
+  color: #f3f4f6;
+}
+
+body.latex-dark .wb-unsaved-popup-msg {
+  color: #d1d5db;
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not(.latex-light) .wb-unsaved-popup {
+    background: #1f2937;
+    color: #f3f4f6;
+  }
+  body:not(.latex-light) .wb-unsaved-popup-msg {
+    color: #d1d5db;
+  }
+}
+
 .wb-annot-save-btn:hover {
   background: #15803d !important;
 }
@@ -1492,6 +1624,7 @@ body.latex-dark .wb-html-error {
   .floating-toolbar,
   .wb-annot-toolbar,
   .wb-save-modal,
+  .wb-unsaved-popup,
   .wb-sticky-note-del {
     display: none !important;
   }

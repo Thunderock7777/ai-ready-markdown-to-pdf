@@ -420,6 +420,13 @@ Version 1.7.0 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-26 | Add dirty Save HTML indicator, beforeunload close guard, and on-leave/status-click unsaved-annotations popup menu (#wbUnsavedPopup) | source +170 / -11 | 181 / 500
+  2026-11-26 | Add instant CSS hover tooltips (.wb-has-tip) on Save HTML and Save As explaining local update vs standalone sharing | source +42 / -2 | 225 / 500 (versioned as 1.7.1 PATCH)
+
+Version 1.7.1 cycle
+  Starting count: 0 / 500
+
+Change ledger
   (no changes yet)
 
 After a version increment, add a new cycle header with the new version and

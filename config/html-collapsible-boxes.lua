@@ -369,8 +369,8 @@ window.MathJax = {
   <div class="wb-toolbar-group">
     <span id="wbAnnotStatus" class="wb-annot-status"></span>
     <button id="btnPrintDoc" type="button" title="Print / Save as PDF (Ctrl+P)" aria-label="Print document">Print</button>
-    <button id="btnAnnotSave" type="button" class="wb-annot-save-btn" title="Overwrite main HTML (or save with main filename)">Save HTML</button>
-    <button id="btnAnnotSaveAs" type="button" title="Save annotated HTML as...">Save As</button>
+    <button id="btnAnnotSave" type="button" class="wb-annot-save-btn wb-has-tip" data-wb-tip="For local storage &amp; updating this file, use Save HTML" title="For local storage &amp; updating this file, use Save HTML">Save HTML</button>
+    <button id="btnAnnotSaveAs" type="button" class="wb-has-tip" data-wb-tip="For sharing a standalone HTML file, use Save As" title="For sharing a standalone HTML file, use Save As">Save As</button>
     <span class="wb-annot-sep"></span>
     <button id="btnToggleTheme" type="button" title="Switch theme" aria-label="Toggle dark/light theme">
       <span id="toggleThemeIcon">🌓</span> Theme
@@ -391,6 +391,18 @@ window.MathJax = {
       <button id="btnSaveAsPicker" type="button">Choose Folder...</button>
       <button id="btnSaveAsConfirm" type="button" class="primary">Save Copy</button>
     </div>
+  </div>
+</div>
+<div class="wb-unsaved-popup" id="wbUnsavedPopup" role="dialog" aria-live="polite" aria-label="Unsaved HTML Annotations">
+  <div class="wb-unsaved-popup-head">
+    <strong>Unsaved Annotations</strong>
+    <button id="btnPopupDismiss" type="button" class="wb-unsaved-close" title="Dismiss" aria-label="Dismiss">×</button>
+  </div>
+  <p class="wb-unsaved-popup-msg">Your browser draft is auto-saved, but the standalone HTML file has not been saved yet.</p>
+  <div class="wb-unsaved-popup-actions">
+    <button id="btnPopupSave" type="button" class="primary">Save HTML</button>
+    <button id="btnPopupSaveAs" type="button">Save As</button>
+    <button id="btnPopupLater" type="button">Later</button>
   </div>
 </div>
 <script>
@@ -540,9 +552,31 @@ window.MathJax = {
   var annotBarOpen = false;
   var isDirty = false;
   var statusEl = document.getElementById('wbAnnotStatus');
+  var unsavedPopupEl = document.getElementById('wbUnsavedPopup');
 
   function setStatus(msg) {
     if (statusEl) statusEl.textContent = msg || '';
+  }
+
+  function showUnsavedPopup() {
+    if (!isDirty || !unsavedPopupEl) return;
+    unsavedPopupEl.classList.add('is-open');
+  }
+
+  function hideUnsavedPopup() {
+    if (unsavedPopupEl) unsavedPopupEl.classList.remove('is-open');
+  }
+
+  function setDirtyState(dirty) {
+    isDirty = !!dirty;
+    var saveBtnEl = document.getElementById('btnAnnotSave');
+    if (saveBtnEl) {
+      if (saveBtnEl.classList) saveBtnEl.classList.toggle('is-dirty', isDirty);
+      saveBtnEl.textContent = isDirty ? 'Save HTML •' : 'Save HTML';
+    }
+    if (!isDirty) {
+      hideUnsavedPopup();
+    }
   }
 
   function cloneState(st) {
@@ -556,7 +590,7 @@ window.MathJax = {
 
   function saveDraft() {
     annotState.updatedAt = Date.now();
-    isDirty = true;
+    setDirtyState(true);
     try {
       localStorage.setItem(draftKey, JSON.stringify(annotState));
       setStatus('Unsaved draft');
@@ -580,7 +614,7 @@ window.MathJax = {
         var draft = JSON.parse(rawDraft);
         if (draft && draft.containers && (draft.updatedAt || 0) > (embedded.updatedAt || 0)) {
           annotState = draft;
-          isDirty = true;
+          setDirtyState(true);
           setStatus('Draft restored');
         }
       }
@@ -1176,6 +1210,12 @@ window.MathJax = {
     });
   }
 
+  function markSavedSuccess(msg) {
+    try { localStorage.setItem(draftKey, JSON.stringify(annotState)); } catch (e) {}
+    setDirtyState(false);
+    setStatus(msg);
+  }
+
   function triggerDownload(htmlOut, fileName, msg) {
     var blob = new Blob([htmlOut], { type: 'text/html;charset=utf-8' });
     var url = URL.createObjectURL(blob);
@@ -1188,15 +1228,7 @@ window.MathJax = {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 500);
-    try { localStorage.setItem(draftKey, JSON.stringify(annotState)); } catch (e) {}
-    isDirty = false;
-    setStatus(msg || ('Saved ' + fileName));
-  }
-
-  function markSavedSuccess(msg) {
-    try { localStorage.setItem(draftKey, JSON.stringify(annotState)); } catch (e) {}
-    isDirty = false;
-    setStatus(msg);
+    markSavedSuccess(msg || ('Saved ' + fileName));
   }
 
   var btnSave = document.getElementById('btnAnnotSave');
@@ -1402,6 +1434,40 @@ window.MathJax = {
   window.addEventListener('load', function() {
     syncTopBarBodyOffset();
     syncAllLayerSizes();
+  });
+
+  var btnPopupSave = document.getElementById('btnPopupSave');
+  var btnPopupSaveAs = document.getElementById('btnPopupSaveAs');
+  var btnPopupDismiss = document.getElementById('btnPopupDismiss');
+  var btnPopupLater = document.getElementById('btnPopupLater');
+  if (btnPopupSave) {
+    btnPopupSave.addEventListener('click', function() {
+      if (btnSave) btnSave.click();
+    });
+  }
+  if (btnPopupSaveAs) {
+    btnPopupSaveAs.addEventListener('click', function() {
+      hideUnsavedPopup();
+      openSaveAsModal();
+    });
+  }
+  function dismissReminder() {
+    hideUnsavedPopup();
+  }
+  if (btnPopupDismiss) btnPopupDismiss.addEventListener('click', dismissReminder);
+  if (btnPopupLater) btnPopupLater.addEventListener('click', dismissReminder);
+  if (statusEl) {
+    statusEl.addEventListener('click', function() {
+      if (isDirty) showUnsavedPopup();
+    });
+  }
+
+  window.addEventListener('beforeunload', function(e) {
+    if (!isDirty) return;
+    setTimeout(showUnsavedPopup, 150);
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
   });
 
   syncTopBarBodyOffset();

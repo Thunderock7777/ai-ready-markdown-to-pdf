@@ -120,9 +120,7 @@ Pipeline and ordering
    in the generated `.tex`), `compile.bat` skips full-document XeLaTeX PDF creation
    and jumps straight to HTML generation: it runs `config\tex-to-html-preprocessor.lua`
    (converting unsupported TikZ/diagram/chemfig/\begin{htmlsvg} environments to cached
-   base64 SVGs via XeLaTeX + `dvisvgm`) and then invokes Pandoc with `-f latex -t html5 --mathjax="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js" --embed-resources --standalone --css=config\latex.css --lua-filter=config\html-collapsible-boxes.lua`
-   to write `<first-input-basename>.html` only, inheriting the dynamic
-   `% WHITEBOARD_WIDTH:` as `--whiteboard-width` / `--document-width`.
+   base64 SVGs via XeLaTeX + `dvisvgm`), optionally extracts normalized standard Markdown via `config\graph-markdown-extractor.lua` and builds gzipped Markmap JSON (`#wbGraphData` `v:2`) plus an offline gzipped vendor bundle (`#wbVendorGz` `v:1`, containing `d3.min.js`, `markmap-view.min.js`, and 7 core KaTeX `.woff2` fonts) via `config\markmap\build-graph.js` when Node.js + `config\markmap\node_modules` are present. In default `html-assets: offline` mode, Pandoc runs with `--embed-resources --standalone --css=config\latex.css` and `config\html-collapsible-boxes.lua` embeds `config\wb-viewer.js` and `#wbVendorGz` (lazy-decompressed in browser via `DecompressionStream`). In `html-assets: cdn` mode, Pandoc omits `--embed-resources --css`, and `html-collapsible-boxes.lua` embeds local content images inline while linking `config/latex.css`, `config/wb-viewer.js`, and `config/markmap/vendor/` via jsDelivr CDN (customizable with `html-cdn-base:`). Both modes inherit `% WHITEBOARD_WIDTH:` as `--whiteboard-width` / `--document-width` and include interactive **Tree View** and **TOC** controls.
    Temporary build files are then removed. The Python/SVG cache is separate and
    persists in md2pdf_cache beside compile.bat.
 

@@ -7,6 +7,9 @@ venv/
 # Markdown-to-PDF runtime cache
 md2pdf_cache/
 
+# Local Node.js bundles (e.g. config/markmap/node_modules)
+node_modules/
+
 # Temporary LaTeX files
 *.aux
 *.log

@@ -167,6 +167,20 @@ if not errorlevel 1 (
         )
     )
 )
+where npm >nul 2>&1
+if not errorlevel 1 (
+    if exist "%~dp0config\markmap\package.json" (
+        if not exist "%~dp0config\markmap\node_modules\markmap-view\dist\browser\index.js" (
+            echo   Installing local Markmap Tree View bundle...
+            call npm install --prefix "%~dp0config\markmap" --no-audit --no-fund
+        )
+        if exist "%~dp0config\markmap\node_modules\markmap-view\dist\browser\index.js" (
+            echo   [OK] Markmap Tree View offline bundle is ready.
+        ) else (
+            echo   [WARN] Markmap Tree View bundle installation incomplete. Tree View may be skipped in HTML output.
+        )
+    )
+)
 echo.
 
 REM ==========================================

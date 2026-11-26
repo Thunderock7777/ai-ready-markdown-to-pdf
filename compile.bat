@@ -35,6 +35,9 @@ set "CODE_FENCE_FILTER=%CONFIG_DIR%\code-fence-runner.lua"
 set "HTML_BOX_FILTER=%CONFIG_DIR%\html-collapsible-boxes.lua"
 set "LATEX_CSS=%CONFIG_DIR%\latex.css"
 set "HTML_PREPROCESSOR=%CONFIG_DIR%\tex-to-html-preprocessor.lua"
+set "GRAPH_MD_FILTER=%CONFIG_DIR%\graph-markdown-extractor.lua"
+set "MARKMAP_DIR=%CONFIG_DIR%\markmap"
+set "MARKMAP_BUILD_JS=%MARKMAP_DIR%\build-graph.js"
 set "ANNOTATOR_SCRIPT=%CONFIG_DIR%\error-annotator.lua"
 if not defined PYTHON set "PYTHON=py"
 if not defined C_COMPILER set "C_COMPILER=gcc"
@@ -75,6 +78,9 @@ set "WORK=%TEMP%\md2pdf_%RANDOM%%RANDOM%"
 
 set "TEX_OUTPUT=%WORK%\%~n1.tex"
 set "HTML_TEX=%WORK%\%~n1_html.tex"
+set "GRAPH_MD=%WORK%\%~n1_graph.md"
+set "GRAPH_PAYLOAD=%WORK%\%~n1_graph.json"
+set "GRAPH_VENDOR=%WORK%\%~n1_vendor.json"
 set "WORK_PDF=%WORK%\%~n1.pdf"
 set "LOG_FILE=%WORK%\%~n1.log"
 
@@ -311,27 +317,58 @@ if errorlevel 1 (
     goto CLEANUP_FAIL
 )
 :CREATE_HTML
-if "%WB_HTML_LAYOUT%"=="1" (
-    echo.
-    echo ==========================================
-    echo              CREATING HTML
-    echo ==========================================
-    if exist "%HTML_PREPROCESSOR%" (
-        texlua "%HTML_PREPROCESSOR%" "%TEX_OUTPUT%" "%HTML_TEX%" "%MD2PDF_CACHE%"
-    )
-    if not exist "%HTML_TEX%" (
-        copy /Y "%TEX_OUTPUT%" "%HTML_TEX%" >nul
-    )
-    pandoc "%HTML_TEX%" -f latex -t html5 --mathjax="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js" --embed-resources --standalone --css="%LATEX_CSS%" --lua-filter="%HTML_BOX_FILTER%" -o "%HTML_OUTPUT%"
-    if errorlevel 1 (
-        color 0E
-        echo.
-        echo ==========================================
-        echo            HTML CREATION FAILED
-        echo ==========================================
-        goto CLEANUP_FAIL
+if not "%WB_HTML_LAYOUT%"=="1" goto SKIP_HTML
+echo.
+echo ==========================================
+echo              CREATING HTML
+echo ==========================================
+if exist "%HTML_PREPROCESSOR%" (
+    texlua "%HTML_PREPROCESSOR%" "%TEX_OUTPUT%" "%HTML_TEX%" "%MD2PDF_CACHE%"
+)
+if not exist "%HTML_TEX%" (
+    copy /Y "%TEX_OUTPUT%" "%HTML_TEX%" >nul
+)
+set "HTML_ASSETS_CDN="
+findstr /C:"%% HTML_ASSETS: cdn" "%TEX_OUTPUT%" >nul 2>&1
+if not errorlevel 1 set "HTML_ASSETS_CDN=1"
+set "MD2PDF_CONFIG_DIR=%CONFIG_DIR%"
+set "MD2PDF_GRAPH_JSON="
+set "MD2PDF_GRAPH_VENDOR="
+set "MD2PDF_MARKMAP_DIR="
+where node >nul 2>&1
+if not errorlevel 1 (
+    if exist "%GRAPH_MD_FILTER%" if exist "%MARKMAP_BUILD_JS%" if exist "%MARKMAP_DIR%\node_modules\markmap-view\dist\browser\index.js" (
+        pandoc %PANDOC_INPUTS% -f markdown-yaml_metadata_block-simple_tables-raw_tex --lua-filter="%NORMALIZER_FILTER%" --lua-filter="%GRAPH_MD_FILTER%" -t html -o "%GRAPH_MD%"
+        if not errorlevel 1 if exist "%GRAPH_MD%" (
+            if "%HTML_ASSETS_CDN%"=="1" (
+                node "%MARKMAP_BUILD_JS%" "%GRAPH_MD%" "%GRAPH_PAYLOAD%"
+            ) else (
+                node "%MARKMAP_BUILD_JS%" "%GRAPH_MD%" "%GRAPH_PAYLOAD%" "%GRAPH_VENDOR%"
+            )
+            if not errorlevel 1 if exist "%GRAPH_PAYLOAD%" (
+                set "MD2PDF_GRAPH_JSON=%GRAPH_PAYLOAD%"
+                set "MD2PDF_MARKMAP_DIR=%MARKMAP_DIR%"
+                if exist "%GRAPH_VENDOR%" set "MD2PDF_GRAPH_VENDOR=%GRAPH_VENDOR%"
+            ) else (
+                echo [WARN] Markmap tree build failed; continuing without Tree View.
+            )
+        )
     )
 )
+if "%HTML_ASSETS_CDN%"=="1" (
+    pandoc "%HTML_TEX%" -f latex -t html5 --mathjax="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js" --standalone --lua-filter="%HTML_BOX_FILTER%" -o "%HTML_OUTPUT%"
+) else (
+    pandoc "%HTML_TEX%" -f latex -t html5 --mathjax="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js" --embed-resources --standalone --css="%LATEX_CSS%" --lua-filter="%HTML_BOX_FILTER%" -o "%HTML_OUTPUT%"
+)
+if errorlevel 1 (
+    color 0E
+    echo.
+    echo ==========================================
+    echo            HTML CREATION FAILED
+    echo ==========================================
+    goto CLEANUP_FAIL
+)
+:SKIP_HTML
 
 rmdir /s /q "%WORK%" >nul 2>&1
 

@@ -34,7 +34,7 @@ while LaTeX fences render source snippets without executing them.
 - **CommonMark Code Span Parsing**: Inline code span matching strictly follows CommonMark: backslashes do not escape closing backticks (e.g. `` `C:\Windows\` `` closes cleanly without corrupting subsequent text passes).
 - **Robust Environment & Math Normalization**: Theorem-like environments support arbitrary re-entrant nesting (`\begin{theorem}...\begin{quote}...\end{quote}...\end{theorem}`) via an environment stack. Display math (`$$...$$`) unwraps `\begin{align}` even when preceded or followed by text or comments, and inline currency amounts (e.g. `$50 (base_fee = $30)`) are strictly isolated from math delimiter heuristics.
 - **Localized XeLaTeX Error Recovery**: Neutralizes localized LaTeX document errors with red `[!!!]` badges in the PDF and yellow console diagnostics instead of crashing the build.
-- **Page Layout & Title Controls**: Switch between standard A4 (`default`), 16:9 `presentation`, continuous dynamically sized `whiteboard` PDFs, or `whiteboard_html` (HTML-only output skipping PDF generation, producing a MathJax-powered interactive HTML whiteboard for modern browsers like Edge, Chrome, Firefox, and Safari matching the dynamically expanded canvas width), and optionally hide the horizontal title divider rule using YAML front matter.
+- **Page Layout & Title Controls**: Switch between standard A4 (`default`), 16:9 `presentation`, continuous dynamically sized `whiteboard` PDFs, or `whiteboard_html` (HTML-only output skipping PDF generation, producing a MathJax-powered interactive HTML whiteboard for modern browsers like Edge, Chrome, Firefox, and Safari matching the dynamically expanded canvas width — including an offline Markmap **Tree View** with Full/Split mode, L1/L2/L3/All depth controls, branch search, SVG export, and dedicated node `↗` jump buttons), and optionally hide the horizontal title divider rule using YAML front matter.
 - **Non-Destructive Processing**: Source files are never modified; generated PDFs are saved beside the primary input file.
 
 ## Best use
@@ -71,7 +71,13 @@ your-tool-folder/
     ├── error-annotator.lua
     ├── html-collapsible-boxes.lua
     ├── tex-to-html-preprocessor.lua
-    └── latex.css
+    ├── graph-markdown-extractor.lua
+    ├── latex.css
+    ├── wb-viewer.js
+    └── markmap/
+        ├── package.json
+        ├── build-graph.js
+        └── vendor/
 ```
 
 The compiler creates `md2pdf_cache/` beside `compile.bat`. It is safe to remove

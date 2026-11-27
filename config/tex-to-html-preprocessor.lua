@@ -343,6 +343,59 @@ local function render_snippet_to_svg(snippet_body, env_name)
   end
 end
 
+-- Pandoc's LaTeX reader drops \begin{minipage}...\end{minipage} cells inside longtable
+-- if they contain bare `\\` linebreaks. Convert top-level `\\` inside minipage cells
+-- (outside math spans and nested environments like pmatrix) to `\newline`.
+local function sanitize_table_minipage_breaks(tbl_tex)
+  local function rewrite_minipage(body)
+    local out = {}
+    local i, len = 1, #body
+    local math_paren = false
+    local math_dollar = false
+    local env_depth = 0
+    while i <= len do
+      if body:sub(i, i + 1) == "\\(" then
+        math_paren = true
+        out[#out + 1] = "\\("
+        i = i + 2
+      elseif math_paren and body:sub(i, i + 1) == "\\)" then
+        math_paren = false
+        out[#out + 1] = "\\)"
+        i = i + 2
+      elseif not math_paren and body:sub(i, i) == "$" and (i == 1 or body:sub(i - 1, i - 1) ~= "\\") then
+        math_dollar = not math_dollar
+        out[#out + 1] = "$"
+        i = i + 1
+      elseif body:sub(i, i + 5) == "\\begin" then
+        env_depth = env_depth + 1
+        out[#out + 1] = "\\begin"
+        i = i + 6
+      elseif body:sub(i, i + 3) == "\\end" then
+        if env_depth > 0 then env_depth = env_depth - 1 end
+        out[#out + 1] = "\\end"
+        i = i + 4
+      elseif not math_paren and not math_dollar and env_depth == 0 and body:sub(i, i + 1) == "\\\\" then
+        local after = body:sub(i + 2, i + 2)
+        if after == "[" or after == "*" then
+          out[#out + 1] = "\\\\"
+          i = i + 2
+        else
+          out[#out + 1] = "\\newline"
+          i = i + 2
+        end
+      else
+        out[#out + 1] = body:sub(i, i)
+        i = i + 1
+      end
+    end
+    return table.concat(out)
+  end
+
+  return tbl_tex:gsub("(\\begin%s*{minipage}%s*%b[]%s*%b{})(.-)(\\end%s*{minipage})", function(head, body, tail)
+    return head .. rewrite_minipage(body) .. tail
+  end)
+end
+
 -- Process target environments
 local function process_environments(tex)
   local pos = 1
@@ -416,6 +469,8 @@ local function process_environments(tex)
              or full_block:find("\\draw%f[%A]") or full_block:find("\\node%f[%A]") then
             io.stdout:write("[tex-to-html-preprocessor] Auto-detected complex table construct in " .. env .. "; routing to SVG...\n")
             should_convert = true
+          else
+            full_block = sanitize_table_minipage_breaks(full_block)
           end
         end
 

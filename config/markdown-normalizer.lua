@@ -527,8 +527,17 @@ end
 local function rule_html_leftovers(text)
   text = text:gsub("<sub>(.-)</sub>", "\\textsubscript{%1}")
   text = text:gsub("<sup>(.-)</sup>", "\\textsuperscript{%1}")
-  text = text:gsub("<br%s*/?>%s*\n?", "  \n")
-  return text
+  -- Preserve <br> inside Markdown pipe-table rows so a single row is not split across lines;
+  -- raw_html_fix converts the surviving <br> inline into pandoc.LineBreak() inside the cell.
+  local out = {}
+  for line in each_line(text) do
+    if line:match("^%s*|") then
+      out[#out + 1] = line
+    else
+      out[#out + 1] = line:gsub("<br%s*/?>%s*$", "  "):gsub("<br%s*/?>%s*", "  \n")
+    end
+  end
+  return table.concat(out, "\n")
 end
 
 -- LaTeX habit "Eq.~\eqref{..}" : a bare ~ in Markdown prose is literal, so use a real tie (\u{00A0} -> ~ in LaTeX)

@@ -7,6 +7,7 @@
 local hex_map = {}
 local whiteboard_width_css = nil
 local html_assets = "offline"
+local html_box_mode = "popup"
 local html_cdn_base = "https://cdn.jsdelivr.net/gh/Thunderock7777/ai-ready-markdown-to-pdf@main"
 local max_box_depth = 1
 local annot_box_counter = 0
@@ -203,6 +204,10 @@ local function load_tex_metadata()
   if wb then
     whiteboard_width_css = wb
   end
+  local box_mode = content:match("%% HTML_BOX_MODE:%s*(%S+)")
+  if box_mode and (box_mode == "popup" or box_mode == "inline") then
+    html_box_mode = box_mode
+  end
   local assets = content:match("%% HTML_ASSETS:%s*(%S+)")
   if assets and (assets == "cdn" or assets == "offline") then
     html_assets = assets
@@ -304,9 +309,6 @@ local function transform_div(el, depth)
   <div class="marginbox-body" data-wb-annot-id="%s">]], box_annot_id, color_hex, safe_title, box_annot_id)
 
   local close_html = [[
-  <div class="marginbox-footer">
-    <button type="button" class="wb-box-collapse-btn" title="Collapse this box">▲ Collapse</button>
-  </div>
   </div>
 </details>]]
 
@@ -365,8 +367,12 @@ function Pandoc(doc)
   local doc_id = compute_doc_id(doc)
 
   if not whiteboard_width_css then
-    local needed_in = 11.0 + math.max(0, max_box_depth - 1) * 1.5
-    whiteboard_width_css = string.format("%.2fin", needed_in)
+    if html_box_mode == "inline" then
+      local needed_in = 11.0 + math.max(0, max_box_depth - 1) * 1.5
+      whiteboard_width_css = string.format("%.2fin", needed_in)
+    else
+      whiteboard_width_css = "min(94vw, 68rem)"
+    end
   end
 
   local header_includes = doc.meta["header-includes"] or pandoc.MetaList({})
@@ -615,7 +621,7 @@ window.MathJax = {
     viewer_script_html = "<script>\n" .. viewer_js .. "\n</script>"
   end
 
-  local annot_data_html = string.format('<script type="application/json" id="wbAnnotationsData" data-wb-doc-id="%s">{"v":1,"updatedAt":0,"containers":{}}</script>', doc_id)
+  local annot_data_html = string.format('<script type="application/json" id="wbAnnotationsData" data-wb-doc-id="%s" data-wb-box-mode="%s">{"v":1,"updatedAt":0,"containers":{}}</script>', doc_id, escape_html(html_box_mode))
   local toolbar_html = annot_data_html .. [===[
 <div class="floating-toolbar" id="floatingToolbar" role="toolbar" aria-label="Document Controls">
   <div class="wb-toolbar-group">
@@ -676,6 +682,19 @@ window.MathJax = {
     <button id="btnPopupSave" type="button" class="primary">Save HTML</button>
     <button id="btnPopupSaveAs" type="button">Save As</button>
     <button id="btnPopupLater" type="button">Later</button>
+  </div>
+</div>
+<div class="wb-box-modal-backdrop" id="wbBoxModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="wbBoxModalTitle">
+  <div class="wb-box-modal" id="wbBoxModal">
+    <div class="wb-box-modal-header" id="wbBoxModalHeader">
+      <nav class="wb-box-modal-breadcrumbs" id="wbBoxModalBreadcrumbs" aria-label="Box navigation"></nav>
+      <span id="wbBoxModalTitle" class="wb-sr-only">Box Details</span>
+      <div class="wb-box-modal-actions">
+        <button id="btnBoxModalBack" type="button" title="Back to parent box">← Back</button>
+        <button id="btnBoxModalClose" type="button" title="Close window (Esc)">✕</button>
+      </div>
+    </div>
+    <div class="wb-box-modal-body" id="wbBoxModalBody"></div>
   </div>
 </div>
 ]===] .. graph_workspace_html .. viewer_script_html

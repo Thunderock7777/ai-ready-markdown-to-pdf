@@ -88,15 +88,218 @@
     window.addEventListener('load', verifyStylesAndMath);
   }
 
-  // 1. Box Expand / Collapse Toggle
+  // 1. Box Expand / Collapse Toggle & Floating Breadcrumb Box Window
+  var annotMetaEl = document.getElementById('wbAnnotationsData');
+  var defaultBoxMode = (annotMetaEl && annotMetaEl.getAttribute('data-wb-box-mode') === 'inline') ? 'inline' : 'popup';
+  if (defaultBoxMode === 'inline' && document.body && document.body.classList) {
+    document.body.classList.add('wb-boxes-inline');
+  }
+
   var btnBoxes = document.getElementById('btnToggleBoxes');
   var lblBoxes = document.getElementById('toggleBoxesLabel');
   var icoBoxes = document.getElementById('toggleBoxesIcon');
-  var allExpanded = false;
+  var allExpanded = (defaultBoxMode === 'inline');
+
+  var boxModalBackdrop = document.getElementById('wbBoxModalBackdrop');
+  var boxModalEl = document.getElementById('wbBoxModal');
+  var boxModalCrumbs = document.getElementById('wbBoxModalBreadcrumbs');
+  var boxModalBody = document.getElementById('wbBoxModalBody');
+  var btnBoxModalBack = document.getElementById('btnBoxModalBack');
+  var btnBoxModalClose = document.getElementById('btnBoxModalClose');
+  var boxModalStack = []; // [{ det, bodyEl, placeholder, scrollTop }]
+
+  function isInlineBoxMode() {
+    return !!(document.body && document.body.classList && document.body.classList.contains('wb-boxes-inline'));
+  }
+
+  function getBoxBody(det) {
+    if (!det) return null;
+    if (det.__wbBodyEl) return det.__wbBodyEl;
+    return det.querySelector ? det.querySelector(':scope > .marginbox-body') : null;
+  }
+
+  function mountBoxBodyToModal(entry) {
+    if (!entry || !entry.bodyEl || !boxModalBody) return;
+    if (!entry.placeholder && entry.bodyEl.parentNode === entry.det) {
+      var ph = document.createElement('span');
+      ph.className = 'wb-box-placeholder';
+      ph.style.display = 'none';
+      entry.det.insertBefore(ph, entry.bodyEl);
+      entry.placeholder = ph;
+    }
+    entry.det.__wbBodyEl = entry.bodyEl;
+    boxModalBody.appendChild(entry.bodyEl);
+    if (boxModalEl && boxModalEl.style && entry.det.style) {
+      var col = (entry.det.style.getPropertyValue && entry.det.style.getPropertyValue('--box-col')) || '#1A9E39';
+      boxModalEl.style.setProperty('--modal-box-col', col || '#1A9E39');
+    }
+  }
+
+  function restoreBoxBodyFromModal(entry) {
+    if (!entry || !entry.bodyEl || !entry.det) return;
+    if (entry.placeholder && entry.placeholder.parentNode === entry.det) {
+      entry.det.insertBefore(entry.bodyEl, entry.placeholder);
+      entry.det.removeChild(entry.placeholder);
+      entry.placeholder = null;
+    } else if (entry.bodyEl.parentNode !== entry.det) {
+      entry.det.appendChild(entry.bodyEl);
+    }
+  }
+
+  function getBoxTitleHtml(det) {
+    var sum = det && det.querySelector ? det.querySelector(':scope > summary') : null;
+    return sum ? (sum.innerHTML || sum.textContent || 'Box') : 'Box';
+  }
+
+  function renderBoxModalBreadcrumbs() {
+    if (!boxModalCrumbs) return;
+    boxModalCrumbs.innerHTML = '';
+
+    function appendSep() {
+      var sep = document.createElement('span');
+      sep.className = 'wb-box-crumb-sep';
+      sep.textContent = '›';
+      boxModalCrumbs.appendChild(sep);
+    }
+
+    function appendCrumb(idx) {
+      var crumb = document.createElement('button');
+      crumb.type = 'button';
+      crumb.className = 'wb-box-crumb' + (idx === boxModalStack.length - 1 ? ' is-current' : '');
+      crumb.innerHTML = getBoxTitleHtml(boxModalStack[idx].det);
+      crumb.title = boxModalStack[idx].det && boxModalStack[idx].det.querySelector
+        ? ((boxModalStack[idx].det.querySelector(':scope > summary') || {}).textContent || '')
+        : '';
+      if (idx < boxModalStack.length - 1) {
+        (function(targetIdx) {
+          crumb.addEventListener('click', function() { jumpToBoxLevel(targetIdx); });
+        })(idx);
+      }
+      boxModalCrumbs.appendChild(crumb);
+    }
+
+    if (boxModalStack.length <= 2) {
+      for (var i = 0; i < boxModalStack.length; i++) {
+        if (i > 0) appendSep();
+        appendCrumb(i);
+      }
+    } else {
+      appendCrumb(0);
+      appendSep();
+      var midTitles = [];
+      for (var m = 1; m < boxModalStack.length - 1; m++) {
+        var ms = boxModalStack[m].det && boxModalStack[m].det.querySelector ? boxModalStack[m].det.querySelector(':scope > summary') : null;
+        if (ms && ms.textContent) midTitles.push(ms.textContent.trim());
+      }
+      var ell = document.createElement('button');
+      ell.type = 'button';
+      ell.className = 'wb-box-crumb wb-box-crumb-ellipsis';
+      ell.textContent = '...';
+      ell.title = midTitles.length ? ('Back to parent (' + midTitles.join(' › ') + ')') : 'Back to parent';
+      ell.addEventListener('click', popBoxModal);
+      boxModalCrumbs.appendChild(ell);
+      appendSep();
+      appendCrumb(boxModalStack.length - 1);
+    }
+
+    if (btnBoxModalBack) {
+      btnBoxModalBack.style.display = boxModalStack.length > 1 ? 'inline-block' : 'none';
+    }
+  }
+
+  function showCurrentBoxEntry(scrollVal) {
+    var cur = boxModalStack[boxModalStack.length - 1];
+    if (!cur || !boxModalBackdrop || !boxModalBody) return;
+    mountBoxBodyToModal(cur);
+    renderBoxModalBreadcrumbs();
+    boxModalBackdrop.classList.add('is-open');
+    if (document.documentElement && document.documentElement.classList) document.documentElement.classList.add('wb-modal-open');
+    if (document.body && document.body.classList) document.body.classList.add('wb-modal-open');
+    boxModalBody.scrollTop = typeof scrollVal === 'number' ? scrollVal : 0;
+    setTimeout(syncAllLayerSizes, 15);
+  }
+
+  function openBoxModal(det) {
+    if (!det || !boxModalBackdrop || !boxModalBody) return;
+    var bodyEl = getBoxBody(det);
+    if (!bodyEl) return;
+    if (boxModalStack.length > 0) {
+      var prev = boxModalStack[boxModalStack.length - 1];
+      if (prev.det === det) return;
+      prev.scrollTop = boxModalBody.scrollTop || 0;
+      restoreBoxBodyFromModal(prev);
+    }
+    boxModalStack.push({ det: det, bodyEl: bodyEl, placeholder: null, scrollTop: 0 });
+    showCurrentBoxEntry(0);
+  }
+
+  function openBoxModalChain(detList) {
+    if (!detList || !detList.length || !boxModalBackdrop || !boxModalBody) return;
+    closeBoxModal();
+    for (var i = 0; i < detList.length; i++) {
+      var bodyEl = getBoxBody(detList[i]);
+      if (bodyEl) {
+        boxModalStack.push({ det: detList[i], bodyEl: bodyEl, placeholder: null, scrollTop: 0 });
+      }
+    }
+    if (boxModalStack.length > 0) {
+      showCurrentBoxEntry(0);
+    }
+  }
+
+  function jumpToBoxLevel(idx) {
+    if (idx < 0 || idx >= boxModalStack.length - 1) return;
+    var cur = boxModalStack[boxModalStack.length - 1];
+    restoreBoxBodyFromModal(cur);
+    boxModalStack.length = idx + 1;
+    var target = boxModalStack[idx];
+    showCurrentBoxEntry(target.scrollTop || 0);
+  }
+
+  function popBoxModal() {
+    if (boxModalStack.length <= 1) {
+      closeBoxModal();
+      return;
+    }
+    var cur = boxModalStack.pop();
+    restoreBoxBodyFromModal(cur);
+    var prev = boxModalStack[boxModalStack.length - 1];
+    showCurrentBoxEntry(prev.scrollTop || 0);
+  }
+
+  function closeBoxModal() {
+    if (boxModalStack.length > 0) {
+      var cur = boxModalStack[boxModalStack.length - 1];
+      restoreBoxBodyFromModal(cur);
+      boxModalStack = [];
+    }
+    if (boxModalBackdrop && boxModalBackdrop.classList) {
+      boxModalBackdrop.classList.remove('is-open');
+    }
+    if (document.documentElement && document.documentElement.classList) document.documentElement.classList.remove('wb-modal-open');
+    if (document.body && document.body.classList) document.body.classList.remove('wb-modal-open');
+    setTimeout(syncAllLayerSizes, 15);
+  }
+
+  if (btnBoxModalBack) btnBoxModalBack.addEventListener('click', popBoxModal);
+  if (btnBoxModalClose) btnBoxModalClose.addEventListener('click', closeBoxModal);
+  if (boxModalBackdrop) {
+    boxModalBackdrop.addEventListener('click', function(ev) {
+      if (ev.target === boxModalBackdrop) closeBoxModal();
+    });
+  }
 
   if (btnBoxes) {
     btnBoxes.addEventListener('click', function() {
       allExpanded = !allExpanded;
+      if (allExpanded) {
+        closeBoxModal();
+        if (document.body && document.body.classList) document.body.classList.add('wb-boxes-inline');
+      } else {
+        if (defaultBoxMode !== 'inline' && document.body && document.body.classList) {
+          document.body.classList.remove('wb-boxes-inline');
+        }
+      }
       var boxes = document.querySelectorAll('details.marginbox, details.tcolorbox, details.vbox');
       boxes.forEach(function(d) { d.open = allExpanded; });
       if (lblBoxes) lblBoxes.textContent = allExpanded ? 'Collapse All' : 'Expand All';
@@ -762,6 +965,7 @@
       return openTag + payload + closeTag;
     });
     source = source.replace(/^(<!DOCTYPE html>\s*<html\b[^>]*?)\s*\bwb-compat-ok\b/i, '$1');
+    source = source.replace(/\s*\bwb-modal-open\b/g, '');
     return source;
   }
 
@@ -976,6 +1180,8 @@
     } else if (e.key === 'Escape') {
       if (saveAsModal && saveAsModal.classList.contains('is-open')) {
         closeSaveAsModal();
+      } else if (boxModalBackdrop && boxModalBackdrop.classList.contains('is-open')) {
+        closeBoxModal();
       } else if (document.body.classList.contains('wb-graph-open')) {
         if (typeof window.__wbGraphClose === 'function') window.__wbGraphClose();
       } else if (document.body.classList.contains('wb-toc-open')) {
@@ -1006,9 +1212,17 @@
   // Expand all collapsible boxes before Ctrl+P / print, restore afterward
   var wasGraphOpenBeforePrint = false;
   var wasTocOpenBeforePrint = false;
+  var wasInlineBeforePrint = false;
+  var savedModalDetsBeforePrint = [];
   function expandAllForPrint() {
     wasGraphOpenBeforePrint = document.body.classList.contains('wb-graph-open');
     wasTocOpenBeforePrint = document.body.classList.contains('wb-toc-open');
+    wasInlineBeforePrint = isInlineBoxMode();
+    savedModalDetsBeforePrint = boxModalStack.map(function(entry) { return entry.det; });
+    if (savedModalDetsBeforePrint.length) closeBoxModal();
+    if (!wasInlineBeforePrint && document.body && document.body.classList) {
+      document.body.classList.add('wb-boxes-inline');
+    }
     if (wasGraphOpenBeforePrint) document.body.classList.remove('wb-graph-open');
     if (wasTocOpenBeforePrint) document.body.classList.remove('wb-toc-open');
     var boxes = document.querySelectorAll('details.marginbox, details.tcolorbox, details.vbox');
@@ -1028,6 +1242,13 @@
       d.open = false;
       d.removeAttribute('data-wb-print-was-closed');
     });
+    if (!wasInlineBeforePrint && document.body && document.body.classList) {
+      document.body.classList.remove('wb-boxes-inline');
+    }
+    if (savedModalDetsBeforePrint.length) {
+      openBoxModalChain(savedModalDetsBeforePrint);
+      savedModalDetsBeforePrint = [];
+    }
     if (wasGraphOpenBeforePrint) {
       document.body.classList.add('wb-graph-open');
       wasGraphOpenBeforePrint = false;
@@ -1104,27 +1325,17 @@
   loadInitialAnnotations();
   renderAllAnnotations();
 
-  // 5. Embedded HTML Tab Launcher & Per-Box Bottom Collapse Button
+  // 5. Embedded HTML Tab Launcher & Floating Box Modal Trigger
   document.addEventListener('click', function(e) {
     var tgt = (e.target && e.target.nodeType === 3) ? e.target.parentNode : e.target;
-    var colBtn = tgt && tgt.closest ? tgt.closest('.wb-box-collapse-btn') : null;
-    if (colBtn) {
-      var det = colBtn.closest('details.marginbox, details.tcolorbox, details.vbox');
-      if (det) {
-        det.open = false;
-        var sum = det.querySelector('summary');
-        if (sum && sum.getBoundingClientRect && window.scrollTo) {
-          var bar = document.getElementById('floatingToolbar');
-          var barH = bar ? (bar.offsetHeight || 0) : 0;
-          var sr = sum.getBoundingClientRect();
-          if (sr.top < barH + 8) {
-            var targetY = Math.max(0, (window.scrollY || window.pageYOffset || 0) + sr.top - barH - 12);
-            window.scrollTo({ top: targetY, behavior: 'smooth' });
-          }
-        }
-        setTimeout(syncAllLayerSizes, 20);
+    var summaryEl = tgt && tgt.closest ? tgt.closest('details.marginbox > summary, details.tcolorbox > summary, details.vbox > summary') : null;
+    if (summaryEl && !isInlineBoxMode()) {
+      var parentDet = summaryEl.parentElement;
+      if (parentDet) {
+        e.preventDefault();
+        openBoxModal(parentDet);
+        return;
       }
-      return;
     }
     var btn = tgt && tgt.closest ? tgt.closest('.wb-html-launch') : null;
     if (!btn) return;
@@ -1623,7 +1834,7 @@
       }
 
       if (containerInfo.kind === 'box') {
-        var bodyDiv = (containerInfo.el.querySelector ? containerInfo.el.querySelector(':scope > .marginbox-body') : null) || containerInfo.el;
+        var bodyDiv = getBoxBody(containerInfo.el) || containerInfo.el;
         walkChildrenCollecting(bodyDiv);
         return out;
       }
@@ -1632,7 +1843,7 @@
         var hEl = containerInfo.el;
         var hLvl = parseInt((hEl.tagName || 'H6').replace(/[^0-9]/g, ''), 10) || 6;
         var scopeParent = getEnclosingBox(hEl);
-        var scopeRoot = scopeParent ? ((scopeParent.querySelector ? scopeParent.querySelector(':scope > .marginbox-body') : null) || scopeParent) : document.body;
+        var scopeRoot = scopeParent ? (getBoxBody(scopeParent) || scopeParent) : document.body;
         var started = false;
         var stopped = false;
 
@@ -1745,6 +1956,9 @@
     }
 
     function jumpToNote(wb) {
+      if (!isInlineBoxMode() && boxModalStack.length > 0) {
+        closeBoxModal();
+      }
       var target = resolveWhiteboardTarget(wb);
       if (!target) return false;
 
@@ -1756,18 +1970,52 @@
         return true;
       }
 
+      var boxAncestors = [];
       var cur = target.el;
       while (cur) {
-        if (cur.tagName === 'DETAILS') cur.open = true;
+        if (cur.tagName === 'DETAILS' && cur.classList &&
+            (cur.classList.contains('marginbox') || cur.classList.contains('tcolorbox') || cur.classList.contains('vbox'))) {
+          boxAncestors.unshift(cur);
+        }
         cur = cur.parentElement;
       }
-      syncAllLayerSizes();
 
       if (graphMode === 'full') {
         setGraphOpen(false);
       }
 
       var scrollTarget = target.flashEl || target.el;
+      if (!isInlineBoxMode() && boxAncestors.length > 0 && boxModalBackdrop && boxModalBody) {
+        var outerCard = boxAncestors[0];
+        setTimeout(function() {
+          if (outerCard && outerCard.getBoundingClientRect) {
+            var bar = document.getElementById('floatingToolbar');
+            var barH = bar ? (bar.offsetHeight || 0) : 0;
+            var oy = Math.max(0, (window.scrollY || window.pageYOffset || 0) + outerCard.getBoundingClientRect().top - barH - 16);
+            window.scrollTo({ top: oy, behavior: 'smooth' });
+          }
+          openBoxModalChain(boxAncestors);
+          setTimeout(function() {
+            if (target.kind === 'box' && scrollTarget && scrollTarget.tagName === 'SUMMARY') {
+              boxModalBody.scrollTop = 0;
+            } else if (scrollTarget && scrollTarget.getBoundingClientRect && boxModalBody.getBoundingClientRect) {
+              var mRect = boxModalBody.getBoundingClientRect();
+              var sRect = scrollTarget.getBoundingClientRect();
+              var nextTop = Math.max(0, (boxModalBody.scrollTop || 0) + (sRect.top - mRect.top) - 24);
+              if (boxModalBody.scrollTo) boxModalBody.scrollTo({ top: nextTop, behavior: 'smooth' });
+              else boxModalBody.scrollTop = nextTop;
+              flashElement(scrollTarget);
+            }
+          }, 35);
+        }, 45);
+        return true;
+      }
+
+      for (var i = 0; i < boxAncestors.length; i++) {
+        boxAncestors[i].open = true;
+      }
+      syncAllLayerSizes();
+
       setTimeout(function() {
         syncAllLayerSizes();
         if (scrollTarget && scrollTarget.getBoundingClientRect) {
@@ -1828,7 +2076,8 @@
     }
 
     function setGraphMode(mode) {
-      graphMode = (mode === 'split') ? 'split' : 'full';
+      var isSmall = (window.innerWidth || 1200) < 900;
+      graphMode = (!isSmall && mode === 'split') ? 'split' : 'full';
       document.body.classList.remove('wb-graph-full', 'wb-graph-split');
       document.body.classList.add(graphMode === 'split' ? 'wb-graph-split' : 'wb-graph-full');
       if (btnFull) btnFull.classList.toggle('is-active', graphMode === 'full');
@@ -2141,6 +2390,11 @@
     if (btnClose) btnClose.addEventListener('click', function() { setGraphOpen(false); });
     if (btnFull) btnFull.addEventListener('click', function() { setGraphMode('full'); });
     if (btnSplit) btnSplit.addEventListener('click', function() { setGraphMode('split'); });
+    window.addEventListener('resize', function() {
+      if ((window.innerWidth || 1200) < 900 && graphMode === 'split' && document.body.classList.contains('wb-graph-open')) {
+        setGraphMode('full');
+      }
+    });
 
     // VS Code-style draggable vertical sash for Split View (default 60/40: 40vw Graph / 60vw Doc)
     (function initSplitResizer() {

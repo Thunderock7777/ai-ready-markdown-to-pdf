@@ -139,13 +139,14 @@ body {
   font-family: 'Latin Modern', 'Latin Modern Roman', 'Computer Modern', 'TeX Gyre Termes', Georgia, Cambria, 'Times New Roman', Times, serif;
   line-height: 1.8;
 
-  width: var(--document-width, var(--whiteboard-width, 1320px));
-  min-width: var(--document-width, var(--whiteboard-width, 1320px));
-  max-width: none;
+  width: min(100%, var(--document-width, min(94vw, 68rem)));
+  min-width: 0;
+  max-width: 100%;
   min-height: 100vh;
   margin: 0 auto;
   padding: 3.8rem 1.25rem 1.5rem 1.25rem;
   box-sizing: border-box;
+  overflow-wrap: break-word;
 
   counter-reset: theorem definition sidenote-counter;
 
@@ -849,45 +850,230 @@ details.vbox > .marginbox-body {
   padding: 8px 10px;
 }
 
-.marginbox-footer {
-  display: flex;
+/* Floating Breadcrumb Box Window (Default for whiteboard_html) */
+body.wb-boxes-inline {
+  width: var(--document-width, var(--whiteboard-width, 1320px));
+  min-width: var(--document-width, var(--whiteboard-width, 1320px));
+  max-width: none;
+}
+
+body:not(.wb-boxes-inline) details.marginbox > .marginbox-body,
+body:not(.wb-boxes-inline) details.tcolorbox > .marginbox-body,
+body:not(.wb-boxes-inline) details.vbox > .marginbox-body {
+  display: none;
+}
+
+body:not(.wb-boxes-inline) details.marginbox > summary::after,
+body:not(.wb-boxes-inline) details.tcolorbox > summary::after,
+body:not(.wb-boxes-inline) details.vbox > summary::after {
+  content: "Open ↗";
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  flex-shrink: 0;
+  opacity: 0.88;
+}
+
+body:not(.wb-boxes-inline) details.marginbox > summary:hover::after,
+body:not(.wb-boxes-inline) details.tcolorbox > summary:hover::after,
+body:not(.wb-boxes-inline) details.vbox > summary:hover::after {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.wb-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.wb-box-modal-backdrop {
+  position: fixed;
+  top: var(--wb-toolbar-h, 52px);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 8800;
+  display: none;
+  align-items: center;
   justify-content: center;
-  margin-top: 12px;
-  padding-top: 8px;
-  border-top: 1px dashed color-mix(in srgb, var(--box-col, #1A9E39) 35%, transparent);
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.54);
+  backdrop-filter: blur(3px);
+  box-sizing: border-box;
+}
+
+.wb-box-modal-backdrop.is-open {
+  display: flex;
+}
+
+html.wb-modal-open,
+body.wb-modal-open {
+  overflow: hidden !important;
+}
+
+@media (min-width: 900px) {
+  body.wb-graph-open.wb-graph-split .wb-box-modal-backdrop {
+    left: var(--wb-split-w, 40vw);
+  }
+  body.wb-toc-open:not(.wb-graph-open) .wb-box-modal-backdrop {
+    left: 310px;
+  }
+}
+
+.wb-box-modal {
+  width: min(100%, 940px);
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1.5px solid var(--modal-box-col, #1A9E39);
+  border-top: 5px solid var(--modal-box-col, #1A9E39);
+  background: var(--body-bg-color, #ffffff);
+  color: var(--body-color, hsl(0, 5%, 10%));
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.36);
+  overflow: hidden;
+}
+
+.wb-box-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--modal-box-col, #1A9E39);
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  flex-shrink: 0;
+}
+
+.wb-box-modal-breadcrumbs {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.wb-box-crumb {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.wb-box-crumb-ellipsis {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  letter-spacing: 1px;
+}
+
+.wb-box-crumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.wb-box-crumb.is-current {
+  background: rgba(255, 255, 255, 0.94);
+  color: #111827;
+  border-color: transparent;
+  cursor: default;
+  font-weight: 700;
+}
+
+.wb-box-crumb-sep {
+  opacity: 0.82;
+  font-size: 0.85rem;
+  flex: 0 0 auto;
   user-select: none;
 }
 
-.wb-box-collapse-btn {
-  background: color-mix(in srgb, var(--box-col, #1A9E39) 12%, transparent);
-  color: var(--box-col, #1A9E39);
-  border: 1px solid color-mix(in srgb, var(--box-col, #1A9E39) 45%, transparent);
+.wb-box-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.wb-box-modal-actions button {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.34);
   border-radius: 6px;
-  padding: 4px 12px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 0.78rem;
+  padding: 4px 10px;
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
-  touch-action: manipulation;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  line-height: 1.3;
 }
 
-.wb-box-collapse-btn:hover {
-  background: var(--box-col, #1A9E39);
-  color: #ffffff;
+.wb-box-modal-actions button:hover {
+  background: rgba(255, 255, 255, 0.32);
 }
 
-body.latex-dark .wb-box-collapse-btn {
-  background: color-mix(in srgb, var(--box-col, #1A9E39) 22%, #1c1c1c);
-  color: #f3f4f6;
-  border-color: var(--box-col, #1A9E39);
+.wb-box-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  padding: 14px 18px 20px 18px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.wb-box-modal-body > .marginbox-body {
+  display: block !important;
+  position: relative;
+  padding: 0;
+  overflow: visible;
+}
+
+body.latex-dark .wb-box-modal {
+  background: var(--body-bg-color, #1e1e1e);
+  color: var(--body-color, #e5e7eb);
 }
 
 @media (prefers-color-scheme: dark) {
-  body:not(.latex-light) .wb-box-collapse-btn {
-    background: color-mix(in srgb, var(--box-col, #1A9E39) 22%, #1c1c1c);
-    color: #f3f4f6;
-    border-color: var(--box-col, #1A9E39);
+  body:not(.latex-light) .wb-box-modal {
+    background: var(--body-bg-color, #1e1e1e);
+    color: var(--body-color, #e5e7eb);
+  }
+}
+
+@media (max-width: 640px) {
+  .wb-box-modal-backdrop {
+    padding: 8px;
+  }
+  .wb-box-modal-header {
+    padding: 8px 10px;
+  }
+  .wb-box-modal-breadcrumbs {
+    flex-wrap: wrap;
+    max-height: 3.9em;
+    overflow: hidden;
+  }
+  .wb-box-modal-body {
+    padding: 10px 12px 16px 12px;
   }
 }
 
@@ -1749,12 +1935,9 @@ body.wb-is-resizing {
 }
 
 @media (max-width: 899px) {
-  body.wb-graph-open.wb-graph-split .wb-graph-workspace {
-    width: 100vw;
-    height: 46vh;
-    bottom: auto;
-    border-right: none;
-    border-bottom: 2px solid rgba(96, 165, 250, 0.35);
+  #btnGraphModeSplit,
+  #wbGraphSplitter {
+    display: none !important;
   }
 }
 
@@ -2026,7 +2209,7 @@ body.wb-is-resizing {
   bottom: 0;
   width: 310px;
   max-width: 86vw;
-  z-index: 940;
+  z-index: 8900;
   flex-direction: column;
   background: #f8fafc;
   color: #0f172a;
@@ -2261,6 +2444,99 @@ body.latex-dark .wb-toc-drawer .katex * {
   }
 }
 
+/* Responsive Mobile & Small-Tablet Adjustments */
+@media (max-width: 720px) {
+  .floating-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 5px 8px;
+    gap: 4px;
+  }
+  .floating-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  .wb-toolbar-group {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+  .floating-toolbar button {
+    padding: 5px 8px;
+    font-size: 0.78rem;
+  }
+  .floating-toolbar .wb-has-tip::before,
+  .floating-toolbar .wb-has-tip::after {
+    display: none !important;
+  }
+  .wb-graph-header {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+  .wb-graph-header::-webkit-scrollbar {
+    display: none;
+  }
+  .wb-graph-group {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+  .wb-graph-header button {
+    padding: 4px 7px;
+    font-size: 11.5px;
+  }
+  .wb-graph-search-wrap input {
+    width: 115px;
+    max-width: 38vw;
+  }
+  .wb-graph-footer {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  h1 {
+    font-size: 1.75rem;
+    line-height: 1.25;
+  }
+  h2 {
+    font-size: 1.38rem;
+  }
+  h3 {
+    font-size: 1.16rem;
+  }
+  details.marginbox > summary,
+  details.tcolorbox > summary,
+  details.vbox > summary {
+    padding: 9px 11px;
+    font-size: 0.9rem;
+  }
+  pre {
+    padding: 0.75rem 0.9rem;
+    font-size: 80%;
+  }
+  .wb-unsaved-popup {
+    left: 10px;
+    right: 10px;
+    max-width: none;
+    width: auto;
+  }
+  .wb-toc-drawer {
+    width: min(86vw, 310px);
+  }
+  .wb-graph-hint-text {
+    display: none;
+  }
+}
+
 /* 4. Print Stylesheet (@media print) */
 @media print {
   body {
@@ -2277,9 +2553,9 @@ body.latex-dark .wb-toc-drawer .katex * {
   .wb-annot-toolbar,
   .wb-save-modal,
   .wb-unsaved-popup,
+  .wb-box-modal-backdrop,
   .wb-graph-workspace,
   .wb-toc-drawer,
-  .marginbox-footer,
   .wb-sticky-note-del {
     display: none !important;
   }

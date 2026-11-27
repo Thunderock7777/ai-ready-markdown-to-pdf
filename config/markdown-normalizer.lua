@@ -3061,7 +3061,16 @@ local function apply_page_layout(doc)
   elseif layout == "whiteboard_html" then
     doc.meta.whiteboard_layout = pandoc.MetaBool(true)
     doc.meta.whiteboard_html = pandoc.MetaBool(true)
-    calculate_whiteboard_width(doc)
+    local box_val = doc.meta["html-box-mode"]
+    local box_mode = box_val and pandoc.utils.stringify(box_val):match("^%s*(.-)%s*$"):lower() or "popup"
+    if box_mode ~= "popup" and box_mode ~= "inline" then
+      warn("unsupported html-box-mode '" .. box_mode .. "'; using popup (supported: popup, inline)")
+      box_mode = "popup"
+    end
+    doc.meta.html_box_mode = pandoc.MetaString(box_mode)
+    if box_mode == "inline" or doc.meta["page-width"] or doc.meta["whiteboard-width"] then
+      calculate_whiteboard_width(doc)
+    end
     local assets_val = doc.meta["html-assets"]
     local assets_mode = assets_val and pandoc.utils.stringify(assets_val):match("^%s*(.-)%s*$"):lower() or "offline"
     if assets_mode ~= "cdn" and assets_mode ~= "offline" then

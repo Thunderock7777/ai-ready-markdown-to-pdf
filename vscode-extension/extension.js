@@ -359,8 +359,7 @@ async function buildWhiteboardHtml(params) {
     MD2PDF_MARKMAP_DIR: '',
     MD2PDF_SOURCE_MAP_JSON: sourceMapPath,
   });
-  // Ensure interactive stdin prompts are disabled in the extension host.
-  // Auto-trust all executable fences in preview (skip interactive stdin prompts).
+// Auto-trust all executable fences in preview (skip interactive stdin prompts).
   env.MD2PDF_CONFIRM_EXEC = '0';
   delete env.MD2PDF_CONFIRM_PYTHON;
   delete env.MD2PDF_CONFIRM_C;

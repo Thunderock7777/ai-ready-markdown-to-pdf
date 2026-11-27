@@ -16,15 +16,25 @@ Side-by-side live preview inside VS Code strictly for documents declaring `page-
 - Optional for full math/diagram/Tree View fidelity: `texlua` and `node` with `config/markmap/node_modules` installed
 - An `ai-ready-markdown-to-pdf` `config/` folder in your workspace, a parent folder, or configured via `whiteboardHtml.configPath`
 
-## Running / Packaging Locally
+## Running / Installing Locally
 
-### Option 1: Extension Development Host (`F5`)
+### Option 1: Portable One-Click Installer (Recommended after cloning)
+
+Double-click `install-vscode-extension.bat` (or run it from Command Prompt):
+
+```powershell
+d:\latex_editor\vscode-extension\install-vscode-extension.bat
+```
+
+It installs the extension directly into `%USERPROFILE%\.vscode\extensions\thunderock7777.whiteboard-html-preview-1.0.0\` without needing `vsce`, `npm`, or internet.
+
+### Option 2: Extension Development Host (`F5`)
 
 1. Open `d:\latex_editor\vscode-extension` in VS Code.
 2. Press `F5` to launch an Extension Development Host window.
 3. Open a `page-layout: whiteboard_html` `.md` or `.txt` file and click the **Open Preview to the Side** button in the editor title bar.
 
-### Option 2: Build and Install `.vsix`
+### Option 3: Build and Install `.vsix`
 
 ```powershell
 cd d:\latex_editor\vscode-extension

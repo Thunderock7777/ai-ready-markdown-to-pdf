@@ -1,0 +1,101 @@
+{
+  "name": "whiteboard-html-preview",
+  "displayName": "Whiteboard HTML Preview",
+  "description": "Live side-by-side VS Code preview for page-layout: whiteboard_html documents built with ai-ready-markdown-to-pdf.",
+  "version": "1.0.0",
+  "publisher": "Thunderock7777",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "markdown",
+    "whiteboard",
+    "latex",
+    "mathjax",
+    "markmap",
+    "preview"
+  ],
+  "activationEvents": [
+    "onCommand:whiteboardHtml.openPreviewToSide",
+    "onCommand:whiteboardHtml.refreshPreview",
+    "onCommand:whiteboardHtml.updateConfigFromRepo",
+    "onCommand:whiteboardHtml.runSetup"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "whiteboardHtml.openPreviewToSide",
+        "title": "Whiteboard HTML: Open Preview to the Side",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "whiteboardHtml.refreshPreview",
+        "title": "Whiteboard HTML: Refresh Preview",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "whiteboardHtml.updateConfigFromRepo",
+        "title": "Whiteboard HTML: Update Filters from GitHub"
+      },
+      {
+        "command": "whiteboardHtml.runSetup",
+        "title": "Whiteboard HTML: Download & Run setup.bat"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "whiteboardHtml.openPreviewToSide",
+          "when": "editorLangId == markdown || editorLangId == plaintext",
+          "group": "navigation"
+        },
+        {
+          "command": "whiteboardHtml.refreshPreview",
+          "when": "activeWebviewPanelId == 'whiteboardHtmlPreview'",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Whiteboard HTML Preview",
+      "properties": {
+        "whiteboardHtml.configPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional path to the ai-ready-markdown-to-pdf config directory (auto-detected from workspace or parent folders when empty)."
+        },
+        "whiteboardHtml.pandocPath": {
+          "type": "string",
+          "default": "pandoc",
+          "description": "Path or executable name for Pandoc."
+        },
+        "whiteboardHtml.texluaPath": {
+          "type": "string",
+          "default": "texlua",
+          "description": "Path or executable name for texlua."
+        },
+        "whiteboardHtml.nodePath": {
+          "type": "string",
+          "default": "node",
+          "description": "Path or executable name for Node.js (used for Markmap Tree View)."
+        },
+        "whiteboardHtml.scrollSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Synchronize scrolling between the Markdown/text editor and the Whiteboard HTML preview."
+        },
+        "whiteboardHtml.repoBaseUrl": {
+          "type": "string",
+          "default": "https://raw.githubusercontent.com/Thunderock7777/ai-ready-markdown-to-pdf/main/config",
+          "description": "Public GitHub raw base URL for downloading config/ filters and assets when not found locally."
+        }
+      }
+    }
+  }
+}

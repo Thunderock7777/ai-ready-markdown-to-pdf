@@ -1,5 +1,8 @@
 (function() {
   window.__wbViewerLoaded = true;
+  if (!window.__wbVsCodeApi && typeof acquireVsCodeApi === 'function') {
+    try { window.__wbVsCodeApi = acquireVsCodeApi(); } catch (e) {}
+  }
   // Capture pristine HTML before MathJax or overlays mutate the DOM
   var pristineHtmlSnapshot = '';
   try {
@@ -210,6 +213,7 @@
   function showCurrentBoxEntry(scrollVal) {
     var cur = boxModalStack[boxModalStack.length - 1];
     if (!cur || !boxModalBackdrop || !boxModalBody) return;
+    if (boxModalEl) boxModalEl.__wbActiveDet = cur.det;
     mountBoxBodyToModal(cur);
     renderBoxModalBreadcrumbs();
     boxModalBackdrop.classList.add('is-open');
@@ -268,6 +272,7 @@
   }
 
   function closeBoxModal() {
+    if (boxModalEl) boxModalEl.__wbActiveDet = null;
     if (boxModalStack.length > 0) {
       var cur = boxModalStack[boxModalStack.length - 1];
       restoreBoxBodyFromModal(cur);
@@ -1039,6 +1044,15 @@
   }
 
   function triggerDownload(htmlOut, fileName, msg) {
+    if (window.__wbVsCodeApi && typeof window.__wbVsCodeApi.postMessage === 'function') {
+      window.__wbVsCodeApi.postMessage({
+        type: 'wb:saveHtml',
+        fileName: fileName,
+        html: htmlOut
+      });
+      markSavedSuccess(msg || ('Saved ' + fileName));
+      return;
+    }
     var blob = new Blob([htmlOut], { type: 'text/html;charset=utf-8' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -1071,7 +1085,7 @@
         return;
       }
 
-      if (window.showSaveFilePicker) {
+      if (!window.__wbVsCodeApi && window.showSaveFilePicker) {
         window.showSaveFilePicker({
           suggestedName: mainName,
           types: [{ description: 'HTML Document', accept: { 'text/html': ['.html'] } }]
@@ -1147,7 +1161,7 @@
       annotState.updatedAt = Date.now();
       var chosenName = normalizeHtmlFilename(saveAsInput ? saveAsInput.value : '');
       var htmlOut = buildAnnotatedHtml();
-      if (window.showSaveFilePicker) {
+      if (!window.__wbVsCodeApi && window.showSaveFilePicker) {
         window.showSaveFilePicker({
           suggestedName: chosenName,
           types: [{ description: 'HTML Document', accept: { 'text/html': ['.html'] } }]

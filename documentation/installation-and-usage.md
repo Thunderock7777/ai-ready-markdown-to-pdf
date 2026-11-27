@@ -442,6 +442,20 @@ What you do not need
 - No manual install of every template package when using a full TeX Live
   installation or MiKTeX's package-on-demand feature.
 
+VS Code Live Preview (`whiteboard_html` only)
+--------------------------------------------
+A lightweight VS Code extension is included in `vscode-extension/` for live
+side-by-side preview of `page-layout: whiteboard_html` documents (`.md`,
+`.markdown`, `.txt`).
+
+- Open `vscode-extension/` in VS Code and press `F5` to launch an Extension
+  Development Host, or package a `.vsix` with `npx @vscode/vsce package` and
+  install it with `code --install-extension`.
+- Click the **Open Preview to the Side** icon in the editor title bar (or run
+  `Whiteboard HTML: Open Preview to the Side`) to open the side-by-side Webview.
+- Press `Ctrl+S` to re-render the preview automatically; non-`whiteboard_html`
+  documents are skipped with a warning.
+
 For detailed filter order, cache internals, metadata behavior, supported input
 contracts, failure modes, and extension guidance, read
 documentation\workflow-architecture.md.

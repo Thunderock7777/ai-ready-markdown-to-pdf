@@ -337,12 +337,15 @@ end
 
 local function extract_yaml_fences(text)
   local out = {}
+  local line_map = {}
   local open_fence = nil
   local opener_line = nil
   local yaml_buf = {}
   local meta = {}
+  local orig_idx = 0
 
   for line in each_line(text) do
+    orig_idx = orig_idx + 1
     if open_fence then
       if fence_mark(line, open_fence) then
         open_fence = nil
@@ -371,6 +374,7 @@ local function extract_yaml_fences(text)
         yaml_buf = {}
       else
         out[#out + 1] = line
+        line_map[#out] = orig_idx
       end
     end
   end
@@ -382,7 +386,7 @@ local function extract_yaml_fences(text)
     end
   end
 
-  return table.concat(out, "\n"), meta
+  return table.concat(out, "\n"), meta, line_map
 end
 
 -- Brace balance of one line.  Escaped characters (\{ \} \\ \%) and comments are ignored,
@@ -1509,7 +1513,7 @@ end
 --    at the center where parsing halts.
 -- 2. Once the center code blocks are sealed, the parser ascends to the surface,
 --    cleanly closing nested boxes in exact LIFO order.
-local function pass_box_fences(text)
+local function pass_box_fences(text, line_map)
   local function normalize_box_attrs(a)
     if not a or not a:match("%S") then return "" end
     a = a:match("^%s*(.-)%s*$")
@@ -1684,6 +1688,57 @@ local function pass_box_fences(text)
     end
   end
 
+  -- 3b. Optional source-map export for VS Code Whiteboard HTML preview scroll sync.
+  local source_map_path = os.getenv("MD2PDF_SOURCE_MAP_JSON")
+  if source_map_path and source_map_path ~= "" and pandoc and pandoc.json and pandoc.json.encode then
+    local function clean_anchor_label(raw)
+      local s = tostring(raw or "")
+      s = s:gsub("`([^`]*)`", "%1")
+      s = s:gsub("\\%(.-\\%)", "")
+      s = s:gsub("%$[^%$]+%$", "")
+      s = s:gsub("[*_~]+", "")
+      s = s:gsub("%s+", " "):match("^%s*(.-)%s*$") or ""
+      return s:lower()
+    end
+    local anchors, boxes, bstack = {}, {}, {}
+    local in_code = false
+    local last_orig0 = ((line_map and line_map[n]) or n) - 1
+    for idx = 1, n do
+      local line = lines[idx]
+      local orig0 = ((line_map and line_map[idx]) or idx) - 1
+      if is_code_open[idx] then
+        in_code = true
+      elseif is_code_close[idx] then
+        in_code = false
+      elseif is_box_opener[idx] then
+        local f = is_box_opener[idx]
+        local box_idx = #boxes
+        local parent_idx = #bstack > 0 and bstack[#bstack] or -1
+        boxes[#boxes + 1] = { boxIdx = box_idx, startLine = orig0, endLine = last_orig0, parentIdx = parent_idx }
+        bstack[#bstack + 1] = box_idx
+        local t_attr = (f.attrs or ""):match('title%s*=%s*"([^"]+)"') or (f.attrs or ""):match("title%s*=%s*'([^']+)'") or (f.attrs or ""):match('"([^"]+)"')
+        anchors[#anchors + 1] = { line = orig0, kind = "box", boxIdx = box_idx, text = clean_anchor_label(t_attr or "") }
+      elseif is_box_closer[idx] then
+        if #bstack > 0 then
+          local popped = table.remove(bstack)
+          if boxes[popped + 1] then boxes[popped + 1].endLine = orig0 end
+        end
+      elseif not in_code then
+        local h_text = line:match("^%s*#+%s+(.+)$")
+        if h_text then
+          h_text = h_text:gsub("%s*#+%s*$", "")
+          local cur_box = #bstack > 0 and bstack[#bstack] or -1
+          anchors[#anchors + 1] = { line = orig0, kind = "h", boxIdx = cur_box, text = clean_anchor_label(h_text) }
+        end
+      end
+    end
+    local fh = io.open(source_map_path, "wb")
+    if fh then
+      fh:write(pandoc.json.encode({ anchors = anchors, boxes = boxes }))
+      fh:close()
+    end
+  end
+
   -- 4. Emit the normalized text
   local out = {}
   for idx = 1, n do
@@ -1705,9 +1760,9 @@ end
 
 local function clean(text)
   text = text:gsub("^" .. U(0xFEFF), ""):gsub("\r\n?", "\n")
-  local file_meta
-  text, file_meta = extract_yaml_fences(text)
-  text = pass_box_fences(text)
+  local file_meta, line_map
+  text, file_meta, line_map = extract_yaml_fences(text)
+  text = pass_box_fences(text, line_map)
   text = space_fences(text)
   text = normalize_fence_attributes(text)
   for nm in text:gmatch("\\newtheorem%*?%s*{([^}]*)}") do

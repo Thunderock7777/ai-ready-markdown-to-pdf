@@ -442,7 +442,12 @@ Version 1.8.1 cycle
   Starting count: 0 / 500
 
 Change ledger
-  2026-11-27 | Replace inline nested box width expansion with responsive floating breadcrumb box modal (#wbBoxModalBackdrop, Split View right-pane scoping, Expand All/print inline fallback, html-box-mode: popup|inline), lock main-page scroll while modal open, keep TOC accessible above/beside modal, remove redundant bottom ▲ Collapse button, and add mobile/tablet responsive CSS | source +580 / -61 | 641 / 500 (pending release; cycle limit exceeded -> next PATCH 1.8.2)
+  2026-11-27 | Replace inline nested box width expansion with responsive floating breadcrumb box modal (#wbBoxModalBackdrop, Split View right-pane scoping, Expand All/print inline fallback, html-box-mode: popup|inline), lock main-page scroll while modal open, keep TOC accessible above/beside modal, remove redundant bottom ▲ Collapse button, and add mobile/tablet responsive CSS | source +580 / -61 | 641 / 500 (versioned as 1.8.2 PATCH)
+
+Version 1.8.2 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

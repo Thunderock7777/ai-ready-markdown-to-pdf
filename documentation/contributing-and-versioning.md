@@ -465,6 +465,44 @@ Change ledger
 Version 1.8.6 cycle
   Starting count: 0 / 500
 
+  2026-11-27| Ran inspect Stage 1 LaTeX for kc.md table
+Analyzed tex-to-html-preprocessor.lua:L310-390
+Ran search markdown-normalizer.lua for br handling
+Analyzed markdown-normalizer.lua:L515-538
+Edited markdown-normalizer.lua
+Ran verify fixed table HTML in kc.md
+
+Rebuilding `kc.md` to verify the fixed table HTML after `"Before" vs. "After"`.
+旅
+
+
+Ran inspect Stage 1 LaTeX table cells
+Analyzed tex-to-html-preprocessor.lua:L235-265
+Ran test Pandoc LaTeX table reader behavior
+Ran test newline inside minipage in Pandoc LaTeX reader
+Analyzed tex-to-html-preprocessor.lua:L390-465
+Edited tex-to-html-preprocessor.lua
+Edited tex-to-html-preprocessor.lua
+Ran verify kc.md tables and extension suite
+
+`KC_MD_TABLES_VERIFIED_OK` — all 3 tables after `"Before" vs. "After"` (including `<br />` cells and `\begin{pmatrix}` math) rendered cleanly. Waiting for the extension test suite to finish before updating the installed extension.
+
+Ran reinstall updated extension and Lua filters
+
+Fixed both halves of the `<br>`-in-table bug and reinstalled the local VS Code extension:
+
+1. **Preserve pipe-table rows ([markdown-normalizer.lua])**:
+   - `rule_html_leftovers()` previously replaced `<br>` with `"  \n"` everywhere, which split single Markdown pipe-table rows across multiple lines before Pandoc parsed them.
+   - Now lines starting with `|` keep `<br>` intact so Pandoc parses the full table row and `raw_html_fix()` converts `<br>` into `pandoc.LineBreak()` inside the cell.
+
+2. **Preserve `minipage` cell linebreaks for HTML5 ([tex-to-html-preprocessor.lua])**:
+   - Pandoc's LaTeX reader drops `\begin{minipage}...\end{minipage}` cells inside `longtable` when they contain bare `\\` linebreaks.
+   - Added `sanitize_table_minipage_breaks()`, which converts top-level `\\` inside table `minipage` cells (outside math spans and nested environments like `pmatrix`) into `\newline`.
+
+
+Version 1.8.7 cycle
+  Starting count: 0 / 500
+
 Change ledger
 
 After a version increment, add a new cycle header with the new version and

@@ -316,9 +316,16 @@
   } catch (e) {}
 
   function applyTheme(theme) {
+    document.documentElement.classList.remove('latex-dark', 'latex-light');
     document.body.classList.remove('latex-dark', 'latex-light');
-    if (theme === 'dark') document.body.classList.add('latex-dark');
-    if (theme === 'light') document.body.classList.add('latex-light');
+    if (theme === 'dark') {
+      document.documentElement.classList.add('latex-dark');
+      document.body.classList.add('latex-dark');
+    }
+    if (theme === 'light') {
+      document.documentElement.classList.add('latex-light');
+      document.body.classList.add('latex-light');
+    }
     try {
       localStorage.setItem('latex-theme', theme);
     } catch (e) {}

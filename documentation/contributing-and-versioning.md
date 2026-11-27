@@ -448,6 +448,12 @@ Version 1.8.2 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-27 | Seal higher-tick unadorned code fences inside boxes in pass_box_fences, and sync <html> background/theme classes with <body> for CDN dark mode | source +33 / -5 | 38 / 500 (versioned as 1.8.3 PATCH)
+
+Version 1.8.3 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

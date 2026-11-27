@@ -1581,9 +1581,12 @@ local function pass_box_fences(text)
   local is_box_opener = {}
 
   local i = 1
+  local open_box_ticks = {}
   while i <= #fences do
     local f = fences[i]
-    if f.kind == "lang" then
+    local top_box_ticks = open_box_ticks[#open_box_ticks] or 0
+    local is_higher_bare_code = (f.kind == "bare" and #open_box_ticks > 0 and #f.ticks > top_box_ticks)
+    if f.kind == "lang" or is_higher_bare_code then
       is_code_open[f.line_idx] = true
       local j = i + 1
       while j <= #fences do
@@ -1596,6 +1599,11 @@ local function pass_box_fences(text)
       end
       i = j + 1
     else
+      if f.kind == "box" then
+        open_box_ticks[#open_box_ticks + 1] = #f.ticks
+      elseif f.kind == "bare" and #open_box_ticks > 0 then
+        open_box_ticks[#open_box_ticks] = nil
+      end
       i = i + 1
     end
   end

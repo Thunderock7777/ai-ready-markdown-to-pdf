@@ -460,6 +460,12 @@ Version 1.8.4 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-27 | Add portable VS Code Whiteboard HTML Preview extension (vscode-extension/, install-vscode-extension.bat, Lua source-map scroll sync skipping collapsed boxes, GitHub filter fallback, setup.bat auto-runner, and Webview Save bridge) | source +1530 / -10 | 1540 / 500 (versioned as 1.8.6)
+
+Version 1.8.6 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

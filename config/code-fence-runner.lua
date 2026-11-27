@@ -1648,8 +1648,7 @@ local function execute(cmd, timeout_sec, prefix)    -- -> success, exit code, ti
       "exit $p.ExitCode",
     }, "\r\n")
     write_file(ps1, script)
-    local ps_cmd = 'powershell -NoProfile -NonInteractive -InputFormat None -ExecutionPolicy Bypass -File "' .. to_os_path(ps1) .. '" < ' .. NULL_DEV .. ' > ' .. NULL_DEV
-    local a, _, c = os.execute(ps_cmd)
+    local a, _, c = os.execute('powershell -NoProfile -ExecutionPolicy Bypass -File "' .. to_os_path(ps1) .. '"')
     os.remove(ps1)
     code = (a == true) and 0 or (type(a) == "number" and a or c)
   else

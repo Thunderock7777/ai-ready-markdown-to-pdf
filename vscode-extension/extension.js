@@ -359,12 +359,13 @@ async function buildWhiteboardHtml(params) {
     MD2PDF_MARKMAP_DIR: '',
     MD2PDF_SOURCE_MAP_JSON: sourceMapPath,
   });
-// Auto-trust all executable fences in preview (skip interactive stdin prompts).
-  env.MD2PDF_CONFIRM_EXEC = '0';
+  // Ensure interactive stdin prompts are disabled in the extension host.
+  delete env.MD2PDF_CONFIRM_EXEC;
   delete env.MD2PDF_CONFIRM_PYTHON;
   delete env.MD2PDF_CONFIRM_C;
   delete env.MD2PDF_CONFIRM_CPP;
   delete env.MD2PDF_CONFIRM_JAVA;
+
   try {
     await execFileAsync(
       pandocPath,

@@ -502,10 +502,6 @@ Fixed both halves of the `<br>`-in-table bug and reinstalled the local VS Code e
 
 Version 1.8.7 cycle
   Starting count: 0 / 500
-  skipped code fences while scrolling +31/-3
-
-
-Version 1.8.8 cycle
 
 Change ledger
 

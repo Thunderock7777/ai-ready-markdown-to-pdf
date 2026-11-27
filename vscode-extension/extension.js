@@ -858,9 +858,26 @@ body { padding-top: 12px !important; }
 
   window.addEventListener('scroll', emitPreviewScroll, { passive: true });
 
+  function injectRefreshButton() {
+    if (document.getElementById('wbVsCodeRefreshBtn') || !document.body) return;
+    var btn = document.createElement('button');
+    btn.id = 'wbVsCodeRefreshBtn';
+    btn.type = 'button';
+    btn.title = 'Refresh Whiteboard HTML Preview';
+    btn.textContent = '↻ Refresh';
+    btn.style.cssText = 'position:fixed;top:10px;right:14px;z-index:8700;cursor:pointer;padding:5px 11px;border-radius:999px;border:1px solid rgba(128,128,128,0.45);background:rgba(30,30,36,0.82);color:#f4f4f5;font-size:12px;font-weight:600;backdrop-filter:blur(6px);box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+    btn.addEventListener('click', function() {
+      btn.disabled = true;
+      btn.textContent = '↻ Refreshing…';
+      if (api) api.postMessage({ type: 'wb:refresh' });
+    });
+    document.body.appendChild(btn);
+  }
+
   function onReady() {
     tagBoxIndices();
     syncVsCodeTheme();
+    injectRefreshButton();
     if (typeof MutationObserver === 'function' && document.body) {
       new MutationObserver(syncVsCodeTheme).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
@@ -1034,8 +1051,8 @@ async function openOrUpdatePreview(doc, context) {
         editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.AtTop);
       }
     });
-  } else {
-    entry.panel.reveal(vscode.ViewColumn.Beside, true);
+  } else if (!entry.panel.visible) {
+    entry.panel.reveal(entry.panel.viewColumn, true);
   }
 
   const seq = ++entry.buildSeq;

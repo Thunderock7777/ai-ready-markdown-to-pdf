@@ -559,13 +559,14 @@ body { padding-top: 12px !important; }
   out = out.replace(/<head([^>]*)>/i, `<head$1>\n${cspMeta}`);
   out = out.replace(/<\/head>/i, `${previewCss}</head>`);
 
-  const sourceData = opts.sourceAnchors || { anchors: [], boxes: [] };
+  const sourceData = opts.sourceAnchors || { anchors: [], boxes: [], codeSpans: [] };
   const bridgePayload = JSON.stringify({
     scrollSync: opts.scrollSync !== false,
     initialTopLine: typeof opts.initialTopLine === 'number' ? opts.initialTopLine : 0,
     totalLines: typeof opts.totalLines === 'number' ? opts.totalLines : 1,
     anchors: Array.isArray(sourceData.anchors) ? sourceData.anchors : [],
     boxes: Array.isArray(sourceData.boxes) ? sourceData.boxes : [],
+    codeSpans: Array.isArray(sourceData.codeSpans) ? sourceData.codeSpans : [],
   }).replace(/</g, '\\u003c');
 
   const syncScript = `<script id="wbVsCodeSync">
@@ -794,11 +795,24 @@ body { padding-top: 12px !important; }
     return false;
   }
 
+  function snapOutsideCodeSpans(line) {
+    var spans = meta.codeSpans || [];
+    for (var i = 0; i < spans.length; i += 1) {
+      var s = spans[i];
+      if (line >= s.startLine && line <= s.endLine) {
+        var mid = (s.startLine + s.endLine) / 2;
+        return line <= mid ? Math.max(0, s.startLine - 1) : s.endLine + 1;
+      }
+    }
+    return line;
+  }
+
   var ignoreScrollUntil = 0;
   var scrollTimer = 0;
 
   function scrollToEditorLine(line, totalLines) {
     if (!meta.scrollSync) return;
+    if (isLineInCollapsedRanges(line, meta.codeSpans || [])) return;
     var modal = getActiveModalBox();
     if (modal) {
       if (line < modal.startLine || line > modal.endLine) return;
@@ -844,6 +858,7 @@ body { padding-top: 12px !important; }
         var wAnchors = buildScopedAnchors(null, -1, 0, maxLine, window.scrollY, maxScroll);
         targetLine = interpYToLine(wAnchors, window.scrollY);
       }
+      targetLine = snapOutsideCodeSpans(targetLine);
       api.postMessage({ type: 'wb:previewScrolled', line: targetLine });
     }, 16);
   }

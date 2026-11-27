@@ -1709,16 +1709,29 @@ local function pass_box_fences(text, line_map)
       s = s:gsub("%s+", " "):match("^%s*(.-)%s*$") or ""
       return s:lower()
     end
-    local anchors, boxes, bstack = {}, {}, {}
+    local anchors, boxes, bstack, code_spans = {}, {}, {}, {}
     local in_code = false
+    local active_code = nil
     local last_orig0 = ((line_map and line_map[n]) or n) - 1
     for idx = 1, n do
       local line = lines[idx]
       local orig0 = ((line_map and line_map[idx]) or idx) - 1
       if is_code_open[idx] then
         in_code = true
+        local lang = line:match("^%s*[`~]+%s*([%w_%-]+)")
+        local show_true = line:lower():match("show%s*=%s*true")
+        if lang and not show_true then
+          active_code = { startLine = orig0, endLine = last_orig0 }
+        else
+          active_code = nil
+        end
       elseif is_code_close[idx] then
         in_code = false
+        if active_code then
+          active_code.endLine = orig0
+          code_spans[#code_spans + 1] = active_code
+          active_code = nil
+        end
       elseif is_box_opener[idx] then
         local f = is_box_opener[idx]
         local box_idx = #boxes
@@ -1743,7 +1756,7 @@ local function pass_box_fences(text, line_map)
     end
     local fh = io.open(source_map_path, "wb")
     if fh then
-      fh:write(pandoc.json.encode({ anchors = anchors, boxes = boxes }))
+      fh:write(pandoc.json.encode({ anchors = anchors, boxes = boxes, codeSpans = code_spans }))
       fh:close()
     end
   end

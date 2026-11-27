@@ -1608,6 +1608,66 @@ local function pass_box_fences(text)
     end
   end
 
+  -- 2b. If excess bare fences remain beyond open box count, seal unadorned bare code blocks
+  -- (e.g. ``` ... ``` ASCII diagrams inside a ```marginbox) before LIFO box pairing.
+  local rem_fences = {}
+  local rem_box_count, rem_bare_count = 0, 0
+  for _, f in ipairs(fences) do
+    if not is_code_open[f.line_idx] and not is_code_close[f.line_idx] then
+      rem_fences[#rem_fences + 1] = f
+      if f.kind == "box" then
+        rem_box_count = rem_box_count + 1
+      elseif f.kind == "bare" then
+        rem_bare_count = rem_bare_count + 1
+      end
+    end
+  end
+
+  if rem_bare_count > rem_box_count then
+    local extra_pairs = math.floor((rem_bare_count - rem_box_count) / 2)
+    local candidates = {}
+    for idx = 1, #rem_fences - 1 do
+      local f1 = rem_fences[idx]
+      local f2 = rem_fences[idx + 1]
+      if f1.kind == "bare" and f2.kind == "bare" and #f2.ticks >= #f1.ticks and (f2.line_idx - f1.line_idx) >= 2 then
+        local has_md_struct = false
+        local blank_cnt = 0
+        local nonblank_cnt = 0
+        for ln = f1.line_idx + 1, f2.line_idx - 1 do
+          local s = lines[ln] or ""
+          if not s:match("%S") then
+            blank_cnt = blank_cnt + 1
+          else
+            nonblank_cnt = nonblank_cnt + 1
+            if s:match("^%s*#+%s") or s:match("^%s*%-%-%-+%s*$") or s:match("^%s*|.*|%s*$") then
+              has_md_struct = true
+            end
+          end
+        end
+        if nonblank_cnt > 0 then
+          local penalty = (has_md_struct and 100000 or 0) + blank_cnt * 100 + (f2.line_idx - f1.line_idx)
+          candidates[#candidates + 1] = { idx1 = idx, idx2 = idx + 1, f1 = f1, f2 = f2, penalty = penalty }
+        end
+      end
+    end
+    table.sort(candidates, function(a, b)
+      if a.penalty ~= b.penalty then return a.penalty < b.penalty end
+      return a.f1.line_idx < b.f1.line_idx
+    end)
+    local used_rem = {}
+    local sealed = 0
+    for _, c in ipairs(candidates) do
+      if sealed >= extra_pairs then break end
+      if not used_rem[c.idx1] and not used_rem[c.idx2] then
+        used_rem[c.idx1] = true
+        used_rem[c.idx2] = true
+        is_code_open[c.f1.line_idx] = true
+        is_code_close[c.f2.line_idx] = true
+        sealed = sealed + 1
+      end
+    end
+  end
+
   -- 3. Ascend to the surface: pair remaining box openers and closers in exact LIFO order
   local active_boxes = {}
   for _, f in ipairs(fences) do

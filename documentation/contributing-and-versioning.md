@@ -454,6 +454,12 @@ Version 1.8.3 cycle
   Starting count: 0 / 500
 
 Change ledger
+  2026-11-27 | Seal excess unadorned bare code fences (e.g. ``` ... ``` ASCII diagrams inside ```marginbox) before LIFO box pairing in pass_box_fences | source +60 / -0 | 60 / 500 (versioned as 1.8.4 PATCH)
+
+Version 1.8.4 cycle
+  Starting count: 0 / 500
+
+Change ledger
 
 After a version increment, add a new cycle header with the new version and
 reset count. Retain prior entries so the progression remains reviewable.

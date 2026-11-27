@@ -1537,6 +1537,7 @@ register{ id = "html", names = { "html", "htm" }, render = render_html }
 -- ------------------------------- 3. runner ----------------------------------
 local ERR_LINES = 30            -- how many trailing lines of an error report go into the PDF
 local OUTPUT_LABEL = "OUTPUT:"    -- heading shown above printed output (set to "" for no heading)
+local DEFAULT_TIMEOUT = tonumber(os.getenv("MD2PDF_TIMEOUT")) or 30 -- seconds (0 disables)
 
 local function fill(template, vars)
   return (template:gsub("@@(%u+)@@", function(k)
@@ -1617,11 +1618,48 @@ local function command_line(spec, exe, script, out, err, prefix, text)
   return cmd
 end
 
-local function execute(cmd)                         -- -> success, exit code   (Lua 5.1 .. 5.4)
-  local a, _, c = os.execute(cmd)
-  if a == true then return true, 0 end
-  if type(a) == "number" then return a == 0, a end
-  return false, c
+local function execute(cmd, timeout_sec, prefix)    -- -> success, exit code, timed_out
+  if not timeout_sec or timeout_sec <= 0 then
+    local a, _, c = os.execute(cmd)
+    if a == true then return true, 0, false end
+    if type(a) == "number" then return a == 0, a, false end
+    return false, c, false
+  end
+
+  local code
+  if IS_WIN then
+    local ps1 = prefix .. "_timeout.ps1"
+    local ms = math.floor(timeout_sec * 1000)
+    local script = table.concat({
+      "$cmd = @'",
+      cmd,
+      "'@",
+      "$p = New-Object System.Diagnostics.Process",
+      "$p.StartInfo.FileName = 'cmd.exe'",
+      "$p.StartInfo.Arguments = '/d /c ' + $cmd",
+      "$p.StartInfo.UseShellExecute = $false",
+      "$p.StartInfo.CreateNoWindow = $true",
+      "[void]$p.Start()",
+      "if (-not $p.WaitForExit(" .. ms .. ")) {",
+      "  & taskkill /PID $p.Id /T /F *> $null",
+      "  [void]$p.WaitForExit(2000)",
+      "  exit 124",
+      "}",
+      "exit $p.ExitCode",
+    }, "\r\n")
+    write_file(ps1, script)
+    local a, _, c = os.execute('powershell -NoProfile -ExecutionPolicy Bypass -File "' .. to_os_path(ps1) .. '"')
+    os.remove(ps1)
+    code = (a == true) and 0 or (type(a) == "number" and a or c)
+  else
+    local sh_cmd = "'" .. cmd:gsub("'", "'\\''") .. "'"
+    local wrapped = string.format("timeout -k 2 %d sh -c %s", math.floor(timeout_sec), sh_cmd)
+    local a, _, c = os.execute(wrapped)
+    code = (a == true) and 0 or (type(a) == "number" and a or c)
+  end
+
+  if code == 124 then return false, 124, true end
+  return code == 0, code, false
 end
 
 local function echo_stderr(err)
@@ -1652,7 +1690,8 @@ local function run_fresh(el, spec, exe, name)
   end
   write_file(scriptf, script_content)
 
-  local ok, code = execute(command_line(spec, exe, scriptf, outf, errf, prefix, el.text))
+  local timeout_sec = tonumber(el.attributes["timeout"]) or DEFAULT_TIMEOUT
+  local ok, code, timed_out = execute(command_line(spec, exe, scriptf, outf, errf, prefix, el.text), timeout_sec, prefix)
   os.remove(scriptf); os.remove(codef)
   if spec.cleanup then spec.cleanup(prefix, el.text) end
 
@@ -1662,18 +1701,27 @@ local function run_fresh(el, spec, exe, name)
   echo_stderr(err)
 
   if not ok then
-    local msg = spec.label .. " exited with an error (exit code " .. tostring(code) .. ")"
-    if code == 127 or code == 9009 or err:find("not recognized") then            -- sh / cmd.exe use these for "command not found"
-      msg = msg .. string.format(" -- if '%s' itself is missing, install it or set the %s environment variable",
-                                 exe, spec.exe_env)
+    local msg
+    if timed_out then
+      msg = string.format("%s took too long (stopped after %gs).", spec.label, timeout_sec)
+    else
+      msg = spec.label .. " exited with an error (exit code " .. tostring(code) .. ")"
+      if code == 127 or code == 9009 or err:find("not recognized") then            -- sh / cmd.exe use these for "command not found"
+        msg = msg .. string.format(" -- if '%s' itself is missing, install it or set the %s environment variable",
+                                   exe, spec.exe_env)
+      end
     end
     warn(msg)
     for _, v in ipairs({ slash(codef), (codef:gsub("/", "\\")), slash(scriptf), (scriptf:gsub("/", "\\")) }) do   -- show a readable name in the PDF
       err = replace_plain(err, v, "<code block>")
     end
-    if trim_end(err) == "" then err = msg end
+    if timed_out then
+      err = (trim_end(err) ~= "" and (trim_end(err) .. "\n") or "") .. msg
+    elseif trim_end(err) == "" then
+      err = msg
+    end
     purge(name)                                    -- never cache a failed run
-    return { ok = false, out = out, err = err, figs = {} }
+    return { ok = false, timed_out = timed_out, timeout = timeout_sec, out = out, err = err, figs = {} }
   end
 
   local figs = find_figures(name)
@@ -1751,7 +1799,10 @@ local function render(el, spec, res)
   end
 
   if not res.ok and a["error"] ~= "false" then
-    blocks[#blocks + 1] = pandoc.Para({ pandoc.Strong({ pandoc.Str(spec.label .. " error - this block did not finish:") }) })
+    local heading = res.timed_out
+      and string.format("%s took too long (stopped after %gs):", spec.label, res.timeout)
+      or (spec.label .. " error - this block did not finish:")
+    blocks[#blocks + 1] = pandoc.Para({ pandoc.Strong({ pandoc.Str(heading) }) })
     blocks[#blocks + 1] = pandoc.CodeBlock(last_lines(trim_end(res.err), ERR_LINES), pandoc.Attr("", { "error" }))
   end
 

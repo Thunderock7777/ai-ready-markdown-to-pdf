@@ -288,10 +288,20 @@ function resolveToolPath(configured, fallbacks) {
  * @returns {Promise<{ stdout: string, stderr: string }>}
  */
 function execFileAsync(cmd, args, opts) {
-  const options = Object.assign({ windowsHide: true, maxBuffer: 32 * 1024 * 1024 }, opts || {});
+  const { timeoutMs, ...rest } = opts || {};
+  const options = Object.assign({ windowsHide: true, maxBuffer: 32 * 1024 * 1024 }, rest);
+  if (timeoutMs) {
+    options.timeout = timeoutMs;
+    options.killSignal = 'SIGTERM';
+  }
   return new Promise((resolve, reject) => {
     cp.execFile(cmd, args, options, (err, stdout, stderr) => {
       if (err) {
+        if (err.killed || err.code === 'ETIMEDOUT' || (err.signal && err.signal !== null)) {
+          const tErr = new Error(`Build timed out: ${path.basename(cmd)} took more than ${Math.round((timeoutMs || 30000) / 1000)} s and was stopped.`);
+          tErr.isTimeout = true;
+          return reject(tErr);
+        }
         const detail = (stderr || stdout || err.message || '').trim();
         const wrapped = new Error(`${path.basename(cmd)} failed: ${detail}`);
         wrapped.cause = err;
@@ -383,7 +393,7 @@ async function buildWhiteboardHtml(params) {
         '-o',
         texOutput,
       ],
-      { cwd: docDir, env }
+      { cwd: docDir, env, timeoutMs: 30000 }
     );
 
     const texContent = fs.readFileSync(texOutput, 'utf8');
@@ -394,7 +404,7 @@ async function buildWhiteboardHtml(params) {
     let preprocessed = false;
     if (fs.existsSync(htmlPreprocessor)) {
       try {
-        await execFileAsync(texluaPath, [htmlPreprocessor, texOutput, htmlTex, cacheDir], { cwd: docDir, env });
+        await execFileAsync(texluaPath, [htmlPreprocessor, texOutput, htmlTex, cacheDir], { cwd: docDir, env, timeoutMs: 30000 });
         preprocessed = fs.existsSync(htmlTex);
       } catch (_) {
         preprocessed = false;
@@ -450,7 +460,7 @@ async function buildWhiteboardHtml(params) {
         '-o',
         htmlOutput,
       ],
-      { cwd: docDir, env }
+      { cwd: docDir, env, timeoutMs: 30000 }
     );
 
     let sourceMap = { anchors: [], boxes: [] };
@@ -1097,8 +1107,14 @@ async function openOrUpdatePreview(doc, context) {
   } catch (err) {
     if (!activePanels.has(key) || entry.buildSeq !== seq) return;
     const errMsg = err && err.message ? err.message : String(err);
-    entry.panel.webview.html = renderStatusHtml('Whiteboard HTML Build Failed', errMsg);
-    if (/ENOENT|not recognized|could not find|pandoc/i.test(errMsg)) {
+    const isTimeout = !!(err && err.isTimeout) || /timed out|took more than/i.test(errMsg);
+    entry.panel.webview.html = renderStatusHtml(
+      isTimeout ? 'Whiteboard HTML: Build Timed Out' : 'Whiteboard HTML Build Failed',
+      isTimeout
+        ? 'The preview build took more than 30 seconds and was stopped.\nTry saving again, or check if Pandoc is hanging on a complex document.'
+        : errMsg
+    );
+    if (!isTimeout && /ENOENT|not recognized|could not find|pandoc/i.test(errMsg)) {
       const choice = await vscode.window.showErrorMessage(
         'Whiteboard HTML Preview is missing a required dependency (e.g. Pandoc). Download and run setup.bat to install prerequisites?',
         'Run setup.bat'

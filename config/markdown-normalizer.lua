@@ -337,12 +337,15 @@ end
 
 local function extract_yaml_fences(text)
   local out = {}
+  local line_map = {}
   local open_fence = nil
   local opener_line = nil
   local yaml_buf = {}
   local meta = {}
+  local orig_idx = 0
 
   for line in each_line(text) do
+    orig_idx = orig_idx + 1
     if open_fence then
       if fence_mark(line, open_fence) then
         open_fence = nil
@@ -371,6 +374,7 @@ local function extract_yaml_fences(text)
         yaml_buf = {}
       else
         out[#out + 1] = line
+        line_map[#out] = orig_idx
       end
     end
   end
@@ -382,7 +386,7 @@ local function extract_yaml_fences(text)
     end
   end
 
-  return table.concat(out, "\n"), meta
+  return table.concat(out, "\n"), meta, line_map
 end
 
 -- Brace balance of one line.  Escaped characters (\{ \} \\ \%) and comments are ignored,
@@ -1509,7 +1513,7 @@ end
 --    at the center where parsing halts.
 -- 2. Once the center code blocks are sealed, the parser ascends to the surface,
 --    cleanly closing nested boxes in exact LIFO order.
-local function pass_box_fences(text)
+local function pass_box_fences(text, line_map)
   local function normalize_box_attrs(a)
     if not a or not a:match("%S") then return "" end
     a = a:match("^%s*(.-)%s*$")
@@ -1581,9 +1585,12 @@ local function pass_box_fences(text)
   local is_box_opener = {}
 
   local i = 1
+  local open_box_ticks = {}
   while i <= #fences do
     local f = fences[i]
-    if f.kind == "lang" then
+    local top_box_ticks = open_box_ticks[#open_box_ticks] or 0
+    local is_higher_bare_code = (f.kind == "bare" and #open_box_ticks > 0 and #f.ticks > top_box_ticks)
+    if f.kind == "lang" or is_higher_bare_code then
       is_code_open[f.line_idx] = true
       local j = i + 1
       while j <= #fences do
@@ -1596,7 +1603,72 @@ local function pass_box_fences(text)
       end
       i = j + 1
     else
+      if f.kind == "box" then
+        open_box_ticks[#open_box_ticks + 1] = #f.ticks
+      elseif f.kind == "bare" and #open_box_ticks > 0 then
+        open_box_ticks[#open_box_ticks] = nil
+      end
       i = i + 1
+    end
+  end
+
+  -- 2b. If excess bare fences remain beyond open box count, seal unadorned bare code blocks
+  -- (e.g. ``` ... ``` ASCII diagrams inside a ```marginbox) before LIFO box pairing.
+  local rem_fences = {}
+  local rem_box_count, rem_bare_count = 0, 0
+  for _, f in ipairs(fences) do
+    if not is_code_open[f.line_idx] and not is_code_close[f.line_idx] then
+      rem_fences[#rem_fences + 1] = f
+      if f.kind == "box" then
+        rem_box_count = rem_box_count + 1
+      elseif f.kind == "bare" then
+        rem_bare_count = rem_bare_count + 1
+      end
+    end
+  end
+
+  if rem_bare_count > rem_box_count then
+    local extra_pairs = math.floor((rem_bare_count - rem_box_count) / 2)
+    local candidates = {}
+    for idx = 1, #rem_fences - 1 do
+      local f1 = rem_fences[idx]
+      local f2 = rem_fences[idx + 1]
+      if f1.kind == "bare" and f2.kind == "bare" and #f2.ticks >= #f1.ticks and (f2.line_idx - f1.line_idx) >= 2 then
+        local has_md_struct = false
+        local blank_cnt = 0
+        local nonblank_cnt = 0
+        for ln = f1.line_idx + 1, f2.line_idx - 1 do
+          local s = lines[ln] or ""
+          if not s:match("%S") then
+            blank_cnt = blank_cnt + 1
+          else
+            nonblank_cnt = nonblank_cnt + 1
+            if s:match("^%s*#+%s") or s:match("^%s*%-%-%-+%s*$") or s:match("^%s*|.*|%s*$") then
+              has_md_struct = true
+            end
+          end
+        end
+        if nonblank_cnt > 0 then
+          local penalty = (has_md_struct and 100000 or 0) + blank_cnt * 100 + (f2.line_idx - f1.line_idx)
+          candidates[#candidates + 1] = { idx1 = idx, idx2 = idx + 1, f1 = f1, f2 = f2, penalty = penalty }
+        end
+      end
+    end
+    table.sort(candidates, function(a, b)
+      if a.penalty ~= b.penalty then return a.penalty < b.penalty end
+      return a.f1.line_idx < b.f1.line_idx
+    end)
+    local used_rem = {}
+    local sealed = 0
+    for _, c in ipairs(candidates) do
+      if sealed >= extra_pairs then break end
+      if not used_rem[c.idx1] and not used_rem[c.idx2] then
+        used_rem[c.idx1] = true
+        used_rem[c.idx2] = true
+        is_code_open[c.f1.line_idx] = true
+        is_code_close[c.f2.line_idx] = true
+        sealed = sealed + 1
+      end
     end
   end
 
@@ -1613,6 +1685,57 @@ local function pass_box_fences(text)
           is_box_closer[f.line_idx] = true
         end
       end
+    end
+  end
+
+  -- 3b. Optional source-map export for VS Code Whiteboard HTML preview scroll sync.
+  local source_map_path = os.getenv("MD2PDF_SOURCE_MAP_JSON")
+  if source_map_path and source_map_path ~= "" and pandoc and pandoc.json and pandoc.json.encode then
+    local function clean_anchor_label(raw)
+      local s = tostring(raw or "")
+      s = s:gsub("`([^`]*)`", "%1")
+      s = s:gsub("\\%(.-\\%)", "")
+      s = s:gsub("%$[^%$]+%$", "")
+      s = s:gsub("[*_~]+", "")
+      s = s:gsub("%s+", " "):match("^%s*(.-)%s*$") or ""
+      return s:lower()
+    end
+    local anchors, boxes, bstack = {}, {}, {}
+    local in_code = false
+    local last_orig0 = ((line_map and line_map[n]) or n) - 1
+    for idx = 1, n do
+      local line = lines[idx]
+      local orig0 = ((line_map and line_map[idx]) or idx) - 1
+      if is_code_open[idx] then
+        in_code = true
+      elseif is_code_close[idx] then
+        in_code = false
+      elseif is_box_opener[idx] then
+        local f = is_box_opener[idx]
+        local box_idx = #boxes
+        local parent_idx = #bstack > 0 and bstack[#bstack] or -1
+        boxes[#boxes + 1] = { boxIdx = box_idx, startLine = orig0, endLine = last_orig0, parentIdx = parent_idx }
+        bstack[#bstack + 1] = box_idx
+        local t_attr = (f.attrs or ""):match('title%s*=%s*"([^"]+)"') or (f.attrs or ""):match("title%s*=%s*'([^']+)'") or (f.attrs or ""):match('"([^"]+)"')
+        anchors[#anchors + 1] = { line = orig0, kind = "box", boxIdx = box_idx, text = clean_anchor_label(t_attr or "") }
+      elseif is_box_closer[idx] then
+        if #bstack > 0 then
+          local popped = table.remove(bstack)
+          if boxes[popped + 1] then boxes[popped + 1].endLine = orig0 end
+        end
+      elseif not in_code then
+        local h_text = line:match("^%s*#+%s+(.+)$")
+        if h_text then
+          h_text = h_text:gsub("%s*#+%s*$", "")
+          local cur_box = #bstack > 0 and bstack[#bstack] or -1
+          anchors[#anchors + 1] = { line = orig0, kind = "h", boxIdx = cur_box, text = clean_anchor_label(h_text) }
+        end
+      end
+    end
+    local fh = io.open(source_map_path, "wb")
+    if fh then
+      fh:write(pandoc.json.encode({ anchors = anchors, boxes = boxes }))
+      fh:close()
     end
   end
 
@@ -1637,9 +1760,9 @@ end
 
 local function clean(text)
   text = text:gsub("^" .. U(0xFEFF), ""):gsub("\r\n?", "\n")
-  local file_meta
-  text, file_meta = extract_yaml_fences(text)
-  text = pass_box_fences(text)
+  local file_meta, line_map
+  text, file_meta, line_map = extract_yaml_fences(text)
+  text = pass_box_fences(text, line_map)
   text = space_fences(text)
   text = normalize_fence_attributes(text)
   for nm in text:gmatch("\\newtheorem%*?%s*{([^}]*)}") do

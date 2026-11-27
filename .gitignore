@@ -28,8 +28,10 @@ build/
 *.pdf
 *.png
 !README.md
+!vscode-extension/README.md
 !documentation/
 !documentation/**
+*.vsix
 *.vscode/
 *.exe/
 *.agents/

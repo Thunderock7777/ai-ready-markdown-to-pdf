@@ -89,48 +89,17 @@ local NULL_DEV = IS_WIN and "NUL" or "/dev/null"
 
 local function warn(m) io.stderr:write("[code-fence-runner] " .. m .. "\n") end
 
-local PS_READ_FILE = table.concat({
-  "[Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false);",
-  "$p = [Console]::In.ReadToEnd();",
-  "if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { exit 1 };",
-  "try {",
-  "  $full = (Get-Item -LiteralPath $p -Force).FullName;",
-  "  $b = [System.IO.File]::ReadAllBytes($full);",
-  "  $s = [Console]::OpenStandardOutput();",
-  "  $s.Write($b, 0, $b.Length); $s.Flush()",
-  "} catch { exit 1 }"
-}, " ")
-
-local PS_FILE_EXISTS = table.concat({
-  "[Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false);",
-  "$p = [Console]::In.ReadToEnd();",
-  "if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { exit 1 }"
-}, " ")
-
 local function read_file(p)
-  if not p or p == "" then return nil end
   local f = io.open(p, "rb")
-  if f then
-    local s = f:read("a"); f:close()
-    return s
-  end
-  if IS_WIN and p:find("[\128-\255]") then
-    local ok, s = pcall(pandoc.pipe, "powershell", { "-NoProfile", "-Command", PS_READ_FILE }, p)
-    if ok then return s end
-  end
-  return nil
+  if not f then return nil end
+  local s = f:read("a"); f:close()
+  return s
 end
 local function write_file(p, s)
   local f = assert(io.open(p, "wb")); f:write(s); f:close()
 end
 local function file_exists(p)
-  if not p or p == "" then return false end
-  local f = io.open(p, "rb")
-  if f then f:close(); return true end
-  if IS_WIN and p:find("[\128-\255]") then
-    local ok = pcall(pandoc.pipe, "powershell", { "-NoProfile", "-Command", PS_FILE_EXISTS }, p)
-    return ok
-  end
+  local f = io.open(p, "rb"); if f then f:close(); return true end
   return false
 end
 local function file_hash(p) local s = read_file(p); return s and pandoc.sha1(s) or nil end
@@ -1133,7 +1102,7 @@ local function base_name_of(p)
 end
 
 local function resolve_local_ref(base_dir, ref_url)
-  local raw = (ref_url or ""):match("^%s*(.-)%s*$"):gsub("&amp;", "&")
+  local raw = (ref_url or ""):match("^%s*(.-)%s*$")
   local path_only, suffix = raw:match("^([^?#]+)(.*)$")
   path_only = path_only or raw
   suffix = suffix or ""
@@ -1144,16 +1113,8 @@ local function resolve_local_ref(base_dir, ref_url)
   end
   local norm_p = slash(path_only)
   local is_abs = norm_p:match("^%a:/") ~= nil or norm_p:sub(1, 1) == "/"
-  local combined = normalize_posix_path(is_abs and norm_p or ((base_dir or ".") .. "/" .. norm_p))
-  if combined:find("%%%x%x") and not file_exists(to_os_path(combined)) then
-    local decoded = combined:gsub("%%(%x%x)", function(h)
-      return string.char(tonumber(h, 16))
-    end)
-    if file_exists(to_os_path(decoded)) then
-      combined = decoded
-    end
-  end
-  return combined, suffix
+  local combined = is_abs and norm_p or ((base_dir or ".") .. "/" .. norm_p)
+  return normalize_posix_path(combined), suffix
 end
 
 local function escape_latex_plain(s)
@@ -1687,8 +1648,7 @@ local function execute(cmd, timeout_sec, prefix)    -- -> success, exit code, ti
       "exit $p.ExitCode",
     }, "\r\n")
     write_file(ps1, script)
-    local ps_cmd = 'powershell -NoProfile -NonInteractive -InputFormat None -ExecutionPolicy Bypass -File "' .. to_os_path(ps1) .. '" < ' .. NULL_DEV .. ' > ' .. NULL_DEV
-    local a, _, c = os.execute(ps_cmd)
+    local a, _, c = os.execute('powershell -NoProfile -ExecutionPolicy Bypass -File "' .. to_os_path(ps1) .. '"')
     os.remove(ps1)
     code = (a == true) and 0 or (type(a) == "number" and a or c)
   else
